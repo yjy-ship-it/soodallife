@@ -35,10 +35,12 @@ export function RoleHomePage({ role }: { role: RoleCode }) {
         {role === 'CUSTOMER' ? <>
           <button type="button" onClick={() => navigate('/customer/requests/new')}><strong>서비스 요청하기</strong><span>카테고리를 선택하고 요청을 등록합니다.</span></button>
           <button type="button" onClick={() => navigate('/customer/requests')}><strong>내 요청</strong><span>등록한 요청과 상세 답변을 확인합니다.</span></button>
+          <button type="button" onClick={() => navigate('/customer/transactions')}><strong>내 거래</strong><span>작업 진행과 완료 내용을 확인합니다.</span></button>
         </> : role === 'PROVIDER' ? <>
           <button type="button" onClick={() => navigate('/provider/services')}><strong>서비스 설정</strong><span>제공할 실제 하위 서비스를 선택합니다.</span></button>
           <button type="button" onClick={() => navigate('/provider/areas')}><strong>출장지역 설정</strong><span>서비스별 시·군·구 출장지역을 저장합니다.</span></button>
           <button type="button" onClick={() => navigate('/provider/matched-requests')}><strong>받은 요청</strong><span>나에게 실제 배포된 고객 요청을 확인합니다.</span></button>
+          <button type="button" onClick={() => navigate('/provider/work')}><strong>내 작업</strong><span>작업을 시작하고 완료 증빙을 제출합니다.</span></button>
         </> : <>
           <article><strong>진행 현황</strong><span>다음 개발 단계에서 연결됩니다.</span></article>
           <article><strong>최근 활동</strong><span>아직 표시할 업무 데이터가 없습니다.</span></article>

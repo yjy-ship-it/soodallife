@@ -52,6 +52,12 @@ public sealed class CatalogImportTests
         Assert.Equal(837, await dbContext.CategoryFieldAssignments.CountAsync());
         Assert.Equal(677, await dbContext.CategoryPolicies.CountAsync());
         Assert.Equal(9, await dbContext.FeePolicies.CountAsync());
+        Assert.Equal(3, await dbContext.CompletionPhotoRoles.CountAsync());
+        var policies = await dbContext.CategoryPolicies.ToListAsync();
+        var requirements = await dbContext.CategoryCompletionPhotoRequirements.ToListAsync();
+        Assert.All(policies, policy => Assert.Equal(policy.RequiredCompletionPhotoCount,
+            requirements.Where(item => item.CategoryPolicyId == policy.Id).Sum(item => item.MinimumCount)));
+        Assert.Equal(requirements.Count, requirements.Select(item => (item.CategoryPolicyId, item.PhotoRoleId)).Distinct().Count());
         Assert.Equal(18, await dbContext.CategoryFieldDefinitions.CountAsync(field =>
             first.SelectWithoutOptionsFallbackFieldIds.Contains(field.SourceFieldId) && field.FieldTypeCode == "TEXT"));
         Assert.Equal(66, await dbContext.CategoryFieldDefinitions.CountAsync(field => field.FieldTypeCode == "SELECT"));

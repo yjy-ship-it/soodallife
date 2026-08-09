@@ -27,6 +27,7 @@ pnpm-debug.log*
 !**/.env.example
 **/appsettings.*.local.json
 **/secrets.json
+**/App_Data/private-files/
 
 # IDE and OS temporary files
 .vscode/

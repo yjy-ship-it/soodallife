@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
@@ -53,6 +54,7 @@ public sealed class CatalogReferenceDataImporter(
         var categories = await ImportCategoriesAsync(workbook.Categories, now, cancellationToken);
         var feePolicies = await ImportFeePoliciesAsync(workbook.FeePolicies, now, cancellationToken);
         var categoryPolicyCount = await ImportCategoryPoliciesAsync(workbook.Categories, categories.ServicesBySourceId, feePolicies, now, cancellationToken);
+        await ImportCompletionPhotoPoliciesAsync(now, cancellationToken);
         var fieldResult = await ImportFieldsAsync(workbook.RequestFields, categories.MiddleByPath, now, cancellationToken);
         var developmentAreaCount = includeDevelopmentAreas
             ? await EnsureDevelopmentAreasAsync(now, cancellationToken)
@@ -256,6 +258,82 @@ public sealed class CatalogReferenceDataImporter(
         await dbContext.SaveChangesAsync(cancellationToken);
         return rows.Count;
     }
+
+    private async Task ImportCompletionPhotoPoliciesAsync(DateTime now, CancellationToken cancellationToken)
+    {
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "ReferenceData", "completion-photo-policy-template.json");
+        await using var stream = File.OpenRead(templatePath);
+        var template = await JsonSerializer.DeserializeAsync<CompletionPolicyTemplate>(stream, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        }, cancellationToken) ?? throw new InvalidDataException("Completion photo policy template is empty.");
+        var duplicateRole = template.Roles.GroupBy(item => item.Code, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
+        if (duplicateRole is not null) throw new InvalidDataException($"Duplicate completion photo role: {duplicateRole.Key}");
+        var roleDefinitions = template.Roles.ToDictionary(item => item.Code, StringComparer.Ordinal);
+        var requirementTemplates = template.RequirementsByTotal.ToDictionary(item => item.Total);
+
+        var trackedRoles = await dbContext.CompletionPhotoRoles.ToListAsync(cancellationToken);
+        foreach (var definition in template.Roles)
+        {
+            var role = trackedRoles.SingleOrDefault(item => item.Code == definition.Code);
+            if (role is null)
+            {
+                role = new CompletionPhotoRole { Code = definition.Code, CreatedAt = now, CreatedByUserId = null };
+                dbContext.CompletionPhotoRoles.Add(role);
+                trackedRoles.Add(role);
+            }
+            role.Name = definition.Name;
+            role.Description = definition.Description;
+            role.IsActive = true;
+            role.UpdatedAt = now;
+            role.UpdatedByUserId = null;
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var policies = await dbContext.CategoryPolicies.ToListAsync(cancellationToken);
+        var trackedRequirements = await dbContext.CategoryCompletionPhotoRequirements.ToListAsync(cancellationToken);
+        foreach (var policy in policies)
+        {
+            if (!requirementTemplates.TryGetValue(policy.RequiredCompletionPhotoCount, out var selected))
+                throw new InvalidDataException($"No completion photo requirement template exists for total {policy.RequiredCompletionPhotoCount}.");
+            foreach (var requirement in selected.Roles)
+            {
+                if (!roleDefinitions.ContainsKey(requirement.Code))
+                    throw new InvalidDataException($"Unknown completion photo role in template: {requirement.Code}");
+            }
+            var desiredCodes = selected.Roles.Select(item => item.Code).ToHashSet(StringComparer.Ordinal);
+            var current = trackedRequirements.Where(item => item.CategoryPolicyId == policy.Id).ToList();
+            dbContext.CategoryCompletionPhotoRequirements.RemoveRange(current.Where(item =>
+                !desiredCodes.Contains(trackedRoles.Single(role => role.Id == item.PhotoRoleId).Code)));
+            for (var index = 0; index < selected.Roles.Count; index++)
+            {
+                var source = selected.Roles[index];
+                var role = trackedRoles.Single(item => item.Code == source.Code);
+                var requirement = current.SingleOrDefault(item => item.PhotoRoleId == role.Id);
+                if (requirement is null)
+                {
+                    requirement = new CategoryCompletionPhotoRequirement
+                    {
+                        CategoryPolicyId = policy.Id, PhotoRoleId = role.Id, CreatedAt = now, CreatedByUserId = null,
+                    };
+                    dbContext.CategoryCompletionPhotoRequirements.Add(requirement);
+                    trackedRequirements.Add(requirement);
+                }
+                requirement.MinimumCount = checked((short)source.MinimumCount);
+                requirement.DisplayOrder = index + 1;
+                requirement.UpdatedAt = now;
+                requirement.UpdatedByUserId = null;
+            }
+        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private sealed record CompletionPolicyTemplate(
+        IReadOnlyList<CompletionRoleTemplate> Roles,
+        IReadOnlyList<CompletionRequirementTemplate> RequirementsByTotal);
+    private sealed record CompletionRoleTemplate(string Code, string Name, string Description);
+    private sealed record CompletionRequirementTemplate(int Total, IReadOnlyList<CompletionRoleCountTemplate> Roles);
+    private sealed record CompletionRoleCountTemplate(string Code, int MinimumCount);
 
     private async Task<FieldImportResult> ImportFieldsAsync(
         IReadOnlyList<IReadOnlyDictionary<string, string>> rows,

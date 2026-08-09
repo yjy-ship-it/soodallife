@@ -221,3 +221,10 @@
   .quoteTotals { justify-content: flex-start; }
   .sectionHeading { align-items: flex-start; flex-direction: column; }
 }
+
+.policyBox { display: flex; flex-wrap: wrap; gap: .6rem 1rem; padding: 1rem; margin: 1rem 0; border-radius: 12px; background: #f3f8f5; }
+.policyBox strong { width: 100%; }
+.evidenceGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.evidenceGrid figure { margin: 0; overflow: hidden; border: 1px solid #dce5e0; border-radius: 12px; }
+.evidenceGrid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.evidenceGrid figcaption { padding: .75rem; color: #52675e; font-size: .85rem; }

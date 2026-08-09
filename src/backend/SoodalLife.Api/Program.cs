@@ -9,6 +9,7 @@ using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Features.Providers;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Quotes;
+using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
@@ -32,6 +33,9 @@ builder.Services.AddScoped<CustomerServiceRequestService>();
 builder.Services.AddScoped<ProviderConfigurationService>();
 builder.Services.AddScoped<RequestMatchingService>();
 builder.Services.AddScoped<QuoteService>();
+builder.Services.AddSingleton<CompletionPolicyEvaluator>();
+builder.Services.AddSingleton<IPrivateFileStorage, DevelopmentPrivateFileStorage>();
+builder.Services.AddScoped<WorkService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)

@@ -180,7 +180,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         };
         dbContext.AddRange(service, otherService, fee, area, otherArea);
         dbContext.SaveChanges();
-        dbContext.CategoryPolicies.Add(new CategoryPolicy
+        var completionPolicy = new CategoryPolicy
         {
             CategoryId = service.Id,
             PolicyVersion = "test-v1",
@@ -201,18 +201,30 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             NotificationTargetRuleText = "테스트",
             ProviderResponseDeadlineMinutes = 30,
             RequestFieldSummaryText = "테스트",
+            RequiredCompletionPhotoCount = 2,
             RequiredQualificationSummaryText = "테스트",
             InsuranceRequirementText = "테스트",
             SafetyGradeCode = "NORMAL",
             CompletionEvidenceRuleText = "테스트",
+            DefaultWarrantyDays = 30,
             TrustScoreDisplayText = "테스트",
             DefaultSortCode = "CREDIT_DESC",
             ServiceAreaLevelCode = "SIGUNGU",
             ReferenceUrl = "https://example.test",
             AdminNote = "테스트",
             EffectiveFrom = new DateOnly(2026, 1, 1),
-        });
+        };
+        dbContext.CategoryPolicies.Add(completionPolicy);
         dbContext.CategoryPolicies.Add(CreateTestPolicy(otherService.Id, fee.Id));
+        dbContext.SaveChanges();
+        var before = new CompletionPhotoRole { Code = "BEFORE", Name = "작업 전", Description = "작업 전 사진", IsActive = true };
+        var after = new CompletionPhotoRole { Code = "AFTER", Name = "작업 후", Description = "작업 후 사진", IsActive = true };
+        var other = new CompletionPhotoRole { Code = "OTHER", Name = "추가 증빙", Description = "작업 과정 또는 상세 사진", IsActive = true };
+        dbContext.CompletionPhotoRoles.AddRange(before, after, other);
+        dbContext.SaveChanges();
+        dbContext.CategoryCompletionPhotoRequirements.AddRange(
+            new CategoryCompletionPhotoRequirement { CategoryPolicyId = completionPolicy.Id, PhotoRoleId = before.Id, MinimumCount = 1, DisplayOrder = 1 },
+            new CategoryCompletionPhotoRequirement { CategoryPolicyId = completionPolicy.Id, PhotoRoleId = after.Id, MinimumCount = 1, DisplayOrder = 2 });
 
         var fields = new[]
         {

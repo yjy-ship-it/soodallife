@@ -17,4 +17,8 @@
     <PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="ReferenceData\completion-photo-policy-template.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

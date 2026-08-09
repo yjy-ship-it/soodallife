@@ -1,0 +1,10 @@
+export interface WorkTransactionListItem { id: string; categoryPath: string; areaName: string; requestSummary: string; agreedAmount: number; currencyCode: string; status: string; createdAt: string }
+export interface WorkQuoteItem { lineNo: number; itemName: string; description: string | null; quantity: number; unitText: string | null; unitPriceAmount: number; lineTotalAmount: number }
+export interface WorkRequestAnswer { label: string; value: unknown; isMasked: boolean }
+export interface PhotoRequirementStatus { roleCode: string; roleName: string; requiredCount: number; uploadedCount: number; isSatisfied: boolean }
+export interface CompletionPolicyStatus { policyVersion: string; requiredPhotoCount: number; uploadedPhotoCount: number; totalSatisfied: boolean; roles: PhotoRequirementStatus[]; isSatisfied: boolean }
+export interface PhotoRoleOption { code: string; name: string; description: string | null }
+export interface CompletionEvidence { fileId: string; originalFileName: string; contentType: string; sizeBytes: number; roleCode: string; roleName: string; displayOrder: number; description: string | null; downloadUrl: string }
+export interface WorkCompletionRevision { id: string; revisionNo: number; status: string; workSummary: string; actualAmount: number; currencyCode: string; providerAttestationAt: string; recordedAt: string; revisionReason: string | null; evidence: CompletionEvidence[]; policy: CompletionPolicyStatus }
+export interface WorkTransactionDetail extends WorkTransactionListItem { requestTitle: string; requestDescription: string | null; providerName: string; startedAt: string | null; completedAt: string | null; quoteItems: WorkQuoteItem[]; requestAnswers: WorkRequestAnswer[]; completionPolicy: CompletionPolicyStatus; availablePhotoRoles: PhotoRoleOption[]; completion: WorkCompletionRevision | null }
+export interface CompletionConfirmation { confirmationId: string; transactionId: string; completionRevisionId: string; result: string; transactionStatus: string; serviceHistoryId: string | null }

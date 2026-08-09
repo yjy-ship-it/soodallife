@@ -232,6 +232,8 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
                     orderby requirement.DisplayOrder
                     select new { role.Code, role.Name, requirement.MinimumCount })
                 .ToListAsync(cancellationToken);
+            if (requirements.Sum(item => item.MinimumCount) != policy.RequiredCompletionPhotoCount)
+                throw Conflict("COMPLETION_POLICY_INCOMPLETE", "카테고리 완료사진 정책이 완전하지 않아 거래를 생성할 수 없습니다.");
 
             var transactionRecord = new TransactionRecord
             {
