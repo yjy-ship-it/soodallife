@@ -1,0 +1,64 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Infrastructure.Persistence;
+
+namespace SoodalLife.Api.Features.Authentication;
+
+public interface IAuthenticationService
+{
+    Task<AuthenticatedUserResponse?> AuthenticateAsync(string loginOrEmail, string password, CancellationToken cancellationToken);
+}
+
+internal sealed class AuthenticationService(
+    SoodalLifeDbContext dbContext,
+    IPasswordHasher<User> passwordHasher) : IAuthenticationService
+{
+    public async Task<AuthenticatedUserResponse?> AuthenticateAsync(
+        string loginOrEmail,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        var identifier = loginOrEmail.Trim();
+        var normalizedIdentifier = identifier.ToUpperInvariant();
+
+        var user = await dbContext.Users
+            .SingleOrDefaultAsync(
+                candidate => candidate.NormalizedLoginId == normalizedIdentifier || candidate.Email == identifier,
+                cancellationToken);
+
+        if (user is null || user.StatusCode != "ACTIVE")
+        {
+            return null;
+        }
+
+        var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        if (verification == PasswordVerificationResult.Failed)
+        {
+            return null;
+        }
+
+        var roles = await (
+                from userRole in dbContext.UserRoles.AsNoTracking()
+                join role in dbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+                where userRole.UserId == user.Id && userRole.RevokedAt == null && role.IsActive
+                orderby role.Code
+                select role.Code)
+            .ToListAsync(cancellationToken);
+
+        if (roles.Count == 0)
+        {
+            return null;
+        }
+
+        if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            user.PasswordHash = passwordHasher.HashPassword(user, password);
+        }
+
+        user.LastLoginAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new AuthenticatedUserResponse(user.PublicId, user.LoginId, roles);
+    }
+}

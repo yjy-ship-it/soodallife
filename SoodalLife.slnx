@@ -3,4 +3,8 @@
   <Folder Name="/src/backend/">
     <Project Path="src/backend/SoodalLife.Api/SoodalLife.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/backend/">
+    <Project Path="tests/backend/SoodalLife.Api.Tests/SoodalLife.Api.Tests.csproj" />
+  </Folder>
 </Solution>

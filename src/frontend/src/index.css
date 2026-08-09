@@ -19,6 +19,17 @@ body {
 }
 
 button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgb(29 151 103 / 30%);
+  outline-offset: 2px;
+}
+
+button,
 input,
 textarea,
 select {
