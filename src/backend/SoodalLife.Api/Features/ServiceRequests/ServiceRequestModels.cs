@@ -16,6 +16,12 @@ public sealed record RequestAnswerInput(Guid FieldId, JsonElement Value);
 
 public sealed record ServiceRequestCreatedResponse(Guid Id, string Status);
 
+public sealed record PublishServiceRequestResponse(
+    Guid Id,
+    string Status,
+    int EligibleCandidateCount,
+    int DispatchCount);
+
 public sealed record ServiceRequestListItemResponse(
     Guid Id,
     string Title,

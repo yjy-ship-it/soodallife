@@ -6,6 +6,7 @@ import type { RoleCode } from '../auth/types'
 import { LoginPage } from '../pages/LoginPage'
 import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/RolePages'
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
+import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -53,12 +54,17 @@ function ApplicationRoutes() {
   }
 
   const customerRequestMatch = pathname.match(/^\/customer\/requests\/([0-9a-f-]+)$/i)
-  const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : undefined)
+  const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
+  const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />
     if (customerRequestMatch) return <CustomerRequestDetailPage requestId={customerRequestMatch[1]} />
+    if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
+    if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
+    if (pathname === '/provider/matched-requests') return <ProviderMatchedRequestListPage />
+    if (providerRequestMatch) return <ProviderMatchedRequestDetailPage requestId={providerRequestMatch[1]} />
     return <RoleHomePage role={requiredRole} />
   }
 

@@ -30,7 +30,11 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         $"test-other-customer-{Guid.NewGuid():N}",
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
 
-    public TestCatalogIds Catalog { get; private set; } = new(Guid.Empty, Guid.Empty, Guid.Empty, []);
+    public TestCredential ServiceMismatchProviderCredential { get; } = NewCredential("service-mismatch-provider");
+    public TestCredential AreaMismatchProviderCredential { get; } = NewCredential("area-mismatch-provider");
+    public TestCredential InactiveProviderCredential { get; } = NewCredential("inactive-provider");
+
+    public TestCatalogIds Catalog { get; private set; } = new(Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, Guid.Empty, []);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -84,6 +88,16 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             {
                 dbContext.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "Test Customer" });
             }
+            else if (roleCode == RoleCodes.Provider)
+            {
+                dbContext.ProviderProfiles.Add(new ProviderProfile
+                {
+                    UserId = user.Id,
+                    BusinessName = "Test Provider",
+                    ApprovalStatusCode = "APPROVED",
+                    ActivityStatusCode = "ACTIVE",
+                });
+            }
             dbContext.SaveChanges();
         }
 
@@ -101,7 +115,12 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         dbContext.CustomerProfiles.Add(new CustomerProfile { UserId = otherCustomer.Id, DisplayName = "Other Test Customer" });
         dbContext.SaveChanges();
 
+        AddProvider(dbContext, passwordHasher, ServiceMismatchProviderCredential, "Service Mismatch", "APPROVED", "ACTIVE");
+        AddProvider(dbContext, passwordHasher, AreaMismatchProviderCredential, "Area Mismatch", "APPROVED", "ACTIVE");
+        AddProvider(dbContext, passwordHasher, InactiveProviderCredential, "Inactive Provider", "PENDING", "INACTIVE");
+
         SeedRequestCatalog(dbContext);
+        SeedMatchingProviderScopes(dbContext);
     }
 
     private void SeedRequestCatalog(SoodalLifeDbContext dbContext)
@@ -122,6 +141,16 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             StatusCode = "ACTIVE",
             SortOrder = 1,
         };
+        var otherService = new ServiceCategory
+        {
+            ParentId = middle.Id,
+            LevelCode = "SERVICE",
+            ExternalCode = "TEST-002",
+            SourceRecordId = "TEST-002",
+            Name = "Other Test Service",
+            StatusCode = "ACTIVE",
+            SortOrder = 2,
+        };
         var fee = new FeePolicy
         {
             Code = "TEST-FEE",
@@ -140,7 +169,16 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             EffectiveFrom = new DateOnly(2026, 1, 1),
             IsActive = true,
         };
-        dbContext.AddRange(service, fee, area);
+        var otherArea = new AdministrativeArea
+        {
+            SourceSystemCode = "TEST",
+            AreaCode = "TEST-OTHER-SIGUNGU",
+            AreaName = "Other Test SIGUNGU",
+            AreaLevelCode = "SIGUNGU",
+            EffectiveFrom = new DateOnly(2026, 1, 1),
+            IsActive = true,
+        };
+        dbContext.AddRange(service, otherService, fee, area, otherArea);
         dbContext.SaveChanges();
         dbContext.CategoryPolicies.Add(new CategoryPolicy
         {
@@ -174,6 +212,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             AdminNote = "테스트",
             EffectiveFrom = new DateOnly(2026, 1, 1),
         });
+        dbContext.CategoryPolicies.Add(CreateTestPolicy(otherService.Id, fee.Id));
 
         var fields = new[]
         {
@@ -206,9 +245,121 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             IsActive = true,
         }));
         dbContext.SaveChanges();
-        Catalog = new TestCatalogIds(service.PublicId, area.PublicId, major.PublicId, fields.Select(field => field.PublicId).ToArray());
+        Catalog = new TestCatalogIds(
+            service.PublicId,
+            otherService.PublicId,
+            area.PublicId,
+            otherArea.PublicId,
+            major.PublicId,
+            fields.Select(field => field.PublicId).ToArray());
     }
+
+    private void SeedMatchingProviderScopes(SoodalLifeDbContext dbContext)
+    {
+        SeedProviderScope(dbContext, ServiceMismatchProviderCredential.LoginId, Catalog.OtherServiceId, Catalog.AreaId);
+        SeedProviderScope(dbContext, AreaMismatchProviderCredential.LoginId, Catalog.ServiceId, Catalog.OtherAreaId);
+        SeedProviderScope(dbContext, InactiveProviderCredential.LoginId, Catalog.ServiceId, Catalog.AreaId);
+    }
+
+    private static void SeedProviderScope(SoodalLifeDbContext dbContext, string loginId, Guid categoryPublicId, Guid areaPublicId)
+    {
+        var providerId = (from user in dbContext.Users
+                          join provider in dbContext.ProviderProfiles on user.Id equals provider.UserId
+                          where user.NormalizedLoginId == loginId.ToUpperInvariant()
+                          select provider.Id).Single();
+        var categoryId = dbContext.ServiceCategories.Single(item => item.PublicId == categoryPublicId).Id;
+        var areaId = dbContext.AdministrativeAreas.Single(item => item.PublicId == areaPublicId).Id;
+        var providerService = new ProviderServiceCategory
+        {
+            ProviderProfileId = providerId,
+            CategoryId = categoryId,
+            StatusCode = "ACTIVE",
+            ActivatedAt = DateTime.UtcNow,
+        };
+        dbContext.ProviderServiceCategories.Add(providerService);
+        dbContext.SaveChanges();
+        dbContext.ProviderServiceAreas.Add(new ProviderServiceArea
+        {
+            ProviderServiceCategoryId = providerService.Id,
+            AdministrativeAreaId = areaId,
+            StatusCode = "ACTIVE",
+            ActivatedAt = DateTime.UtcNow,
+        });
+        dbContext.SaveChanges();
+    }
+
+    private static void AddProvider(
+        SoodalLifeDbContext dbContext,
+        IPasswordHasher<User> passwordHasher,
+        TestCredential credential,
+        string businessName,
+        string approvalStatus,
+        string activityStatus)
+    {
+        var providerRole = dbContext.Roles.Single(role => role.Code == RoleCodes.Provider);
+        var user = new User
+        {
+            LoginId = credential.LoginId,
+            NormalizedLoginId = credential.LoginId.ToUpperInvariant(),
+            StatusCode = "ACTIVE",
+        };
+        user.PasswordHash = passwordHasher.HashPassword(user, credential.Password);
+        dbContext.Users.Add(user);
+        dbContext.SaveChanges();
+        dbContext.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = providerRole.Id });
+        dbContext.ProviderProfiles.Add(new ProviderProfile
+        {
+            UserId = user.Id,
+            BusinessName = businessName,
+            ApprovalStatusCode = approvalStatus,
+            ActivityStatusCode = activityStatus,
+        });
+        dbContext.SaveChanges();
+    }
+
+    private static CategoryPolicy CreateTestPolicy(long categoryId, long feePolicyId) => new()
+    {
+        CategoryId = categoryId,
+        PolicyVersion = "test-v1",
+        TransactionTypeCode = "ONE_TIME",
+        RequestMethodText = "Test",
+        OnsiteRequirementText = "Required",
+        SubscriptionOptionText = "Optional",
+        StandardWorkUnitText = "1",
+        CurrencyCode = "KRW",
+        PriceMethodText = "Quote",
+        VatDisplayRuleText = "Display",
+        MaxQuoteCount = 5,
+        QuoteValidityMinutes = 120,
+        FeePolicyId = feePolicyId,
+        FeeChargeTimingText = "Test",
+        FeeRestoreConditionText = "Test",
+        MatchingAreaRuleText = "SIGUNGU",
+        NotificationTargetRuleText = "Test",
+        ProviderResponseDeadlineMinutes = 30,
+        RequestFieldSummaryText = "Test",
+        RequiredQualificationSummaryText = "Test",
+        InsuranceRequirementText = "Test",
+        SafetyGradeCode = "NORMAL",
+        CompletionEvidenceRuleText = "Test",
+        TrustScoreDisplayText = "Test",
+        DefaultSortCode = "CREDIT_DESC",
+        ServiceAreaLevelCode = "SIGUNGU",
+        ReferenceUrl = "https://example.test",
+        AdminNote = "Test",
+        EffectiveFrom = new DateOnly(2026, 1, 1),
+    };
+
+    private static TestCredential NewCredential(string prefix) => new(
+        $"test-{prefix}-{Guid.NewGuid():N}",
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
 }
 
 public sealed record TestCredential(string LoginId, string Password);
-public sealed record TestCatalogIds(Guid ServiceId, Guid AreaId, Guid MajorId, IReadOnlyList<Guid> FieldIds);
+public sealed record TestCatalogIds(
+    Guid ServiceId,
+    Guid OtherServiceId,
+    Guid AreaId,
+    Guid OtherAreaId,
+    Guid MajorId,
+    IReadOnlyList<Guid> FieldIds);

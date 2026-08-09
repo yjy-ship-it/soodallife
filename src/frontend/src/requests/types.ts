@@ -19,7 +19,13 @@ export interface RequestField {
   sortOrder: number
 }
 
-export interface AdministrativeArea { id: string; name: string; areaCode: string }
+export interface AdministrativeArea {
+  id: string
+  name: string
+  areaCode: string
+  parentId: string | null
+  parentName: string | null
+}
 
 export interface ServiceRequestListItem {
   id: string

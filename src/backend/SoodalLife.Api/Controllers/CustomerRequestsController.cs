@@ -34,6 +34,23 @@ public sealed class CustomerRequestsController(CustomerServiceRequestService req
     public async Task<ActionResult<IReadOnlyList<ServiceRequestListItemResponse>>> GetMine(CancellationToken cancellationToken) =>
         Ok(await requestService.GetMineAsync(User, cancellationToken));
 
+    [HttpPost("{requestId:guid}/publish")]
+    public async Task<ActionResult<PublishServiceRequestResponse>> Publish(Guid requestId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await requestService.PublishAsync(User, requestId, cancellationToken));
+        }
+        catch (RequestValidationException exception)
+        {
+            return BadRequest(new ApiErrorResponse(
+                exception.BusinessCode,
+                exception.Message,
+                exception.FieldErrors,
+                HttpContext.TraceIdentifier));
+        }
+    }
+
     [HttpGet("{requestId:guid}")]
     public async Task<ActionResult<ServiceRequestDetailResponse>> GetById(Guid requestId, CancellationToken cancellationToken)
     {

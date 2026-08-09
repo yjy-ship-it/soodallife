@@ -104,12 +104,39 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             field.DisplayOrder)).ToArray();
     }
 
-    public Task<List<AdministrativeAreaResponse>> GetActiveSigunguAsync(CancellationToken cancellationToken) =>
+    public Task<List<AdministrativeAreaResponse>> GetActiveSidoAsync(CancellationToken cancellationToken) =>
         dbContext.AdministrativeAreas.AsNoTracking()
-            .Where(area => area.AreaLevelCode == "SIGUNGU" && area.IsActive)
+            .Where(area => area.AreaLevelCode == "SIDO" && area.IsActive)
             .OrderBy(area => area.AreaName)
-            .Select(area => new AdministrativeAreaResponse(area.PublicId, area.AreaName, area.AreaCode))
+            .Select(area => new AdministrativeAreaResponse(area.PublicId, area.AreaName, area.AreaCode, null, null))
             .ToListAsync(cancellationToken);
+
+    public async Task<List<AdministrativeAreaResponse>> GetActiveSigunguAsync(Guid? parentPublicId, CancellationToken cancellationToken)
+    {
+        long? parentId = null;
+        if (parentPublicId.HasValue)
+        {
+            parentId = await dbContext.AdministrativeAreas.AsNoTracking()
+                .Where(area => area.PublicId == parentPublicId && area.AreaLevelCode == "SIDO" && area.IsActive)
+                .Select(area => (long?)area.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (parentId is null) return [];
+        }
+
+        return await (
+                from area in dbContext.AdministrativeAreas.AsNoTracking()
+                join parent in dbContext.AdministrativeAreas.AsNoTracking() on area.ParentAreaId equals parent.Id into parentGroup
+                from parent in parentGroup.DefaultIfEmpty()
+                where area.AreaLevelCode == "SIGUNGU" && area.IsActive && (parentId == null || area.ParentAreaId == parentId)
+                orderby parent.AreaName, area.AreaName
+                select new AdministrativeAreaResponse(
+                    area.PublicId,
+                    area.AreaName,
+                    area.AreaCode,
+                    parent == null ? null : parent.PublicId,
+                    parent == null ? null : parent.AreaName))
+            .ToListAsync(cancellationToken);
+    }
 
     public static IReadOnlyList<string> ParseOptions(string fieldType, string? rawOptions)
     {

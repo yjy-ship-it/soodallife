@@ -4,11 +4,14 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Catalog;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.ServiceRequests;
 
-public sealed class CustomerServiceRequestService(SoodalLifeDbContext dbContext)
+public sealed class CustomerServiceRequestService(
+    SoodalLifeDbContext dbContext,
+    RequestMatchingService matchingService)
 {
     public async Task<ServiceRequestCreatedResponse> CreateAsync(
         ClaimsPrincipal principal,
@@ -183,6 +186,48 @@ public sealed class CustomerServiceRequestService(SoodalLifeDbContext dbContext)
             row.Path,
             row.CreatedAt,
             desiredDates.GetValueOrDefault(row.Id))).ToArray();
+    }
+
+    public async Task<PublishServiceRequestResponse> PublishAsync(
+        ClaimsPrincipal principal,
+        Guid requestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var identity = await GetCustomerIdentityAsync(principal, cancellationToken);
+        var request = await dbContext.ServiceRequests.SingleOrDefaultAsync(item =>
+            item.PublicId == requestPublicId && item.CustomerProfileId == identity.CustomerProfileId,
+            cancellationToken);
+        if (request is null)
+        {
+            throw Validation("REQUEST_NOT_FOUND", "서비스 요청을 찾을 수 없습니다.", "requestId");
+        }
+        if (request.StatusCode is not ("DRAFT" or "OPEN"))
+        {
+            throw Validation("REQUEST_NOT_PUBLISHABLE", "임시저장 또는 공개 상태의 요청만 공개할 수 있습니다.", "requestId");
+        }
+
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+        if (request.StatusCode == "DRAFT")
+        {
+            var policy = await dbContext.CategoryPolicies.SingleAsync(item => item.Id == request.CategoryPolicyId, cancellationToken);
+            var now = DateTime.UtcNow;
+            request.StatusCode = "OPEN";
+            request.OpenedAt = now;
+            request.ExpiresAt = now.AddMinutes(policy.QuoteValidityMinutes);
+            request.UpdatedAt = now;
+            request.UpdatedByUserId = identity.UserId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var matching = await matchingService.MatchAndDispatchAsync(request, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        return new PublishServiceRequestResponse(
+            request.PublicId,
+            request.StatusCode,
+            matching.EligibleCandidateCount,
+            matching.DispatchCount);
     }
 
     public async Task<ServiceRequestDetailResponse?> GetMineByIdAsync(

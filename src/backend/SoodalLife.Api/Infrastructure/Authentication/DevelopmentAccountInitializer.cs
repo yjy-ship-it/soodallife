@@ -121,9 +121,19 @@ public sealed class DevelopmentAccountInitializer(
             {
                 UserId = user.Id,
                 BusinessName = definition.DisplayName,
-                ApprovalStatusCode = "PENDING",
-                ActivityStatusCode = "INACTIVE",
+                ApprovalStatusCode = configuration.GetValue("DevelopmentAccounts:Provider:EnableMatching", true) ? "APPROVED" : "PENDING",
+                ActivityStatusCode = configuration.GetValue("DevelopmentAccounts:Provider:EnableMatching", true) ? "ACTIVE" : "INACTIVE",
+                ApprovalDecidedAt = configuration.GetValue("DevelopmentAccounts:Provider:EnableMatching", true) ? DateTime.UtcNow : null,
             });
+        }
+        else if (definition.RoleCode == RoleCodes.Provider)
+        {
+            var provider = await dbContext.ProviderProfiles.SingleAsync(candidate => candidate.UserId == user.Id, cancellationToken);
+            var enableMatching = configuration.GetValue("DevelopmentAccounts:Provider:EnableMatching", true);
+            provider.ApprovalStatusCode = enableMatching ? "APPROVED" : "PENDING";
+            provider.ActivityStatusCode = enableMatching ? "ACTIVE" : "INACTIVE";
+            provider.ApprovalDecidedAt = enableMatching ? provider.ApprovalDecidedAt ?? DateTime.UtcNow : null;
+            provider.UpdatedAt = DateTime.UtcNow;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

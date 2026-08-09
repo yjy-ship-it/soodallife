@@ -6,7 +6,7 @@ using SoodalLife.Api.Features.Catalog;
 namespace SoodalLife.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = RoleCodes.Customer)]
+[Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
 [Route("api/v1/categories")]
 public sealed class CatalogController(CatalogQueryService catalogQueryService) : ControllerBase
 {
@@ -37,11 +37,17 @@ public sealed class CatalogController(CatalogQueryService catalogQueryService) :
 }
 
 [ApiController]
-[Authorize(Roles = RoleCodes.Customer)]
+[Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
 [Route("api/v1/administrative-areas")]
 public sealed class AdministrativeAreasController(CatalogQueryService catalogQueryService) : ControllerBase
 {
+    [HttpGet("sidos")]
+    public async Task<ActionResult<IReadOnlyList<AdministrativeAreaResponse>>> GetSidos(CancellationToken cancellationToken) =>
+        Ok(await catalogQueryService.GetActiveSidoAsync(cancellationToken));
+
     [HttpGet("sigungu")]
-    public async Task<ActionResult<IReadOnlyList<AdministrativeAreaResponse>>> GetSigungu(CancellationToken cancellationToken) =>
-        Ok(await catalogQueryService.GetActiveSigunguAsync(cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<AdministrativeAreaResponse>>> GetSigungu(
+        [FromQuery] Guid? parentId,
+        CancellationToken cancellationToken) =>
+        Ok(await catalogQueryService.GetActiveSigunguAsync(parentId, cancellationToken));
 }

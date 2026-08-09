@@ -6,6 +6,8 @@ using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.CatalogImport;
 using SoodalLife.Api.Features.Catalog;
 using SoodalLife.Api.Features.ServiceRequests;
+using SoodalLife.Api.Features.Providers;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 
@@ -24,6 +26,8 @@ builder.Services.AddSingleton<CatalogWorkbookReader>();
 builder.Services.AddScoped<CatalogReferenceDataImporter>();
 builder.Services.AddScoped<CatalogQueryService>();
 builder.Services.AddScoped<CustomerServiceRequestService>();
+builder.Services.AddScoped<ProviderConfigurationService>();
+builder.Services.AddScoped<RequestMatchingService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)

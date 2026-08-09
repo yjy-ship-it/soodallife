@@ -32,6 +32,7 @@ export function NewCustomerRequestPage() {
         return { fieldId: field.id, value }
       })
       const created = await requestApi.createServiceRequest({ categoryId: serviceId, administrativeAreaId: areaId, title, description: description || null, detailAddress: detailAddress || null, isUrgent, idempotencyKey: idempotencyKey.current, answers: dynamicAnswers })
+      await requestApi.publishServiceRequest(created.id)
       navigate(`/customer/requests/${created.id}`, true)
     } catch (reason) { setError(reason instanceof Error ? reason.message : '요청 등록에 실패했습니다.') } finally { setSubmitting(false) }
   }

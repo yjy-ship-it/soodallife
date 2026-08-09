@@ -19,4 +19,9 @@ public sealed record RequestFieldResponse(
     string ValidationRule,
     int SortOrder);
 
-public sealed record AdministrativeAreaResponse(Guid Id, string Name, string AreaCode);
+public sealed record AdministrativeAreaResponse(
+    Guid Id,
+    string Name,
+    string AreaCode,
+    Guid? ParentId,
+    string? ParentName);

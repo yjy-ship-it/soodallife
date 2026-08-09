@@ -143,6 +143,15 @@
 .formActions { display: flex; justify-content: flex-end; gap: 10px; margin: 20px 0; }
 .formActions .primaryButton { margin-top: 0; padding-inline: 24px; }
 .errorBanner { padding: 14px 16px; margin-top: 18px; border: 1px solid #fecaca; border-radius: 14px; color: #991b1b; background: #fef2f2; }
+.successBanner { padding: 14px 16px; margin-top: 18px; border: 1px solid #a7e2c6; border-radius: 14px; color: #08633f; background: #ecfdf5; }
+.providerStatus { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; color: #52675e; }
+.providerStatus strong { color: #15372b; }
+.addSelectionButton { margin-top: 18px; }
+.selectionList { display: grid; gap: 10px; }
+.selectionList > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border: 1px solid #dbe7e1; border-radius: 12px; }
+.selectionList button { border: 0; color: #9f2d27; background: transparent; cursor: pointer; font-weight: 750; }
+.areaChoiceGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.areaChoiceGrid label { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid #dbe7e1; border-radius: 10px; }
 .emptyState { padding: 32px; margin-top: 22px; border: 1px dashed #cbd7d1; border-radius: 18px; color: #6d7e77; text-align: center; }
 .requestList { display: grid; gap: 12px; }
 .requestListItem { display: flex; width: 100%; justify-content: space-between; gap: 18px; padding: 20px; border: 1px solid #dbe7e1; border-radius: 18px; color: inherit; background: #fff; text-align: left; cursor: pointer; }
@@ -172,6 +181,8 @@
   .requestMeta { text-align: left; }
   .detailCard dl { grid-template-columns: 1fr; gap: 6px; }
   .detailCard dd { margin-bottom: 12px; }
+  .areaChoiceGrid { grid-template-columns: 1fr; }
+  .providerStatus { flex-direction: column; }
 }
 
 @media (max-width: 560px) {

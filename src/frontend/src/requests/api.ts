@@ -27,11 +27,18 @@ export const getMiddleCategories = (id: string) => get<Category[]>(`/api/v1/cate
 export const getServiceCategories = (id: string) => get<Category[]>(`/api/v1/categories/${id}/services`)
 export const getRequestFields = (id: string) => get<RequestField[]>(`/api/v1/categories/${id}/request-fields`)
 export const getAdministrativeAreas = () => get<AdministrativeArea[]>('/api/v1/administrative-areas/sigungu')
+export const getSidoAreas = () => get<AdministrativeArea[]>('/api/v1/administrative-areas/sidos')
 export const getMyRequests = () => get<ServiceRequestListItem[]>('/api/v1/requests')
 export const getMyRequest = (id: string) => get<ServiceRequestDetail>(`/api/v1/requests/${id}`)
 
 export async function createServiceRequest(payload: unknown): Promise<{ id: string; status: string }> {
   return readJson(await fetch('/api/v1/requests', {
     method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }))
+}
+
+export async function publishServiceRequest(id: string): Promise<{ id: string; status: string; eligibleCandidateCount: number; dispatchCount: number }> {
+  return readJson(await fetch(`/api/v1/requests/${id}/publish`, {
+    method: 'POST', credentials: 'include',
   }))
 }
