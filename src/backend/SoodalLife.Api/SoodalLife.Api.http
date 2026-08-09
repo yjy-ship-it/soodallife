@@ -1,0 +1,11 @@
+@SoodalLife.Api_HostAddress = http://localhost:5277
+
+GET {{SoodalLife.Api_HostAddress}}/api/v1/system/health
+Accept: application/json
+
+###
+
+GET {{SoodalLife.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###

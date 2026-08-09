@@ -1,0 +1,26 @@
+:root {
+  font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  color: #13261f;
+  background: #f4faf7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
