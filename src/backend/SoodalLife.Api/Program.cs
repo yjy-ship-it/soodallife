@@ -8,8 +8,15 @@ builder.Logging.AddConsole();
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+var connectionString = builder.Configuration.GetConnectionString("SoodalLife");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'SoodalLife' is not configured. Configure it through User Secrets or an environment variable.");
+}
+
 builder.Services.AddDbContext<SoodalLifeDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SoodalLife")));
+    options.UseSqlServer(connectionString));
 
 var app = builder.Build();
 
