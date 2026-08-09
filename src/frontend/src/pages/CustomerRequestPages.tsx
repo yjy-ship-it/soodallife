@@ -5,6 +5,7 @@ import * as requestApi from '../requests/api'
 import { DynamicFieldInput } from '../requests/DynamicFieldInput'
 import type { DynamicValue } from '../requests/DynamicFieldInput'
 import type { AdministrativeArea, Category, RequestField, ServiceRequestDetail, ServiceRequestListItem } from '../requests/types'
+import { CustomerQuotesPanel } from '../quotes/QuotePanels'
 
 export function NewCustomerRequestPage() {
   const [majors, setMajors] = useState<Category[]>([]), [middles, setMiddles] = useState<Category[]>([]), [services, setServices] = useState<Category[]>([])
@@ -54,7 +55,7 @@ export function CustomerRequestListPage() {
 export function CustomerRequestDetailPage({ requestId }: { requestId: string }) {
   const [item, setItem] = useState<ServiceRequestDetail | null>(null), [error, setError] = useState('')
   useEffect(() => { requestApi.getMyRequest(requestId).then(setItem).catch((reason: Error) => setError(reason.message)) }, [requestId])
-  return <AuthenticatedLayout>{error ? <div className="errorBanner">{error}</div> : !item ? <p className="emptyState">요청을 불러오고 있습니다…</p> : <><PageHeader eyebrow={item.status} title={item.title} description={item.categoryPath} /><section className="detailCard"><dl><dt>등록일</dt><dd>{formatDate(item.createdAt)}</dd><dt>지역</dt><dd>{item.administrativeAreaName}</dd><dt>상세주소</dt><dd>{item.detailAddress || '입력 없음'}</dd><dt>희망일시</dt><dd>{item.desiredAt ? formatDate(item.desiredAt) : '입력 없음'}</dd><dt>추가 설명</dt><dd>{item.description || '입력 없음'}</dd></dl></section><section className="detailCard"><h2>카테고리별 답변</h2><dl>{item.answers.map((answer) => <div key={answer.fieldId} className="answerRow"><dt>{answer.label}</dt><dd>{formatAnswer(answer.value)}</dd></div>)}</dl></section><div className="formActions"><button className="secondaryButton" onClick={() => navigate('/customer/requests')}>목록으로</button></div></>}</AuthenticatedLayout>
+  return <AuthenticatedLayout>{error ? <div className="errorBanner">{error}</div> : !item ? <p className="emptyState">요청을 불러오고 있습니다…</p> : <><PageHeader eyebrow={item.status} title={item.title} description={item.categoryPath} /><section className="detailCard"><dl><dt>등록일</dt><dd>{formatDate(item.createdAt)}</dd><dt>지역</dt><dd>{item.administrativeAreaName}</dd><dt>상세주소</dt><dd>{item.detailAddress || '입력 없음'}</dd><dt>희망일시</dt><dd>{item.desiredAt ? formatDate(item.desiredAt) : '입력 없음'}</dd><dt>추가 설명</dt><dd>{item.description || '입력 없음'}</dd></dl></section><section className="detailCard"><h2>카테고리별 답변</h2><dl>{item.answers.map((answer) => <div key={answer.fieldId} className="answerRow"><dt>{answer.label}</dt><dd>{formatAnswer(answer.value)}</dd></div>)}</dl></section><CustomerQuotesPanel requestId={requestId} /><div className="formActions"><button className="secondaryButton" onClick={() => navigate('/customer/requests')}>목록으로</button></div></>}</AuthenticatedLayout>
 }
 
 function PageHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) { return <section className="heroCard compactHero"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></section> }

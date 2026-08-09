@@ -8,15 +8,18 @@ using SoodalLife.Api.Features.Catalog;
 using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Features.Providers;
 using SoodalLife.Api.Features.Matching;
+using SoodalLife.Api.Features.Quotes;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Infrastructure.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter()));
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -28,6 +31,7 @@ builder.Services.AddScoped<CatalogQueryService>();
 builder.Services.AddScoped<CustomerServiceRequestService>();
 builder.Services.AddScoped<ProviderConfigurationService>();
 builder.Services.AddScoped<RequestMatchingService>();
+builder.Services.AddScoped<QuoteService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)
