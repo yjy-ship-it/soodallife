@@ -38,11 +38,12 @@
 ## 5. 파일 저장
 
 - 파일 바이너리는 SQL Server에 저장하지 않고 private object storage에 둔다. DB에는 opaque storage key, 크기, MIME, hash, 상태만 저장한다.
+- `files.storage_key`는 `NVARCHAR(1000)` 원문으로 보존하고 직접 unique index를 만들지 않는다. 애플리케이션이 storage key의 UTF-8 바이트를 SHA-256으로 계산해 `storage_key_hash BINARY(32)`와 함께 저장하며, 고유성은 hash의 unique index로 검증한다. 이는 비밀정보 보호용 해시가 아니다.
 - 원본 파일명은 사용자 표시용으로 취급해 경로 조합에 사용하지 않는다.
 - 업로드는 PENDING → 악성코드/형식 검사 → ACTIVE 순서로 활성화한다. 실패/위험 파일은 QUARANTINED 처리한다.
 - 다운로드는 업무 연결 FK와 소유권을 확인한 뒤 짧은 만료의 signed URL 또는 서버 스트림으로 제공한다.
 - 사진 EXIF의 GPS 등 불필요한 메타데이터 제거 여부는 개인정보 정책 확정 때 결정한다.
-- SHA-256은 무결성/중복 보조값이며 접근권한을 대체하지 않는다.
+- 파일 내용의 `sha256_hex`와 저장키의 `storage_key_hash`는 각각 무결성/중복 보조와 긴 키의 고유성 검증값이며 접근권한을 대체하지 않는다.
 
 ## 6. 공개 ID와 열거 방지
 

@@ -105,7 +105,8 @@ unique/index 후보: `UQ(provider_service_category_id, administrative_area_id)`,
 | public_id | UNIQUEIDENTIFIER | N | 앱 UUID v4 | UQ | API 공개 ID |
 | purpose_code | VARCHAR(30) | N | 없음 | CHECK, IX | 파일 목적 |
 | storage_container | NVARCHAR(200) | N | 없음 |  | 논리 bucket/container |
-| storage_key | NVARCHAR(1000) | N | 없음 | UQ | opaque object key |
+| storage_key | NVARCHAR(1000) | N | 없음 |  | opaque object key 원문; 직접 index하지 않음 |
+| storage_key_hash | BINARY(32) | N | 없음 | UQ | `storage_key` UTF-8 바이트의 SHA-256; 애플리케이션에서 계산 |
 | original_file_name | NVARCHAR(255) | N | 없음 |  | 표시용, 경로 사용 금지 |
 | content_type | VARCHAR(200) | N | 없음 | IX 후보 | 검사된 MIME |
 | size_bytes | BIGINT | N | 없음 | CHECK >= 0 | 크기 |
@@ -489,7 +490,7 @@ unique 후보: `(quote_revision_id, line_no)`.
 | updated_by_user_id | BIGINT | Y | NULL | FK users.id | 수정자 |
 | row_version | ROWVERSION | N | SQL Server | concurrency | 동시성 |
 
-unique/index 후보: `UQ(parent_id, name)`, `UQ external_code WHERE external_code IS NOT NULL`, `(parent_id, status_code, sort_order)`.
+unique/index 후보: `UQ(parent_id, name)`(필터 없음; 최상위 `parent_id IS NULL` 이름 중복도 금지), `UQ external_code WHERE external_code IS NOT NULL`, `(parent_id, status_code, sort_order)`.
 
 ### 8.2 `category_policies`
 

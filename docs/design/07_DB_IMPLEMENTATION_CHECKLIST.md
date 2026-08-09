@@ -22,6 +22,9 @@
 - [ ] JSON 컬럼에 `ISJSON` CHECK를 구성하고 핵심 관계/금액/상태가 JSON에만 존재하지 않는지 확인한다.
 - [ ] filtered unique index의 SQL Server 문법과 EF 생성 SQL을 검토한다.
 - [ ] unique index에 필요한 normalized 값과 NULL 의미를 검증한다.
+- [ ] `files.storage_key_hash BINARY(32)`가 storage key의 UTF-8 SHA-256으로 함께 저장되고 unique인지 검증한다.
+- [ ] `service_categories(parent_id, name)` unique index에 필터가 없고 최상위 이름 중복도 차단하는지 검증한다.
+- [ ] 설계에서 DESC로 명시한 인덱스의 열 방향이 Migration SQL과 일치하는지 검증한다.
 - [ ] UTC 변환 규칙과 `DateTimeKind.Utc` 방어 로직을 구성한다.
 
 ## C. Migration 생성 전 리뷰

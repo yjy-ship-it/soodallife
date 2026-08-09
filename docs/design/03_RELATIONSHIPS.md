@@ -16,7 +16,7 @@
 | users | customer_profiles | 1:0..1 | `customer_profiles.user_id` UNIQUE |
 | users | provider_profiles | 1:0..1 | `provider_profiles.user_id` UNIQUE |
 | provider_profiles | provider_approval_events | 1:N | append-only, 결정 순서 index |
-| service_categories | service_categories | 1:N | 3단계 계층, `(parent_id, name)` unique |
+| service_categories | service_categories | 1:N | 3단계 계층, 필터 없는 `(parent_id, name)` unique로 최상위와 각 부모 아래의 형제 이름 중복 금지 |
 | service_categories | category_policies | 1:N | 정책 버전/유효기간 중첩은 서비스 검증 |
 | category_policies | category_completion_photo_requirements | 1:N | 정책 버전별 역할 최소수량 |
 | completion_photo_roles | category_completion_photo_requirements | 1:N | BEFORE/AFTER/OTHER 및 확장 역할 |

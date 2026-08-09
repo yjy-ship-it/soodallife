@@ -31,7 +31,7 @@
 - 관리대장 정책은 카테고리 본체와 분리하여 유효기간/버전을 갖는다. 거래 생성 시 완료·보증 등 적용 정책을 JSON 스냅샷으로 고정한다.
 - 동적 필드는 정의와 적용 대상을 분리한다. 현재 Excel 837건은 모두 “해당 중분류 전체”지만 특정 하위 서비스 적용을 미래에 수용할 수 있다.
 - 견적과 작업완료는 논리 집합(`quotes`, `work_completions`)과 append-only revision을 분리한다.
-- 파일 메타데이터는 `files`에 한 번 저장하고, 업무별 연결 테이블에서 FK와 역할을 명시한다. polymorphic owner FK는 사용하지 않는다.
+- 파일 메타데이터는 `files`에 한 번 저장하고, 업무별 연결 테이블에서 FK와 역할을 명시한다. `storage_key` 원문은 `NVARCHAR(1000)`으로 보존하고 UTF-8 기준 SHA-256인 `storage_key_hash BINARY(32)`에 unique index를 두어 긴 저장키의 고유성을 검증한다. polymorphic owner FK는 사용하지 않는다.
 - 이력·감사·outbox·승인 이벤트는 append-only다.
 
 ## 4. Mermaid ER Diagram
