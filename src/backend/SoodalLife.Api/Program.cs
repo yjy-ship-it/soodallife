@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.CatalogImport;
+using SoodalLife.Api.Features.Catalog;
+using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 
@@ -17,6 +20,10 @@ builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<ActiveUserCookieEvents>();
 builder.Services.AddScoped<DevelopmentAccountInitializer>();
+builder.Services.AddSingleton<CatalogWorkbookReader>();
+builder.Services.AddScoped<CatalogReferenceDataImporter>();
+builder.Services.AddScoped<CatalogQueryService>();
+builder.Services.AddScoped<CustomerServiceRequestService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)
@@ -54,6 +61,25 @@ if (app.Environment.IsDevelopment())
 
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<DevelopmentAccountInitializer>().InitializeAsync();
+}
+
+var importArgumentIndex = Array.IndexOf(args, "--import-catalog");
+if (importArgumentIndex >= 0)
+{
+    if (!app.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException("Catalog import is restricted to the Development environment.");
+    }
+
+    if (importArgumentIndex + 1 >= args.Length || string.IsNullOrWhiteSpace(args[importArgumentIndex + 1]))
+    {
+        throw new InvalidOperationException("--import-catalog requires an Excel workbook path.");
+    }
+
+    await using var scope = app.Services.CreateAsyncScope();
+    var importer = scope.ServiceProvider.GetRequiredService<CatalogReferenceDataImporter>();
+    await importer.ImportAsync(args[importArgumentIndex + 1], includeDevelopmentAreas: true);
+    return;
 }
 
 app.UseHttpsRedirection();

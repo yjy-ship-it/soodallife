@@ -43,6 +43,8 @@
 - [ ] dry-run parser가 정확한 8개 시트명과 헤더를 검증한다.
 - [ ] 6 MAJOR, 82 MIDDLE, 677 SERVICE 계층 결과를 검증한다.
 - [ ] 837 field definition/assignment, 82 qualification policy, 13 fee policy를 검증한다.
+- [ ] Excel 명시적 `필드ID`가 `FLD-00000` 형식이며 837건 모두 고유한지 검증하고, 행 순서가 아닌 이 값을 `source_field_id`로 사용한다.
+- [ ] 동일 중분류의 동일 `field_key` 17쌍을 병합하지 않고 별개 필드 정의로 보존하며, import 2회 실행 시 `source_field_id` 기준으로 중복 생성되지 않는지 검증한다.
 - [ ] 완료사진 역할 BEFORE/AFTER/OTHER와 카테고리 정책별 0장/2장/5장 요구사항을 검증한다.
 - [ ] fee 시트의 두 번째 헤더 1행과 해설 3행을 데이터에서 제외한다.
 - [ ] unknown code, 중복 ID, lookup 실패, 변환 실패 시 전체 import를 중단한다.

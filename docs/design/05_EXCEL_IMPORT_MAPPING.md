@@ -97,10 +97,10 @@
 
 | Excel 컬럼 | 대상 테이블.컬럼 | 변환/검증 |
 |---|---|---|
-| 필드ID | category_field_definitions.source_field_id | 837개 모두 고유 |
+| 필드ID | category_field_definitions.source_field_id | Excel의 명시적 `FLD-00000` 형식을 원문 보존. 837개 모두 고유해야 하며 누락·형식오류·중복이면 전체 import 중단. 행 번호·정렬 순서에서 생성하지 않음 |
 | 대분류 + 중분류 | owner_middle_category_id | hierarchy의 MIDDLE lookup FK |
 | 적용 서비스 | category_field_assignments.target_category_id | 실제 837행 모두 `해당 중분류 전체`; 해당 MIDDLE로 연결 |
-| 필드키 | category_field_definitions.field_key | owner middle 내 unique 후보 |
+| 필드키 | category_field_definitions.field_key | Excel 업무 키 원문 보존. 동일 owner middle 내 중복 허용; import 식별 또는 답변 식별에 사용하지 않음 |
 | 화면 라벨 | category_field_definitions.label | NVARCHAR(200) |
 | 입력유형 | category_field_definitions.field_type_code | 아래 코드 매핑 |
 | 필수여부 | category_field_definitions.is_required | 필수→1, 선택→0 |
@@ -109,7 +109,9 @@
 | 채택 전 마스킹 | category_field_definitions.pre_accept_masking_code | 해당 없음→NONE, 상세주소 마스킹→DETAIL_ADDRESS |
 | 검증 규칙 | category_field_definitions.validation_rule_text | 사람이 읽는 원문; 임의 정규식으로 변환하지 않음 |
 
-입력유형 실제 분포: LONG_TEXT 179, FILE 132, DATETIME 115, MONEY 99, TEXT 89, ADDRESS 86, SELECT 84, NUMBER 35, PERIOD 17, RECURRENCE 1. 필수 550/선택 287, 공급자 전체공개 755/시·구·군만 82, 상세주소 마스킹 82건이다.
+입력유형 원본 분포: LONG_TEXT 179, FILE 132, DATETIME 115, MONEY 99, TEXT 89, ADDRESS 86, SELECT 84, NUMBER 35, PERIOD 17, RECURRENCE 1. 필수 550/선택 287, 공급자 전체공개 755/시·구·군만 82, 상세주소 마스킹 82건이다. 옵션이 비어 있는 승인 대상 SELECT 18건은 MVP import 시 TEXT로 저장하며 원본 `필드ID`로 추적한다. 공식 선택값이 추가되면 동일 `source_field_id`를 갱신하여 SELECT로 복원한다.
+
+동일 `(대분류, 중분류, 필드키)`가 중복된 원본은 17그룹 34행이며 모두 `budget` 키다. 각 쌍은 라벨·유형·필수여부 또는 검증 규칙이 다른 별개 질문이므로 병합하지 않는다. 837개 정의를 모두 보존하고 `category_field_definitions.id`/`public_id`로 질문과 답변을 식별한다.
 
 ## 5. `견적수수료 정책` 매핑
 
@@ -197,7 +199,7 @@
 1. workbook version/hash 기록 방식을 정한다.
 2. 정확한 시트명과 헤더가 위 목록과 일치하지 않으면 전체 import를 중단한다.
 3. 6/82/677 hierarchy, 837 fields, 82 qualification rows, 13 fee policies를 검증한다.
-4. leaf code, field ID, policy code 중복을 거부한다.
+4. leaf code, `FLD-00000` 형식의 명시적 field ID, policy code 중복을 거부한다. field key 중복은 허용한다.
 5. FK lookup 실패, 알 수 없는 enum, 숫자/날짜 변환 실패를 행 번호와 함께 보고하고 부분 반영하지 않는다.
 6. import는 단일 DB 트랜잭션과 dry-run 검증을 지원해야 한다.
 7. 역할별 최소수량 합과 `required_completion_photo_count`가 일치하는지 검증한다.

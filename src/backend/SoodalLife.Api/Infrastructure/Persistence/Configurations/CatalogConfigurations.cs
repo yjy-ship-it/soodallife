@@ -154,7 +154,7 @@ internal sealed class CategoryFieldDefinitionConfiguration() : EntityConfigurati
         b.HasIndex(x => x.OwnerMiddleCategoryId);
         b.HasIndex(x => x.FieldTypeCode);
         b.HasIndex(x => x.IsRequired);
-        b.HasIndex(x => new { x.OwnerMiddleCategoryId, x.FieldKey }).IsUnique();
+        b.HasIndex(x => new { x.OwnerMiddleCategoryId, x.FieldKey });
         b.HasIndex(x => new { x.OwnerMiddleCategoryId, x.StatusCode, x.DisplayOrder });
         b.ToTable("category_field_definitions", t =>
         {

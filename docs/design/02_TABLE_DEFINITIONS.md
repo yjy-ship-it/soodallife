@@ -594,9 +594,9 @@ unique 후보: `(category_policy_id, photo_role_id)`. 정책의 역할별 `minim
 |---|---|---:|---|---|---|
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
 | public_id | UNIQUEIDENTIFIER | N | 앱 UUID v4 | UQ | 관리/API 식별 |
-| source_field_id | VARCHAR(50) | N | 없음 | UQ | Excel 필드ID |
+| source_field_id | VARCHAR(50) | N | 없음 | UQ | Excel 명시적 필드ID(`FLD-xxxxx`); 행 순서와 무관한 원본 불변 식별자 |
 | owner_middle_category_id | BIGINT | N | 없음 | FK service_categories.id, IX | 정의 소유 중분류 |
-| field_key | VARCHAR(100) | N | 없음 | UQ with owner | 안정적 필드 키 |
+| field_key | VARCHAR(100) | N | 없음 | IX with owner | Excel 업무 필드 키 원문; 동일 중분류 내 중복 허용, 질문 식별자로 사용하지 않음 |
 | label | NVARCHAR(200) | N | 없음 |  | 화면 라벨 |
 | field_type_code | VARCHAR(20) | N | 없음 | CHECK, IX | 입력 유형 |
 | is_required | BIT | N | 0 | IX | 필수 여부 |
@@ -612,7 +612,7 @@ unique 후보: `(category_policy_id, photo_role_id)`. 정책의 역할별 `minim
 | updated_by_user_id | BIGINT | Y | NULL | FK users.id | 수정자 |
 | row_version | ROWVERSION | N | SQL Server | concurrency | 동시성 |
 
-unique/index 후보: `UQ(owner_middle_category_id, field_key)`, `(owner_middle_category_id, status_code, display_order)`.
+unique/index: `UQ(source_field_id)`, 비고유 `(owner_middle_category_id, field_key)`, `(owner_middle_category_id, status_code, display_order)`. Excel 837개 원본 행은 `source_field_id`로 개별 식별하며, 동일 중분류의 동일 `field_key` 17쌍도 별개의 정의로 보존한다.
 
 ### 8.6 `category_field_assignments`
 

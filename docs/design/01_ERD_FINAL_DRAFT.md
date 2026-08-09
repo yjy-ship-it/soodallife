@@ -29,7 +29,7 @@
 - 공급자 승인 현재값은 `provider_profiles`, 결정 이력은 append-only `provider_approval_events`에 보존한다.
 - 카테고리는 대/중/하위 서비스를 한 계층 테이블로 관리한다. Excel이 코드를 제공하는 하위 서비스만 `external_code`를 갖고, 상위 두 레벨은 내부 키와 부모-이름 unique 조건으로 식별한다.
 - 관리대장 정책은 카테고리 본체와 분리하여 유효기간/버전을 갖는다. 거래 생성 시 완료·보증 등 적용 정책을 JSON 스냅샷으로 고정한다.
-- 동적 필드는 정의와 적용 대상을 분리한다. 현재 Excel 837건은 모두 “해당 중분류 전체”지만 특정 하위 서비스 적용을 미래에 수용할 수 있다.
+- 동적 필드는 정의와 적용 대상을 분리한다. 현재 Excel 837건은 모두 “해당 중분류 전체”지만 특정 하위 서비스 적용을 미래에 수용할 수 있다. Excel의 명시적 `필드ID(FLD-xxxxx)`를 행 순서와 무관한 `source_field_id`로 보존하고 unique 처리한다. `field_key`는 업무 키 원문으로 보존하되 동일 중분류 안의 중복을 허용하며, 질문과 답변은 필드 정의 PK로 식별한다.
 - 견적과 작업완료는 논리 집합(`quotes`, `work_completions`)과 append-only revision을 분리한다.
 - 파일 메타데이터는 `files`에 한 번 저장하고, 업무별 연결 테이블에서 FK와 역할을 명시한다. `storage_key` 원문은 `NVARCHAR(1000)`으로 보존하고 UTF-8 기준 SHA-256인 `storage_key_hash BINARY(32)`에 unique index를 두어 긴 저장키의 고유성을 검증한다. polymorphic owner FK는 사용하지 않는다.
 - 이력·감사·outbox·승인 이벤트는 append-only다.

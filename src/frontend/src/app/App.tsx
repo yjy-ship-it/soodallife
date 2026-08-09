@@ -5,6 +5,7 @@ import { getInitialAuthenticatedPath, navigate } from '../auth/routing'
 import type { RoleCode } from '../auth/types'
 import { LoginPage } from '../pages/LoginPage'
 import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/RolePages'
+import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -51,9 +52,14 @@ function ApplicationRoutes() {
     return <RoleSelectionPage />
   }
 
-  const requiredRole = protectedRoutes[pathname]
+  const customerRequestMatch = pathname.match(/^\/customer\/requests\/([0-9a-f-]+)$/i)
+  const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : undefined)
   if (requiredRole) {
-    return user.roles.includes(requiredRole) ? <RoleHomePage role={requiredRole} /> : <AccessDeniedPage />
+    if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
+    if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
+    if (pathname === '/customer/requests') return <CustomerRequestListPage />
+    if (customerRequestMatch) return <CustomerRequestDetailPage requestId={customerRequestMatch[1]} />
+    return <RoleHomePage role={requiredRole} />
   }
 
   return <RoleSelectionPage />

@@ -121,12 +121,57 @@
 .inlineButton { display: inline-block; padding: 0 24px; }
 .loadingScreen { display: grid; min-height: 100vh; place-items: center; color: #456159; background: #f3f7f5; }
 
+.placeholderGrid > button { min-height: 140px; padding: 24px; border: 1px solid #dde7e2; border-radius: 18px; color: inherit; background: #f9fbfa; text-align: left; cursor: pointer; transition: 160ms ease; }
+.placeholderGrid > button:hover { border-color: #6eb494; transform: translateY(-2px); }
+.placeholderGrid > button strong, .placeholderGrid > button span { display: block; }
+.placeholderGrid > button span { margin-top: 10px; color: #829089; font-size: 0.88rem; line-height: 1.6; }
+.requestForm, .requestList, .detailCard { margin-top: 22px; }
+.formSection, .detailCard { padding: 24px; margin-bottom: 18px; border: 1px solid #dbe7e1; border-radius: 22px; background: #fff; }
+.formSection h2, .detailCard h2 { margin: 0 0 20px; font-size: 1.08rem; }
+.formSection h2 span { display: inline-grid; width: 28px; height: 28px; margin-right: 8px; place-items: center; border-radius: 50%; color: #fff; background: #117a53; }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.formGrid.threeColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.formField { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.formField label { font-weight: 750; }
+.formField input, .formField select, .formField textarea { width: 100%; padding: 12px 14px; box-sizing: border-box; border: 1px solid #cbd7d1; border-radius: 12px; color: #13261f; background: #fff; font: inherit; }
+.formField small { color: #6d7e77; line-height: 1.45; }
+.fullWidth { grid-column: 1 / -1; }
+.requiredMark { color: #c7392f; }
+.choiceGroup { display: flex; flex-wrap: wrap; gap: 12px; }
+.choiceGroup label, .booleanField { display: flex; align-items: center; gap: 7px; }
+.choiceGroup input, .booleanField input { width: auto; }
+.formActions { display: flex; justify-content: flex-end; gap: 10px; margin: 20px 0; }
+.formActions .primaryButton { margin-top: 0; padding-inline: 24px; }
+.errorBanner { padding: 14px 16px; margin-top: 18px; border: 1px solid #fecaca; border-radius: 14px; color: #991b1b; background: #fef2f2; }
+.emptyState { padding: 32px; margin-top: 22px; border: 1px dashed #cbd7d1; border-radius: 18px; color: #6d7e77; text-align: center; }
+.requestList { display: grid; gap: 12px; }
+.requestListItem { display: flex; width: 100%; justify-content: space-between; gap: 18px; padding: 20px; border: 1px solid #dbe7e1; border-radius: 18px; color: inherit; background: #fff; text-align: left; cursor: pointer; }
+.requestListItem:hover { border-color: #6eb494; }
+.requestListItem h2 { margin: 10px 0 6px; font-size: 1.08rem; }
+.requestListItem p, .requestMeta { color: #6d7e77; }
+.requestMeta { display: flex; flex-direction: column; gap: 6px; text-align: right; white-space: nowrap; }
+.statusBadge { display: inline-flex; padding: 4px 9px; border-radius: 999px; color: #075985; background: #e0f2fe; font-size: 0.75rem; font-weight: 800; }
+.detailCard dl { display: grid; grid-template-columns: 140px 1fr; gap: 14px 20px; margin: 0; }
+.detailCard dt { color: #6d7e77; font-weight: 700; }
+.detailCard dd { margin: 0; word-break: break-word; }
+.answerRow { display: contents; }
+
 @media (max-width: 900px) {
   .loginShell { grid-template-columns: 1fr; }
   .loginIntro { display: none; }
   .loginPanel { padding: 28px; }
   .mobileBrand { display: block; margin-bottom: 44px; color: #117a53; font-size: 0.78rem; font-weight: 900; letter-spacing: 0.18em; }
   .placeholderGrid, .roleGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .formGrid, .formGrid.threeColumns { grid-template-columns: 1fr; }
+  .fullWidth { grid-column: auto; }
+  .formSection, .detailCard { padding: 18px; }
+  .requestListItem { flex-direction: column; }
+  .requestMeta { text-align: left; }
+  .detailCard dl { grid-template-columns: 1fr; gap: 6px; }
+  .detailCard dd { margin-bottom: 12px; }
 }
 
 @media (max-width: 560px) {

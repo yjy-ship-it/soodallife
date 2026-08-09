@@ -20,7 +20,7 @@
 | service_categories | category_policies | 1:N | 정책 버전/유효기간 중첩은 서비스 검증 |
 | category_policies | category_completion_photo_requirements | 1:N | 정책 버전별 역할 최소수량 |
 | completion_photo_roles | category_completion_photo_requirements | 1:N | BEFORE/AFTER/OTHER 및 확장 역할 |
-| middle category | category_field_definitions | 1:N | Excel 현재 837행은 모두 중분류에 귀속 |
+| middle category | category_field_definitions | 1:N | Excel 현재 837행은 모두 중분류에 귀속. `source_field_id`만 원본 식별 unique이며 동일 중분류의 동일 `field_key`를 허용 |
 | field definition | category_field_assignments | 1:N | 정의를 중분류 전체 또는 leaf에 적용 |
 | provider_profiles | provider_service_categories | 1:N | 활성 `(provider, category)` 중복 금지 |
 | provider_service_categories | provider_service_areas | 1:N | 활성 `(provider service, area)` 중복 금지 |

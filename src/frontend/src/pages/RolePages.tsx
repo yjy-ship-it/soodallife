@@ -32,8 +32,13 @@ export function RoleHomePage({ role }: { role: RoleCode }) {
         <div className="readyBadge"><span aria-hidden="true" /> 인증 및 권한 확인 완료</div>
       </section>
       <section className="placeholderGrid" aria-label="향후 대시보드 영역">
-        <article><strong>진행 현황</strong><span>다음 개발 단계에서 연결됩니다.</span></article>
-        <article><strong>최근 활동</strong><span>아직 표시할 업무 데이터가 없습니다.</span></article>
+        {role === 'CUSTOMER' ? <>
+          <button type="button" onClick={() => navigate('/customer/requests/new')}><strong>서비스 요청하기</strong><span>카테고리를 선택하고 요청을 등록합니다.</span></button>
+          <button type="button" onClick={() => navigate('/customer/requests')}><strong>내 요청</strong><span>등록한 요청과 상세 답변을 확인합니다.</span></button>
+        </> : <>
+          <article><strong>진행 현황</strong><span>다음 개발 단계에서 연결됩니다.</span></article>
+          <article><strong>최근 활동</strong><span>아직 표시할 업무 데이터가 없습니다.</span></article>
+        </>}
         <article><strong>빠른 메뉴</strong><span>역할별 기능이 순차적으로 추가됩니다.</span></article>
       </section>
     </AuthenticatedLayout>
