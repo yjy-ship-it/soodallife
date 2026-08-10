@@ -25,7 +25,8 @@ public sealed class Review
 {
     public long Id { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();
-    public long TransactionId { get; set; }
+    public long? TransactionId { get; set; }
+    public long? SubscriptionVisitScheduleId { get; set; }
     public long CustomerProfileId { get; set; }
     public long ProviderProfileId { get; set; }
     public string BodyText { get; set; } = string.Empty;

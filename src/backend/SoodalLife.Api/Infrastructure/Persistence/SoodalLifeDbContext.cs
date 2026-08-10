@@ -105,6 +105,15 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<SanctionAppealEvidence> SanctionAppealEvidence => Set<SanctionAppealEvidence>();
     public DbSet<SanctionAppealAction> SanctionAppealActions => Set<SanctionAppealAction>();
     public DbSet<DisputeLiabilityType> DisputeLiabilityTypes => Set<DisputeLiabilityType>();
+    public DbSet<CareProduct> CareProducts => Set<CareProduct>();
+    public DbSet<SubscriptionRequest> SubscriptionRequests => Set<SubscriptionRequest>();
+    public DbSet<SubscriptionRecurrenceRule> SubscriptionRecurrenceRules => Set<SubscriptionRecurrenceRule>();
+    public DbSet<SubscriptionApplication> SubscriptionApplications => Set<SubscriptionApplication>();
+    public DbSet<SubscriptionContract> SubscriptionContracts => Set<SubscriptionContract>();
+    public DbSet<SubscriptionVisitSchedule> SubscriptionVisitSchedules => Set<SubscriptionVisitSchedule>();
+    public DbSet<SubscriptionVisitFile> SubscriptionVisitFiles => Set<SubscriptionVisitFile>();
+    public DbSet<SubscriptionScheduleChange> SubscriptionScheduleChanges => Set<SubscriptionScheduleChange>();
+    public DbSet<SubscriptionEvent> SubscriptionEvents => Set<SubscriptionEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -116,6 +125,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
         EnsureSanctionEventsAreAppendOnly();
+        EnsureSubscriptionEventsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -124,6 +134,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
         EnsureSanctionEventsAreAppendOnly();
+        EnsureSubscriptionEventsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -143,5 +154,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<SanctionEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("제재 변경이력은 수정하거나 삭제할 수 없습니다. 정정이 필요하면 별도의 변경이력을 추가해 주세요.");
+    }
+
+    private void EnsureSubscriptionEventsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<SubscriptionEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("구독 변경이력은 수정하거나 삭제할 수 없습니다. 정정이 필요하면 별도의 이벤트를 추가해 주세요.");
     }
 }

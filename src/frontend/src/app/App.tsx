@@ -21,6 +21,7 @@ import { AdminAfterServiceDisputePage } from '../admin/AdminAfterServiceDisputeP
 import { AdminTrustPage } from '../admin/AdminTrustPage'
 import { AdminReviewsPage } from '../admin/AdminReviewsPage'
 import { AdminCaseManagementPage } from '../admin/AdminCaseManagementPage'
+import { AdminSubscriptionsPage } from '../admin/AdminSubscriptionsPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -107,6 +108,7 @@ function ApplicationRoutes() {
     if (pathname === '/admin/sanctions') return <AdminCaseManagementPage pathname={pathname} mode="sanctions" />
     if (adminSanctionMatch) return <AdminCaseManagementPage pathname={pathname} mode="sanctions" id={adminSanctionMatch[1]} />
     if (pathname === '/admin/case-policies') return <AdminCaseManagementPage pathname={pathname} mode="policies" />
+    if (pathname === '/admin/subscriptions') return <AdminSubscriptionsPage pathname={pathname} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

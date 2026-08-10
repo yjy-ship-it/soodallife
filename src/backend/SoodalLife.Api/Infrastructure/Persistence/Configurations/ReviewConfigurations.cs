@@ -22,14 +22,14 @@ internal sealed class ReviewConfiguration() : EntityConfiguration<Review>("revie
 {
     protected override void ConfigureEntity(EntityTypeBuilder<Review> b)
     {
-        Mapping.PublicId(b); Mapping.Long(b,nameof(Review.TransactionId),"transaction_id"); Mapping.Long(b,nameof(Review.CustomerProfileId),"customer_profile_id"); Mapping.Long(b,nameof(Review.ProviderProfileId),"provider_profile_id");
+        Mapping.PublicId(b); Mapping.NullableLong(b,nameof(Review.TransactionId),"transaction_id"); Mapping.NullableLong(b,nameof(Review.SubscriptionVisitScheduleId),"subscription_visit_schedule_id"); Mapping.Long(b,nameof(Review.CustomerProfileId),"customer_profile_id"); Mapping.Long(b,nameof(Review.ProviderProfileId),"provider_profile_id");
         Mapping.String(b,nameof(Review.BodyText),"body_text",4000); Mapping.Decimal(b,nameof(Review.OverallRating),"overall_rating",nullable:true,precision:9,scale:4);
         Mapping.String(b,nameof(Review.VerificationStatusCode),"verification_status_code",30,unicode:false); Mapping.String(b,nameof(Review.VisibilityStatusCode),"visibility_status_code",20,unicode:false);
         Mapping.String(b,nameof(Review.IdempotencyKey),"idempotency_key",150,unicode:false); Mapping.DateTime(b,nameof(Review.SubmittedAt),"submitted_at"); Mapping.DateTime(b,nameof(Review.PublishedAt),"published_at",nullable:true); Mapping.DateTime(b,nameof(Review.HiddenAt),"hidden_at",nullable:true);
         Mapping.DateTime(b,nameof(Review.CreatedAt),"created_at",utcDefault:true); Mapping.DateTime(b,nameof(Review.UpdatedAt),"updated_at",utcDefault:true); Mapping.RowVersion(b);
-        Mapping.Fk<Review,TransactionRecord>(b,nameof(Review.TransactionId)); Mapping.Fk<Review,CustomerProfile>(b,nameof(Review.CustomerProfileId)); Mapping.Fk<Review,ProviderProfile>(b,nameof(Review.ProviderProfileId));
-        b.HasIndex(x=>x.TransactionId).IsUnique(); b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.ProviderProfileId,x.VisibilityStatusCode,x.SubmittedAt}).IsDescending(false,false,true); b.HasIndex(x=>x.CustomerProfileId);
-        b.ToTable("reviews",t=>{t.HasCheckConstraint("CK_reviews_verification","[verification_status_code] = 'VERIFIED_TRANSACTION'");t.HasCheckConstraint("CK_reviews_visibility","[visibility_status_code] IN ('PUBLIC','HIDDEN')");});
+        Mapping.Fk<Review,TransactionRecord>(b,nameof(Review.TransactionId)); Mapping.Fk<Review,SubscriptionVisitSchedule>(b,nameof(Review.SubscriptionVisitScheduleId)); Mapping.Fk<Review,CustomerProfile>(b,nameof(Review.CustomerProfileId)); Mapping.Fk<Review,ProviderProfile>(b,nameof(Review.ProviderProfileId));
+        b.HasIndex(x=>x.TransactionId).IsUnique().HasFilter("[transaction_id] IS NOT NULL"); b.HasIndex(x=>x.SubscriptionVisitScheduleId).IsUnique().HasFilter("[subscription_visit_schedule_id] IS NOT NULL"); b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.ProviderProfileId,x.VisibilityStatusCode,x.SubmittedAt}).IsDescending(false,false,true); b.HasIndex(x=>x.CustomerProfileId);
+        b.ToTable("reviews",t=>{t.HasCheckConstraint("CK_reviews_source","([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL)");t.HasCheckConstraint("CK_reviews_verification","[verification_status_code] IN ('VERIFIED_TRANSACTION','VERIFIED_SUBSCRIPTION_VISIT')");t.HasCheckConstraint("CK_reviews_visibility","[visibility_status_code] IN ('PUBLIC','HIDDEN')");});
     }
 }
 

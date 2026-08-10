@@ -156,7 +156,7 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
                                       transaction.StartedAt, transaction.CompletedAt, null)).ToListAsync(cancellationToken);
 
         var afterServiceBase = await dbContext.AfterServiceCases.AsNoTracking()
-            .Where(item => item.CustomerProfileId == identity.Customer.Id).OrderByDescending(item => item.ReceivedAt).ToListAsync(cancellationToken);
+            .Where(item => item.CustomerProfileId == identity.Customer.Id && item.TransactionId.HasValue).OrderByDescending(item => item.ReceivedAt).ToListAsync(cancellationToken);
         var afterServiceIds = afterServiceBase.Select(item => item.Id).ToArray();
         var lastActions = await dbContext.AfterServiceActions.AsNoTracking().Where(action => afterServiceIds.Contains(action.AfterServiceCaseId))
             .GroupBy(action => action.AfterServiceCaseId)
@@ -165,7 +165,7 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
         var transactionPublicIds = await dbContext.Transactions.AsNoTracking()
             .Where(transaction => afterServiceBase.Select(item => item.TransactionId).Contains(transaction.Id))
             .ToDictionaryAsync(transaction => transaction.Id, transaction => transaction.PublicId, cancellationToken);
-        var afterServices = afterServiceBase.Select(item => new AdminCustomerAfterServiceResponse(item.PublicId, transactionPublicIds[item.TransactionId], item.Subject,
+        var afterServices = afterServiceBase.Select(item => new AdminCustomerAfterServiceResponse(item.PublicId, transactionPublicIds[item.TransactionId!.Value], item.Subject,
             item.StatusCode, item.ReceivedAt, item.CompletedAt, lastActions.SingleOrDefault(action => action.AfterServiceCaseId == item.Id)?.ActionNote)).ToArray();
 
         var historyBase = await dbContext.ServiceHistoryEntries.AsNoTracking().Where(item => item.CustomerProfileId == identity.Customer.Id)
@@ -229,4 +229,3 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
     private sealed record CustomerListRow(long InternalCustomerId, Guid Id, string Name, string? Phone, string? Email, string StatusCode,
         DateTime JoinedAt, int RequestCount, int TransactionCount, DateTime? LastUsedAt);
 }
-

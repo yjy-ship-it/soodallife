@@ -115,7 +115,7 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
                 value.StatusCode, value.ReceivedAt, value.CompletedAt, value.ResolutionSummary, value.UnresolvedReason,
                 value.RecurrenceOccurred, value.ConvertedToDisputeAt != null)).ToListAsync(cancellationToken);
         var transactionIds = await dbContext.Transactions.AsNoTracking().Where(value => value.ProviderProfileId == identity.Provider.Id).Select(value => value.Id).ToArrayAsync(cancellationToken);
-        var disputes = await dbContext.DisputeCases.AsNoTracking().Where(value => transactionIds.Contains(value.TransactionId))
+        var disputes = await dbContext.DisputeCases.AsNoTracking().Where(value => value.TransactionId.HasValue && transactionIds.Contains(value.TransactionId.Value))
             .OrderByDescending(value => value.ReceivedAt).Select(value => new AdminTrustDisputeResponse(value.PublicId, value.Subject,
                 value.StatusCode, value.ReceivedAt, value.ResolvedAt, value.ClosedAt,
                 "현재 책임판정 구조가 없어 분쟁 발생을 공급자 귀책으로 해석하지 않습니다.")).ToListAsync(cancellationToken);
