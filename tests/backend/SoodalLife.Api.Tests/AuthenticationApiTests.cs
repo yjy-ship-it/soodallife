@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SoodalLife.Api.Features.Admin;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
 
@@ -97,6 +101,71 @@ public sealed class AuthenticationApiTests(AuthenticationWebApplicationFactory f
 
         var meResponse = await client.GetAsync("/api/v1/me");
         Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminDashboard_AdminCanAccess_AndReceivesOnlyConfirmedMetrics()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, factory.Credentials[RoleCodes.Admin]);
+
+        var response = await client.GetAsync("/api/v1/admin/dashboard/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var summary = await response.Content.ReadFromJsonAsync<AdminDashboardSummaryResponse>();
+        Assert.NotNull(summary);
+        Assert.Equal(2, summary.TotalCustomers.Value);
+        Assert.Equal(4, summary.TotalProviders.Value);
+        Assert.Equal(1, summary.PendingProviders.Value);
+        Assert.Null(summary.ActiveRequests.Value);
+        Assert.Equal("집계 기준 미확정", summary.ActiveRequests.UnavailableReason);
+        Assert.Null(summary.ActiveTransactions.Value);
+        Assert.Null(summary.UnresolvedAfterServiceCases.Value);
+    }
+
+    [Theory]
+    [InlineData(RoleCodes.Customer)]
+    [InlineData(RoleCodes.Provider)]
+    public async Task AdminDashboard_NonAdminRole_IsForbidden(string role)
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, factory.Credentials[role]);
+
+        var response = await client.GetAsync("/api/v1/admin/dashboard/summary");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.NotNull(error);
+        Assert.Equal("ACCESS_DENIED", error.BusinessCode);
+    }
+
+    [Fact]
+    public async Task AdminDashboard_WithoutLogin_IsUnauthorized()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync("/api/v1/admin/dashboard/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminLoginAndLogout_AreWrittenToAuditLog()
+    {
+        using var client = CreateClient();
+        var credential = factory.Credentials[RoleCodes.Admin];
+
+        await LoginAsync(client, credential);
+        await client.PostAsync("/api/v1/auth/logout", null);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var actionCodes = await dbContext.AuditLogs
+            .Where(log => log.ActorRoleCode == RoleCodes.Admin)
+            .Select(log => log.ActionCode)
+            .ToListAsync();
+        Assert.Contains("ADMIN_LOGIN", actionCodes);
+        Assert.Contains("ADMIN_LOGOUT", actionCodes);
     }
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions

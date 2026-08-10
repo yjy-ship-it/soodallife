@@ -3,13 +3,15 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.Admin;
 
 namespace SoodalLife.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
 public sealed class AuthenticationController(
-    SoodalLife.Api.Features.Authentication.IAuthenticationService authenticationService) : ControllerBase
+    SoodalLife.Api.Features.Authentication.IAuthenticationService authenticationService,
+    AdminAuditService adminAuditService) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("login")]
@@ -46,15 +48,34 @@ public sealed class AuthenticationController(
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
             });
 
+        if (user.Roles.Contains(RoleCodes.Admin, StringComparer.Ordinal))
+        {
+            await adminAuditService.RecordAuthenticationAsync(
+                user.PublicId,
+                "ADMIN_LOGIN",
+                HttpContext,
+                cancellationToken);
+        }
+
         return Ok(user);
     }
 
     [Authorize]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
+        var userPublicId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var isAdmin = User.IsInRole(RoleCodes.Admin);
         await HttpContext.SignOutAsync(AuthenticationConstants.Scheme);
+        if (isAdmin)
+        {
+            await adminAuditService.RecordAuthenticationAsync(
+                userPublicId,
+                "ADMIN_LOGOUT",
+                HttpContext,
+                cancellationToken);
+        }
         return NoContent();
     }
 }

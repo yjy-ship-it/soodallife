@@ -8,6 +8,8 @@ import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/Role
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
+import { AdminDashboardPage, AdminPlaceholderPage } from '../admin/AdminPages'
+import { findAdminMenu } from '../admin/menu'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -58,9 +60,11 @@ function ApplicationRoutes() {
   const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
-  const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : undefined)
+  const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
+    if (pathname === '/admin') return <AdminDashboardPage pathname={pathname} />
+    if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />
     if (customerRequestMatch) return <CustomerRequestDetailPage requestId={customerRequestMatch[1]} />

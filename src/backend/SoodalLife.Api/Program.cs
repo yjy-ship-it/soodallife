@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.Admin;
 using SoodalLife.Api.Features.CatalogImport;
 using SoodalLife.Api.Features.Catalog;
 using SoodalLife.Api.Features.ServiceRequests;
@@ -24,6 +25,8 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<AdminDashboardService>();
+builder.Services.AddScoped<AdminAuditService>();
 builder.Services.AddScoped<ActiveUserCookieEvents>();
 builder.Services.AddScoped<DevelopmentAccountInitializer>();
 builder.Services.AddSingleton<CatalogWorkbookReader>();

@@ -95,6 +95,16 @@ public sealed class DevelopmentAccountInitializer(
             dbContext.Users.Add(user);
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+        else
+        {
+            var verificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, definition.Password);
+            if (verificationResult != PasswordVerificationResult.Success)
+            {
+                user.PasswordHash = passwordHasher.HashPassword(user, definition.Password);
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdatedByUserId = null;
+            }
+        }
 
         var hasRole = await dbContext.UserRoles.AnyAsync(
             candidate => candidate.UserId == user.Id && candidate.RoleId == role.Id && candidate.RevokedAt == null,
