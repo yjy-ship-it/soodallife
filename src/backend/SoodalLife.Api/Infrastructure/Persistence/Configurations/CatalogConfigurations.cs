@@ -454,6 +454,101 @@ internal sealed class QualificationPolicyConfiguration() : EntityConfiguration<Q
     }
 }
 
+internal sealed class ProviderRequirementTypeConfiguration : IEntityTypeConfiguration<ProviderRequirementType>
+{
+    public void Configure(EntityTypeBuilder<ProviderRequirementType> b)
+    {
+        b.ToTable("provider_requirement_types");
+        b.HasKey(x => x.Code);
+        Mapping.String(b, nameof(ProviderRequirementType.Code), "code", 30, unicode: false);
+        Mapping.String(b, nameof(ProviderRequirementType.Name), "name", 100);
+        Mapping.Bool(b, nameof(ProviderRequirementType.IsActive), "is_active", true);
+        b.HasData(
+            new ProviderRequirementType { Code = "QUALIFICATION", Name = "자격", IsActive = true },
+            new ProviderRequirementType { Code = "LICENSE", Name = "면허", IsActive = true },
+            new ProviderRequirementType { Code = "INSURANCE", Name = "보험", IsActive = true },
+            new ProviderRequirementType { Code = "SAFETY", Name = "안전", IsActive = true },
+            new ProviderRequirementType { Code = "EVIDENCE_VALIDITY", Name = "증빙 유효성", IsActive = true });
+    }
+}
+
+internal sealed class ProviderRequirementDefinitionConfiguration() : EntityConfiguration<ProviderRequirementDefinition>("provider_requirement_definitions")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderRequirementDefinition> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.String(b, nameof(ProviderRequirementDefinition.RequirementTypeCode), "requirement_type_code", 30, unicode: false);
+        Mapping.String(b, nameof(ProviderRequirementDefinition.RequirementCode), "requirement_code", 50, unicode: false);
+        Mapping.String(b, nameof(ProviderRequirementDefinition.Name), "name", 200);
+        Mapping.String(b, nameof(ProviderRequirementDefinition.Description), "description", 1000, nullable: true);
+        Mapping.Bool(b, nameof(ProviderRequirementDefinition.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<ProviderRequirementDefinition, ProviderRequirementType>(b, nameof(ProviderRequirementDefinition.RequirementTypeCode));
+        b.HasIndex(x => x.RequirementCode).IsUnique();
+        b.HasIndex(x => new { x.RequirementTypeCode, x.IsActive, x.Name });
+    }
+}
+
+internal sealed class ProviderDocumentTypeConfiguration() : EntityConfiguration<ProviderDocumentType>("provider_document_types")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderDocumentType> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.String(b, nameof(ProviderDocumentType.Code), "code", 50, unicode: false);
+        Mapping.String(b, nameof(ProviderDocumentType.Name), "name", 200);
+        Mapping.Bool(b, nameof(ProviderDocumentType.SupportsExpiry), "supports_expiry", false);
+        Mapping.Bool(b, nameof(ProviderDocumentType.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        b.HasIndex(x => x.Code).IsUnique();
+        b.HasIndex(x => new { x.IsActive, x.Name });
+    }
+}
+
+internal sealed class CategoryProviderRequirementAssignmentConfiguration() : EntityConfiguration<CategoryProviderRequirementAssignment>("category_provider_requirement_assignments")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryProviderRequirementAssignment> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryProviderRequirementAssignment.CategoryOperationPolicyId), "category_operation_policy_id");
+        Mapping.Long(b, nameof(CategoryProviderRequirementAssignment.RequirementDefinitionId), "requirement_definition_id");
+        Mapping.Bool(b, nameof(CategoryProviderRequirementAssignment.IsRequired), "is_required", true);
+        Mapping.Bool(b, nameof(CategoryProviderRequirementAssignment.VerificationRequired), "verification_required", true);
+        Mapping.Bool(b, nameof(CategoryProviderRequirementAssignment.ExpiryCheckRequired), "expiry_check_required", false);
+        b.Property(x => x.MinimumValidDays).HasColumnName("minimum_valid_days").HasColumnType("smallint").IsRequired(false);
+        Mapping.Int(b, nameof(CategoryProviderRequirementAssignment.DisplayOrder), "display_order", 0);
+        Mapping.Bool(b, nameof(CategoryProviderRequirementAssignment.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryProviderRequirementAssignment, CategoryOperationPolicy>(b, nameof(CategoryProviderRequirementAssignment.CategoryOperationPolicyId));
+        Mapping.Fk<CategoryProviderRequirementAssignment, ProviderRequirementDefinition>(b, nameof(CategoryProviderRequirementAssignment.RequirementDefinitionId));
+        b.HasIndex(x => new { x.CategoryOperationPolicyId, x.RequirementDefinitionId }).IsUnique();
+        b.HasIndex(x => new { x.CategoryOperationPolicyId, x.IsActive, x.DisplayOrder });
+        b.ToTable("category_provider_requirement_assignments", t =>
+        {
+            t.HasCheckConstraint("CK_category_provider_requirement_assignments_minimum_valid_days", "[minimum_valid_days] IS NULL OR [minimum_valid_days] >= 0");
+            t.HasCheckConstraint("CK_category_provider_requirement_assignments_display_order", "[display_order] >= 0");
+        });
+    }
+}
+
+internal sealed class CategoryProviderRequirementEvidenceTypeConfiguration() : EntityConfiguration<CategoryProviderRequirementEvidenceType>("category_provider_requirement_evidence_types")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryProviderRequirementEvidenceType> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryProviderRequirementEvidenceType.RequirementAssignmentId), "requirement_assignment_id");
+        Mapping.Long(b, nameof(CategoryProviderRequirementEvidenceType.DocumentTypeId), "document_type_id");
+        Mapping.Bool(b, nameof(CategoryProviderRequirementEvidenceType.IsRequired), "is_required", true);
+        Mapping.Int(b, nameof(CategoryProviderRequirementEvidenceType.DisplayOrder), "display_order", 0);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryProviderRequirementEvidenceType, CategoryProviderRequirementAssignment>(b, nameof(CategoryProviderRequirementEvidenceType.RequirementAssignmentId));
+        Mapping.Fk<CategoryProviderRequirementEvidenceType, ProviderDocumentType>(b, nameof(CategoryProviderRequirementEvidenceType.DocumentTypeId));
+        b.HasIndex(x => new { x.RequirementAssignmentId, x.DocumentTypeId }).IsUnique();
+        b.HasIndex(x => new { x.RequirementAssignmentId, x.DisplayOrder });
+        b.ToTable("category_provider_requirement_evidence_types", t =>
+            t.HasCheckConstraint("CK_category_provider_requirement_evidence_types_display_order", "[display_order] >= 0"));
+    }
+}
+
 internal sealed class AdministrativeAreaConfiguration() : EntityConfiguration<AdministrativeArea>("administrative_areas")
 {
     protected override void ConfigureEntity(EntityTypeBuilder<AdministrativeArea> b)

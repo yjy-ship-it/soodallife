@@ -10,6 +10,7 @@ const adminOnly = ['ADMIN'] as const
 export const adminMenuItems: readonly AdminMenuItem[] = [
   { label: '대시보드', path: '/admin', shortLabel: '홈', allowedRoles: adminOnly },
   { label: '서비스 관리', path: '/admin/services', shortLabel: '서비스', allowedRoles: adminOnly },
+  { label: '공급자 요건 기준정보', path: '/admin/provider-requirement-standards', shortLabel: '요건', allowedRoles: adminOnly },
   { label: '가격·수수료', path: '/admin/pricing', shortLabel: '가격', allowedRoles: adminOnly },
   { label: '고객 관리', path: '/admin/customers', shortLabel: '고객', allowedRoles: adminOnly },
   { label: '공급자 관리', path: '/admin/providers', shortLabel: '공급자', allowedRoles: adminOnly },

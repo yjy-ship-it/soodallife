@@ -11,6 +11,7 @@ import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage
 import { AdminDashboardPage, AdminPlaceholderPage } from '../admin/AdminPages'
 import { findAdminMenu } from '../admin/menu'
 import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
+import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderRequirementStandardsPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -66,6 +67,7 @@ function ApplicationRoutes() {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
     if (pathname === '/admin') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services') return <AdminServiceCategoriesPage pathname={pathname} />
+    if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

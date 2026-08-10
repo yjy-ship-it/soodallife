@@ -220,6 +220,7 @@ internal sealed class ProviderDocumentConfiguration() : EntityConfiguration<Prov
     {
         Mapping.Long(b, nameof(ProviderDocument.ProviderProfileId), "provider_profile_id");
         Mapping.Long(b, nameof(ProviderDocument.FileId), "file_id");
+        Mapping.NullableLong(b, nameof(ProviderDocument.DocumentTypeId), "document_type_id");
         Mapping.String(b, nameof(ProviderDocument.DocumentTypeCode), "document_type_code", 50, unicode: false);
         Mapping.String(b, nameof(ProviderDocument.DocumentNumber), "document_number", 100, nullable: true);
         Mapping.Date(b, nameof(ProviderDocument.IssuedAt), "issued_at", nullable: true);
@@ -231,11 +232,37 @@ internal sealed class ProviderDocumentConfiguration() : EntityConfiguration<Prov
         Mapping.FullAudit(b);
         Mapping.Fk<ProviderDocument, ProviderProfile>(b, nameof(ProviderDocument.ProviderProfileId));
         Mapping.Fk<ProviderDocument, StoredFile>(b, nameof(ProviderDocument.FileId));
+        Mapping.Fk<ProviderDocument, ProviderDocumentType>(b, nameof(ProviderDocument.DocumentTypeId));
         Mapping.Fk<ProviderDocument, User>(b, nameof(ProviderDocument.VerifiedByUserId));
         b.HasIndex(x => x.ProviderProfileId);
         b.HasIndex(x => x.FileId).IsUnique();
         b.HasIndex(x => x.DocumentTypeCode);
+        b.HasIndex(x => x.DocumentTypeId);
         b.HasIndex(x => x.ExpiresAt);
         b.HasIndex(x => x.VerificationStatusCode);
+    }
+}
+
+internal sealed class ProviderServiceRequirementVerificationConfiguration() : EntityConfiguration<ProviderServiceRequirementVerification>("provider_service_requirement_verifications")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderServiceRequirementVerification> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(ProviderServiceRequirementVerification.ProviderServiceCategoryId), "provider_service_category_id");
+        Mapping.Long(b, nameof(ProviderServiceRequirementVerification.RequirementAssignmentId), "requirement_assignment_id");
+        Mapping.NullableLong(b, nameof(ProviderServiceRequirementVerification.ProviderDocumentId), "provider_document_id");
+        Mapping.String(b, nameof(ProviderServiceRequirementVerification.VerificationStatusCode), "verification_status_code", 20, unicode: false, defaultValue: "PENDING");
+        Mapping.NullableLong(b, nameof(ProviderServiceRequirementVerification.VerifiedByUserId), "verified_by_user_id");
+        Mapping.DateTime(b, nameof(ProviderServiceRequirementVerification.VerifiedAt), "verified_at", nullable: true);
+        Mapping.Date(b, nameof(ProviderServiceRequirementVerification.ExpiresAt), "expires_at", nullable: true);
+        Mapping.String(b, nameof(ProviderServiceRequirementVerification.RejectionReason), "rejection_reason", 1000, nullable: true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<ProviderServiceRequirementVerification, ProviderServiceCategory>(b, nameof(ProviderServiceRequirementVerification.ProviderServiceCategoryId));
+        Mapping.Fk<ProviderServiceRequirementVerification, CategoryProviderRequirementAssignment>(b, nameof(ProviderServiceRequirementVerification.RequirementAssignmentId));
+        Mapping.Fk<ProviderServiceRequirementVerification, ProviderDocument>(b, nameof(ProviderServiceRequirementVerification.ProviderDocumentId));
+        Mapping.Fk<ProviderServiceRequirementVerification, User>(b, nameof(ProviderServiceRequirementVerification.VerifiedByUserId));
+        b.HasIndex(x => new { x.ProviderServiceCategoryId, x.RequirementAssignmentId }).IsUnique();
+        b.HasIndex(x => x.ProviderDocumentId);
+        b.HasIndex(x => new { x.VerificationStatusCode, x.ExpiresAt });
     }
 }

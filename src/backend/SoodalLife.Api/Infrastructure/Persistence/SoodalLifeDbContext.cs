@@ -25,11 +25,17 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<CategoryFieldOption> CategoryFieldOptions => Set<CategoryFieldOption>();
     public DbSet<FeePolicy> FeePolicies => Set<FeePolicy>();
     public DbSet<QualificationPolicy> QualificationPolicies => Set<QualificationPolicy>();
+    public DbSet<ProviderRequirementType> ProviderRequirementTypes => Set<ProviderRequirementType>();
+    public DbSet<ProviderRequirementDefinition> ProviderRequirementDefinitions => Set<ProviderRequirementDefinition>();
+    public DbSet<ProviderDocumentType> ProviderDocumentTypes => Set<ProviderDocumentType>();
+    public DbSet<CategoryProviderRequirementAssignment> CategoryProviderRequirementAssignments => Set<CategoryProviderRequirementAssignment>();
+    public DbSet<CategoryProviderRequirementEvidenceType> CategoryProviderRequirementEvidenceTypes => Set<CategoryProviderRequirementEvidenceType>();
     public DbSet<AdministrativeArea> AdministrativeAreas => Set<AdministrativeArea>();
     public DbSet<ProviderServiceCategory> ProviderServiceCategories => Set<ProviderServiceCategory>();
     public DbSet<ProviderServiceArea> ProviderServiceAreas => Set<ProviderServiceArea>();
     public DbSet<StoredFile> Files => Set<StoredFile>();
     public DbSet<ProviderDocument> ProviderDocuments => Set<ProviderDocument>();
+    public DbSet<ProviderServiceRequirementVerification> ProviderServiceRequirementVerifications => Set<ProviderServiceRequirementVerification>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<RequestAnswer> RequestAnswers => Set<RequestAnswer>();
     public DbSet<RequestAnswerFile> RequestAnswerFiles => Set<RequestAnswerFile>();

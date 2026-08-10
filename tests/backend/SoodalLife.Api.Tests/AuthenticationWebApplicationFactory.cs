@@ -119,6 +119,14 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         AddProvider(dbContext, passwordHasher, AreaMismatchProviderCredential, "Area Mismatch", "APPROVED", "ACTIVE");
         AddProvider(dbContext, passwordHasher, InactiveProviderCredential, "Inactive Provider", "PENDING", "INACTIVE");
 
+        dbContext.ProviderRequirementTypes.AddRange(
+            new ProviderRequirementType { Code = "QUALIFICATION", Name = "자격", IsActive = true },
+            new ProviderRequirementType { Code = "LICENSE", Name = "면허", IsActive = true },
+            new ProviderRequirementType { Code = "INSURANCE", Name = "보험", IsActive = true },
+            new ProviderRequirementType { Code = "SAFETY", Name = "안전", IsActive = true },
+            new ProviderRequirementType { Code = "EVIDENCE_VALIDITY", Name = "증빙 유효성", IsActive = true });
+        dbContext.SaveChanges();
+
         SeedRequestCatalog(dbContext);
         SeedMatchingProviderScopes(dbContext);
     }
@@ -207,8 +215,8 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             ProviderResponseDeadlineMinutes = 30,
             RequestFieldSummaryText = "테스트",
             RequiredCompletionPhotoCount = 2,
-            RequiredQualificationSummaryText = "테스트",
-            InsuranceRequirementText = "테스트",
+            RequiredQualificationSummaryText = "관련 자격·사업자 확인",
+            InsuranceRequirementText = "필수",
             SafetyGradeCode = "NORMAL",
             CompletionEvidenceRuleText = "테스트",
             DefaultWarrantyDays = 30,

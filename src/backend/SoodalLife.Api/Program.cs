@@ -31,6 +31,8 @@ builder.Services.AddScoped<AdminServiceCategoryService>();
 builder.Services.AddScoped<AdminRequestFieldService>();
 builder.Services.AddScoped<AdminPricePolicyService>();
 builder.Services.AddScoped<AdminFeePolicyService>();
+builder.Services.AddScoped<AdminProviderRequirementService>();
+builder.Services.AddScoped<AdminProviderRequirementStandardService>();
 builder.Services.AddScoped<ActiveUserCookieEvents>();
 builder.Services.AddScoped<DevelopmentAccountInitializer>();
 builder.Services.AddSingleton<CatalogWorkbookReader>();

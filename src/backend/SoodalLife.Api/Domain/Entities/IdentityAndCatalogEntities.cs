@@ -420,6 +420,78 @@ public sealed class QualificationPolicy
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class ProviderRequirementType
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+
+public sealed class ProviderRequirementDefinition
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string RequirementTypeCode { get; set; } = string.Empty;
+    public string RequirementCode { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ProviderDocumentType
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public bool SupportsExpiry { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryProviderRequirementAssignment
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CategoryOperationPolicyId { get; set; }
+    public long RequirementDefinitionId { get; set; }
+    public bool IsRequired { get; set; } = true;
+    public bool VerificationRequired { get; set; } = true;
+    public bool ExpiryCheckRequired { get; set; }
+    public short? MinimumValidDays { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryProviderRequirementEvidenceType
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long RequirementAssignmentId { get; set; }
+    public long DocumentTypeId { get; set; }
+    public bool IsRequired { get; set; } = true;
+    public int DisplayOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class AdministrativeArea
 {
     public long Id { get; set; }
@@ -499,6 +571,7 @@ public sealed class ProviderDocument
     public long Id { get; set; }
     public long ProviderProfileId { get; set; }
     public long FileId { get; set; }
+    public long? DocumentTypeId { get; set; }
     public string DocumentTypeCode { get; set; } = string.Empty;
     public string? DocumentNumber { get; set; }
     public DateOnly? IssuedAt { get; set; }
@@ -507,6 +580,25 @@ public sealed class ProviderDocument
     public DateTime? VerifiedAt { get; set; }
     public long? VerifiedByUserId { get; set; }
     public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ProviderServiceRequirementVerification
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderServiceCategoryId { get; set; }
+    public long RequirementAssignmentId { get; set; }
+    public long? ProviderDocumentId { get; set; }
+    public string VerificationStatusCode { get; set; } = "PENDING";
+    public long? VerifiedByUserId { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public DateOnly? ExpiresAt { get; set; }
+    public string? RejectionReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }

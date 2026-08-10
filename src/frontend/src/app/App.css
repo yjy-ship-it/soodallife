@@ -521,6 +521,75 @@
 .feePolicyPreview strong { color: #234937; font-size: .86rem; }
 .feePolicyPreview > b { color: #6f7d76; }
 .feePolicyPreview p { grid-column: 1 / -1; margin: 0; padding-top: 9px; border-top: 1px solid #d8e4de; color: #68756f; font-size: .64rem; line-height: 1.55; }
+.providerRequirementManager { display: grid; gap: 16px; padding: 20px; background: #f5f7f6; }
+.providerRequirementHeading { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px; border: 1px solid #d3dfd9; border-radius: 11px; background: #fff; }
+.providerRequirementHeading span { color: #738078; font-size: .66rem; }
+.providerRequirementHeading h3 { margin: 5px 0; color: #20372d; font-size: 1rem; }
+.providerRequirementHeading p { margin: 0; color: #68756f; font-size: .7rem; }
+.providerRequirementStatus { min-width: 105px; padding: 10px 12px; border-radius: 8px; background: #edf5f1; text-align: center; }
+.providerRequirementStatus strong { display: block; margin-top: 4px; color: #28694e; font-size: .78rem; }
+.providerRequirementHistory { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 12px; border: 1px solid #dce3df; border-radius: 10px; background: #fff; }
+.providerRequirementHistory > strong { margin-right: 5px; color: #45534d; font-size: .72rem; white-space: nowrap; }
+.providerRequirementHistory button { display: grid; min-width: 130px; gap: 3px; padding: 8px 10px; border: 1px solid #dce3df; border-radius: 7px; color: #3b4842; background: #fff; text-align: left; cursor: pointer; }
+.providerRequirementHistory button.selected { border-color: #4d8c70; background: #edf7f2; }
+.providerRequirementHistory button span { font-size: .7rem; font-weight: 800; }
+.providerRequirementHistory button small { color: #79857f; font-size: .6rem; }
+.providerRequirementGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.providerRequirementGrid article { min-height: 150px; padding: 17px; border: 1px solid #dce3df; border-radius: 10px; background: #fff; }
+.providerRequirementGrid header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 11px; border-bottom: 1px solid #e3e8e5; }
+.providerRequirementGrid header span { color: #27694d; font-size: .67rem; font-weight: 850; }
+.providerRequirementGrid header strong { color: #78847e; font-size: .62rem; }
+.providerRequirementGrid article p { margin: 15px 0 0; color: #2f3d36; font-size: .78rem; line-height: 1.65; white-space: pre-wrap; }
+.providerRequirementGrid article small { display: block; margin-top: 9px; color: #7c8782; font-size: .62rem; line-height: 1.55; }
+.providerRequirementGrid .providerSafetyCode { width: fit-content; padding: 6px 9px; border-radius: 6px; color: #4b5866; background: #eef1f4; font-family: ui-monospace, monospace; font-weight: 800; }
+.providerRequirementReadOnly { padding: 15px 17px; border: 1px solid #e1d5b8; border-radius: 9px; background: #fbf6e9; }
+.providerRequirementReadOnly strong { color: #6d5a32; font-size: .76rem; }
+.providerRequirementReadOnly p { margin: 6px 0 0; color: #75694e; font-size: .67rem; line-height: 1.6; }
+.providerLegacySection, .structuredRequirementSection { padding: 17px; border: 1px solid #dce3df; border-radius: 10px; background: #fff; }
+.providerLegacySection > header, .structuredRequirementSection > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.providerLegacySection > header span, .structuredRequirementSection > header span { color: #277052; font-size: .65rem; font-weight: 850; }
+.providerLegacySection > header h4, .structuredRequirementSection > header h4 { margin: 4px 0 0; color: #33443c; font-size: .84rem; }
+.providerLegacySection > header em { padding: 5px 8px; border-radius: 6px; color: #76643c; background: #f6eedb; font-size: .62rem; font-style: normal; font-weight: 800; }
+.structuredRequirementSection > header a { padding: 7px 10px; border: 1px solid #bcd2c7; border-radius: 7px; color: #28664b; font-size: .66rem; font-weight: 800; text-decoration: none; }
+.structuredRequirementEmpty { padding: 24px; margin: 0; border-radius: 8px; color: #748079; background: #f4f6f5; font-size: .72rem; text-align: center; }
+.structuredRequirementList { display: grid; gap: 10px; }
+.structuredRequirementList > article { padding: 14px; border: 1px solid #dce3df; border-radius: 9px; }
+.structuredRequirementList > article.inactive { opacity: .65; background: #f3f4f4; }
+.structuredRequirementList article > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.structuredRequirementList article > header strong { display: block; color: #2e4037; font-size: .77rem; }
+.structuredRequirementList article > header span { display: block; margin-top: 3px; color: #7b8781; font-size: .61rem; }
+.structuredRequirementList article > header button { padding: 6px 8px; border: 1px solid #c9d8d1; border-radius: 6px; color: #3e6855; background: #fff; font-size: .62rem; font-weight: 800; }
+.structuredRequirementControls { display: grid; grid-template-columns: repeat(3, auto) 140px 100px; gap: 10px; align-items: end; margin-top: 13px; padding-top: 12px; border-top: 1px solid #e5e9e7; }
+.structuredRequirementControls label, .structuredEvidenceChoices label, .structuredRequirementAdd label { display: flex; align-items: center; gap: 5px; color: #59665f; font-size: .65rem; font-weight: 700; }
+.structuredRequirementControls label:has(input[type="number"]) { display: grid; }
+.structuredRequirementControls input[type="number"], .structuredRequirementAdd input, .structuredRequirementAdd select { min-width: 0; min-height: 34px; padding: 6px 8px; border: 1px solid #d0d8d4; border-radius: 6px; }
+.structuredEvidenceChoices { display: flex; flex-wrap: wrap; gap: 9px 14px; margin-top: 11px; padding: 10px; border-radius: 7px; background: #f5f7f6; }
+.structuredEvidenceChoices > strong { color: #47564f; font-size: .66rem; }
+.structuredEvidenceChoices > span { color: #7d8883; font-size: .64rem; }
+.structuredRequirementAdd { display: grid; grid-template-columns: minmax(180px, 1fr) repeat(3, auto) 110px 80px auto; gap: 9px; align-items: center; margin-top: 14px; padding: 13px; border: 1px dashed #b9cec3; border-radius: 8px; background: #f6faf8; }
+.structuredRequirementAdd button { min-height: 36px; padding: 0 11px; border: 0; border-radius: 7px; color: #fff; background: #286f52; font-weight: 800; }
+.requirementStandardNotice { padding: 15px 17px; margin-bottom: 14px; border: 1px solid #e0d4b7; border-radius: 9px; background: #fbf6e8; }
+.requirementStandardNotice strong { color: #6e5a31; font-size: .78rem; }
+.requirementStandardNotice p { margin: 5px 0 0; color: #776a4d; font-size: .68rem; }
+.requirementStandardTabs { display: flex; gap: 5px; padding: 5px; border: 1px solid #dae2de; border-radius: 9px; background: #fff; }
+.requirementStandardTabs button { flex: 1; min-height: 38px; border: 0; border-radius: 6px; color: #65716b; background: transparent; font-weight: 800; }
+.requirementStandardTabs button.active { color: #245e45; background: #eaf4ef; }
+.requirementStandardWorkspace { display: grid; grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr); gap: 15px; margin-top: 14px; }
+.requirementStandardWorkspace > form, .requirementStandardList { padding: 18px; border: 1px solid #dce3df; border-radius: 10px; background: #fff; }
+.requirementStandardWorkspace h2 { margin: 0 0 14px; color: #34443d; font-size: .84rem; }
+.requirementStandardWorkspace h2 small { color: #7c8782; }
+.requirementStandardWorkspace form { display: grid; align-content: start; gap: 12px; }
+.requirementStandardWorkspace form label { display: grid; gap: 6px; color: #53615a; font-size: .68rem; font-weight: 800; }
+.requirementStandardWorkspace form input, .requirementStandardWorkspace form select, .requirementStandardWorkspace form textarea { width: 100%; min-height: 39px; padding: 8px 9px; border: 1px solid #cfd8d4; border-radius: 7px; font: inherit; }
+.requirementStandardWorkspace form textarea { min-height: 86px; resize: vertical; }
+.requirementStandardWorkspace form > button { min-height: 39px; border: 0; border-radius: 7px; color: #fff; background: #286f52; font-weight: 850; }
+.requirementStandardList { display: grid; align-content: start; gap: 8px; }
+.requirementStandardList > p { margin: 0; padding: 24px; color: #7b8781; background: #f5f7f6; text-align: center; }
+.requirementStandardList article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #e0e6e3; border-radius: 8px; }
+.requirementStandardList article strong { display: block; color: #35453d; font-size: .75rem; }
+.requirementStandardList article span { display: block; margin-top: 3px; color: #7a8680; font-size: .61rem; }
+.requirementStandardList article p { margin: 5px 0 0; color: #67736d; font-size: .64rem; }
+.requirementStandardList article button { padding: 7px 9px; border: 1px solid #c6d6ce; border-radius: 6px; color: #35634e; background: #fff; font-size: .62rem; font-weight: 800; }
 
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
@@ -539,4 +608,8 @@
   .pricePolicyOverview { align-items: stretch; flex-direction: column; }
   .pricePolicyGrid { grid-template-columns: 1fr; }
   .pricePolicyExtraForm { grid-template-columns: 1fr; }
+  .providerRequirementHeading { align-items: stretch; flex-direction: column; }
+  .providerRequirementGrid { grid-template-columns: 1fr; }
+  .requirementStandardWorkspace { grid-template-columns: 1fr; }
+  .structuredRequirementControls, .structuredRequirementAdd { grid-template-columns: 1fr; align-items: stretch; }
 }
