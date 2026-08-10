@@ -351,12 +351,27 @@ public sealed class AfterServiceCase
     public long TransactionId { get; set; }
     public long CustomerProfileId { get; set; }
     public long ProviderProfileId { get; set; }
+    public long? ReportedByUserId { get; set; }
+    public long? AssignedAdminUserId { get; set; }
     public string StatusCode { get; set; } = "RECEIVED";
     public string Subject { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string? RequestDetails { get; set; }
     public DateTime ReceivedAt { get; set; }
+    public DateOnly? WarrantyStartDate { get; set; }
+    public DateOnly? WarrantyEndDate { get; set; }
+    public bool? IsWithinWarranty { get; set; }
+    public DateTime? DueAt { get; set; }
+    public DateTime? ProviderConfirmedAt { get; set; }
+    public string? ProviderResponseText { get; set; }
+    public bool? VisitRequired { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public DateTime? LastActionAt { get; set; }
+    public string? ResolutionSummary { get; set; }
+    public string? UnresolvedReason { get; set; }
+    public bool? RecurrenceOccurred { get; set; }
+    public DateTime? ConvertedToDisputeAt { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
@@ -371,7 +386,16 @@ public sealed class AfterServiceAction
     public long AfterServiceCaseId { get; set; }
     public string? FromStatusCode { get; set; }
     public string ToStatusCode { get; set; } = string.Empty;
+    public string ActionTypeCode { get; set; } = "STATE_CHANGE";
     public string? ActionNote { get; set; }
+    public string? Reason { get; set; }
+    public DateTime? ScheduledAt { get; set; }
+    public DateTime? PerformedAt { get; set; }
+    public long? ProviderProfileId { get; set; }
+    public bool VisitOccurred { get; set; }
+    public string? MaterialsText { get; set; }
+    public string? ResultText { get; set; }
+    public bool? RecurrenceOccurred { get; set; }
     public DateTime OccurredAt { get; set; }
     public long? ActorUserId { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;

@@ -66,6 +66,10 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<AfterServiceCase> AfterServiceCases => Set<AfterServiceCase>();
     public DbSet<AfterServiceAction> AfterServiceActions => Set<AfterServiceAction>();
     public DbSet<AfterServiceFile> AfterServiceFiles => Set<AfterServiceFile>();
+    public DbSet<DisputeCase> DisputeCases => Set<DisputeCase>();
+    public DbSet<DisputeEvidence> DisputeEvidence => Set<DisputeEvidence>();
+    public DbSet<DisputeAction> DisputeActions => Set<DisputeAction>();
+    public DbSet<DisputeResolution> DisputeResolutions => Set<DisputeResolution>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<AdvertisingPlacement> AdvertisingPlacements => Set<AdvertisingPlacement>();

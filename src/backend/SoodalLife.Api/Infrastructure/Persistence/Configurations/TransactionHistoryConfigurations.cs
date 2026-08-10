@@ -298,27 +298,48 @@ internal sealed class AfterServiceCaseConfiguration() : EntityConfiguration<Afte
         Mapping.Long(b, nameof(AfterServiceCase.TransactionId), "transaction_id");
         Mapping.Long(b, nameof(AfterServiceCase.CustomerProfileId), "customer_profile_id");
         Mapping.Long(b, nameof(AfterServiceCase.ProviderProfileId), "provider_profile_id");
+        Mapping.NullableLong(b, nameof(AfterServiceCase.ReportedByUserId), "reported_by_user_id");
+        Mapping.NullableLong(b, nameof(AfterServiceCase.AssignedAdminUserId), "assigned_admin_user_id");
         Mapping.String(b, nameof(AfterServiceCase.StatusCode), "status_code", 20, unicode: false, defaultValue: "RECEIVED");
         Mapping.String(b, nameof(AfterServiceCase.Subject), "subject", 200);
         Mapping.String(b, nameof(AfterServiceCase.Description), "description", null);
+        Mapping.String(b, nameof(AfterServiceCase.RequestDetails), "request_details", 2000, nullable: true);
         Mapping.DateTime(b, nameof(AfterServiceCase.ReceivedAt), "received_at", utcDefault: true);
+        Mapping.Date(b, nameof(AfterServiceCase.WarrantyStartDate), "warranty_start_date", nullable: true);
+        Mapping.Date(b, nameof(AfterServiceCase.WarrantyEndDate), "warranty_end_date", nullable: true);
+        b.Property<bool?>(nameof(AfterServiceCase.IsWithinWarranty)).HasColumnName("is_within_warranty").HasColumnType("bit").IsRequired(false);
+        Mapping.DateTime(b, nameof(AfterServiceCase.DueAt), "due_at", nullable: true);
+        Mapping.DateTime(b, nameof(AfterServiceCase.ProviderConfirmedAt), "provider_confirmed_at", nullable: true);
+        Mapping.String(b, nameof(AfterServiceCase.ProviderResponseText), "provider_response_text", 2000, nullable: true);
+        b.Property<bool?>(nameof(AfterServiceCase.VisitRequired)).HasColumnName("visit_required").HasColumnType("bit").IsRequired(false);
         Mapping.DateTime(b, nameof(AfterServiceCase.StartedAt), "started_at", nullable: true);
         Mapping.DateTime(b, nameof(AfterServiceCase.CompletedAt), "completed_at", nullable: true);
+        Mapping.DateTime(b, nameof(AfterServiceCase.LastActionAt), "last_action_at", nullable: true);
+        Mapping.String(b, nameof(AfterServiceCase.ResolutionSummary), "resolution_summary", 2000, nullable: true);
+        Mapping.String(b, nameof(AfterServiceCase.UnresolvedReason), "unresolved_reason", 2000, nullable: true);
+        b.Property<bool?>(nameof(AfterServiceCase.RecurrenceOccurred)).HasColumnName("recurrence_occurred").HasColumnType("bit").IsRequired(false);
+        Mapping.DateTime(b, nameof(AfterServiceCase.ConvertedToDisputeAt), "converted_to_dispute_at", nullable: true);
         Mapping.String(b, nameof(AfterServiceCase.IdempotencyKey), "idempotency_key", 100, unicode: false);
         Mapping.FullAudit(b);
         Mapping.Fk<AfterServiceCase, TransactionRecord>(b, nameof(AfterServiceCase.TransactionId));
         Mapping.Fk<AfterServiceCase, CustomerProfile>(b, nameof(AfterServiceCase.CustomerProfileId));
         Mapping.Fk<AfterServiceCase, ProviderProfile>(b, nameof(AfterServiceCase.ProviderProfileId));
+        Mapping.Fk<AfterServiceCase, User>(b, nameof(AfterServiceCase.ReportedByUserId));
+        Mapping.Fk<AfterServiceCase, User>(b, nameof(AfterServiceCase.AssignedAdminUserId));
         b.HasIndex(x => x.TransactionId);
         b.HasIndex(x => x.CustomerProfileId);
         b.HasIndex(x => x.ProviderProfileId);
+        b.HasIndex(x => x.ReportedByUserId);
+        b.HasIndex(x => x.AssignedAdminUserId);
         b.HasIndex(x => x.StatusCode);
         b.HasIndex(x => x.ReceivedAt);
         b.HasIndex(x => x.CompletedAt);
         b.HasIndex(x => x.IdempotencyKey).IsUnique();
         b.HasIndex(x => new { x.TransactionId, x.ReceivedAt }).IsDescending(false, true);
         b.HasIndex(x => new { x.ProviderProfileId, x.StatusCode, x.ReceivedAt });
-        b.ToTable("after_service_cases", t => t.HasCheckConstraint("CK_after_service_cases_status", "[status_code] IN ('RECEIVED','IN_PROGRESS','COMPLETED')"));
+        b.HasIndex(x => x.DueAt);
+        b.HasIndex(x => x.LastActionAt);
+        b.ToTable("after_service_cases", t => t.HasCheckConstraint("CK_after_service_cases_status", "[status_code] IN ('RECEIVED','PROVIDER_CONFIRMED','VISIT_SCHEDULED','IN_PROGRESS','RESOLVED','UNRESOLVED_CLOSED','CONVERTED_TO_DISPUTE')"));
     }
 }
 
@@ -329,22 +350,35 @@ internal sealed class AfterServiceActionConfiguration() : EntityConfiguration<Af
         Mapping.Long(b, nameof(AfterServiceAction.AfterServiceCaseId), "after_service_case_id");
         Mapping.String(b, nameof(AfterServiceAction.FromStatusCode), "from_status_code", 20, nullable: true, unicode: false);
         Mapping.String(b, nameof(AfterServiceAction.ToStatusCode), "to_status_code", 20, unicode: false);
+        Mapping.String(b, nameof(AfterServiceAction.ActionTypeCode), "action_type_code", 30, unicode: false, defaultValue: "STATE_CHANGE");
         Mapping.String(b, nameof(AfterServiceAction.ActionNote), "action_note", 2000, nullable: true);
+        Mapping.String(b, nameof(AfterServiceAction.Reason), "reason", 1000, nullable: true);
+        Mapping.DateTime(b, nameof(AfterServiceAction.ScheduledAt), "scheduled_at", nullable: true);
+        Mapping.DateTime(b, nameof(AfterServiceAction.PerformedAt), "performed_at", nullable: true);
+        Mapping.NullableLong(b, nameof(AfterServiceAction.ProviderProfileId), "provider_profile_id");
+        Mapping.Bool(b, nameof(AfterServiceAction.VisitOccurred), "visit_occurred", false);
+        Mapping.String(b, nameof(AfterServiceAction.MaterialsText), "materials_text", 2000, nullable: true);
+        Mapping.String(b, nameof(AfterServiceAction.ResultText), "result_text", 2000, nullable: true);
+        b.Property<bool?>(nameof(AfterServiceAction.RecurrenceOccurred)).HasColumnName("recurrence_occurred").HasColumnType("bit").IsRequired(false);
         Mapping.DateTime(b, nameof(AfterServiceAction.OccurredAt), "occurred_at", utcDefault: true);
         Mapping.NullableLong(b, nameof(AfterServiceAction.ActorUserId), "actor_user_id");
         Mapping.String(b, nameof(AfterServiceAction.IdempotencyKey), "idempotency_key", 100, unicode: false);
         Mapping.Fk<AfterServiceAction, AfterServiceCase>(b, nameof(AfterServiceAction.AfterServiceCaseId));
         Mapping.Fk<AfterServiceAction, User>(b, nameof(AfterServiceAction.ActorUserId));
+        Mapping.Fk<AfterServiceAction, ProviderProfile>(b, nameof(AfterServiceAction.ProviderProfileId));
         b.HasIndex(x => x.AfterServiceCaseId);
         b.HasIndex(x => x.ToStatusCode);
         b.HasIndex(x => x.OccurredAt);
         b.HasIndex(x => x.ActorUserId);
+        b.HasIndex(x => x.ProviderProfileId);
+        b.HasIndex(x => x.ActionTypeCode);
         b.HasIndex(x => x.IdempotencyKey).IsUnique();
         b.HasIndex(x => new { x.AfterServiceCaseId, x.OccurredAt });
         b.ToTable("after_service_actions", t =>
         {
-            t.HasCheckConstraint("CK_after_service_actions_from_status", "[from_status_code] IS NULL OR [from_status_code] IN ('RECEIVED','IN_PROGRESS','COMPLETED')");
-            t.HasCheckConstraint("CK_after_service_actions_to_status", "[to_status_code] IN ('RECEIVED','IN_PROGRESS','COMPLETED')");
+            t.HasCheckConstraint("CK_after_service_actions_from_status", "[from_status_code] IS NULL OR [from_status_code] IN ('RECEIVED','PROVIDER_CONFIRMED','VISIT_SCHEDULED','IN_PROGRESS','RESOLVED','UNRESOLVED_CLOSED','CONVERTED_TO_DISPUTE')");
+            t.HasCheckConstraint("CK_after_service_actions_to_status", "[to_status_code] IN ('RECEIVED','PROVIDER_CONFIRMED','VISIT_SCHEDULED','IN_PROGRESS','RESOLVED','UNRESOLVED_CLOSED','CONVERTED_TO_DISPUTE')");
+            t.HasCheckConstraint("CK_after_service_actions_type", "[action_type_code] IN ('RECEIVED','PROVIDER_CONFIRMATION','VISIT_SCHEDULED','VISIT','REVISIT','TREATMENT','STATE_CHANGE','RESOLUTION','UNRESOLVED_CLOSURE','DISPUTE_CONVERSION','ADMIN_OVERRIDE')");
         });
     }
 }
