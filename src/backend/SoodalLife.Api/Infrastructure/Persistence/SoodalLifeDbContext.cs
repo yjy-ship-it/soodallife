@@ -83,6 +83,9 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ManagedContentVersion> ManagedContentVersions => Set<ManagedContentVersion>();
     public DbSet<ManagedContentCategory> ManagedContentCategories => Set<ManagedContentCategory>();
     public DbSet<ManagedContentArea> ManagedContentAreas => Set<ManagedContentArea>();
+    public DbSet<TrustPolicy> TrustPolicies => Set<TrustPolicy>();
+    public DbSet<ProviderTrustScoreCurrent> ProviderTrustScoreCurrent => Set<ProviderTrustScoreCurrent>();
+    public DbSet<TrustScoreEvent> TrustScoreEvents => Set<TrustScoreEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,12 +95,14 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         EnsureWalletLedgerIsAppendOnly();
+        EnsureTrustScoreEventsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         EnsureWalletLedgerIsAppendOnly();
+        EnsureTrustScoreEventsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -105,5 +110,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<WalletLedgerEntry>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Wallet 원장은 수정하거나 삭제할 수 없습니다. 반대 방향의 새 원장 항목을 생성해 주세요.");
+    }
+
+    private void EnsureTrustScoreEventsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<TrustScoreEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("신뢰도 변경이력은 수정하거나 삭제할 수 없습니다. 정정이 필요하면 별도의 변경이력을 추가해 주세요.");
     }
 }
