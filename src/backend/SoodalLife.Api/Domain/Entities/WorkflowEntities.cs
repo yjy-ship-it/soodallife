@@ -94,13 +94,31 @@ public sealed class Notification
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public long RecipientUserId { get; set; }
     public long? RequestDispatchId { get; set; }
+    public long? TemplateId { get; set; }
+    public long? ServiceRequestId { get; set; }
+    public long? QuoteId { get; set; }
+    public long? TransactionId { get; set; }
+    public long? AfterServiceCaseId { get; set; }
+    public long? DisputeCaseId { get; set; }
+    public long? ReviewId { get; set; }
+    public long? SanctionId { get; set; }
+    public long? SubscriptionContractId { get; set; }
+    public long? SubscriptionVisitScheduleId { get; set; }
+    public long? InteriorProjectId { get; set; }
     public string TypeCode { get; set; } = string.Empty;
+    public string PriorityCode { get; set; } = "NORMAL";
+    public string? SourceTypeCode { get; set; }
+    public Guid? SourcePublicId { get; set; }
+    public string? TargetTypeCode { get; set; }
+    public Guid? TargetPublicId { get; set; }
+    public string? TemplateCodeSnapshot { get; set; }
     public string StatusCode { get; set; } = "PENDING";
     public string Title { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public string? DataJson { get; set; }
     public bool IsUrgent { get; set; }
     public DateTime RecordedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
     public DateTime? ReadAt { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public long? CreatedByUserId { get; set; }
@@ -110,13 +128,24 @@ public sealed class Notification
 public sealed class NotificationDelivery
 {
     public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
     public long NotificationId { get; set; }
+    public long? NotificationRecipientId { get; set; }
     public string ChannelCode { get; set; } = string.Empty;
     public short AttemptNo { get; set; } = 1;
     public string StatusCode { get; set; } = "PENDING";
     public string? ProviderMessageId { get; set; }
     public string? ErrorCode { get; set; }
     public string? ErrorMessage { get; set; }
+    public DateTime? ScheduledAt { get; set; }
+    public DateTime? SentAt { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+    public DateTime? FailedAt { get; set; }
+    public string? ExternalProviderCode { get; set; }
+    public int RetryCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public DateTime AttemptedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 }

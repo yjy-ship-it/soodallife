@@ -1,0 +1,3 @@
+export interface NotificationSummary{createdToday:number;pending:number;sentOrDelivered:number;failed:number;webUnread:number}
+export interface NotificationTemplate{id:string;templateCode:string;name:string;description:string|null;audienceTypeCode:string;eventTypeCode:string;channelCode:string;titleTemplate:string;bodyTemplate:string;variables:string[];isRequiredBusinessNotice:boolean;isMarketing:boolean;isActive:boolean;effectiveFrom:string|null;effectiveTo:string|null;rowVersion:string}
+export interface NotificationDelivery{id:string;recipient:string;recipientRole:string;channelCode:string;eventTypeCode:string;statusCode:string;scheduledAt:string|null;createdAt:string;failureCode:string|null;failureReason:string|null;retryCount:number;lastAttemptAt:string|null}

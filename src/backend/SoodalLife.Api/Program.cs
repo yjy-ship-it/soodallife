@@ -14,6 +14,7 @@ using SoodalLife.Api.Features.Quotes;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Features.Subscriptions;
 using SoodalLife.Api.Features.Interior;
+using SoodalLife.Api.Features.Notifications;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
@@ -66,6 +67,9 @@ builder.Services.AddScoped<CareSubscriptionService>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();
 builder.Services.AddScoped<InteriorProjectService>();
+builder.Services.AddScoped<NotificationManagementService>();
+builder.Services.AddSingleton<INotificationChannelSender,WebNotificationChannelSender>();
+builder.Services.AddSingleton<INotificationChannelSender,UnavailableExternalNotificationChannelSender>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)

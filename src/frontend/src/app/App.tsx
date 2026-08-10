@@ -23,6 +23,7 @@ import { AdminReviewsPage } from '../admin/AdminReviewsPage'
 import { AdminCaseManagementPage } from '../admin/AdminCaseManagementPage'
 import { AdminSubscriptionsPage } from '../admin/AdminSubscriptionsPage'
 import { AdminInteriorPage } from '../admin/AdminInteriorPage'
+import { AdminNotificationsPage } from '../admin/AdminNotificationsPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -113,6 +114,7 @@ function ApplicationRoutes() {
     if (pathname === '/admin/subscriptions') return <AdminSubscriptionsPage pathname={pathname} />
     if (pathname === '/admin/interior') return <AdminInteriorPage pathname={pathname} />
     if (adminInteriorMatch) return <AdminInteriorPage pathname={pathname} projectId={adminInteriorMatch[1]} />
+    if (pathname === '/admin/notifications') return <AdminNotificationsPage pathname={pathname} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

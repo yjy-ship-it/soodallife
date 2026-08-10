@@ -51,6 +51,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<RequestDispatch> RequestDispatches => Set<RequestDispatch>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<NotificationRecipient> NotificationRecipients => Set<NotificationRecipient>();
+    public DbSet<NotificationDeliveryAttempt> NotificationDeliveryAttempts => Set<NotificationDeliveryAttempt>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<NotificationEvent> NotificationEvents => Set<NotificationEvent>();
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<QuoteRevision> QuoteRevisions => Set<QuoteRevision>();
     public DbSet<QuoteItem> QuoteItems => Set<QuoteItem>();
@@ -153,6 +158,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSubscriptionEventsAreAppendOnly();
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
         EnsureInteriorProjectEventsAreAppendOnly();
+        EnsureNotificationHistoryIsAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -164,6 +170,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSubscriptionEventsAreAppendOnly();
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
         EnsureInteriorProjectEventsAreAppendOnly();
+        EnsureNotificationHistoryIsAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -203,5 +210,13 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<InteriorProjectEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("인테리어 프로젝트 이벤트는 수정하거나 삭제할 수 없습니다. 정정이 필요하면 새 이벤트를 추가해 주세요.");
+    }
+
+    private void EnsureNotificationHistoryIsAppendOnly()
+    {
+        if (ChangeTracker.Entries<NotificationEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("알림 이벤트는 수정하거나 삭제할 수 없습니다. 정정이 필요하면 새 이벤트를 추가해 주세요.");
+        if (ChangeTracker.Entries<NotificationDeliveryAttempt>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("알림 발송 시도 이력은 수정하거나 삭제할 수 없습니다. 재시도는 새 이력으로 기록해 주세요.");
     }
 }

@@ -156,19 +156,48 @@ internal sealed class NotificationConfiguration() : EntityConfiguration<Notifica
         Mapping.PublicId(b);
         Mapping.Long(b, nameof(Notification.RecipientUserId), "recipient_user_id");
         Mapping.NullableLong(b, nameof(Notification.RequestDispatchId), "request_dispatch_id");
+        Mapping.NullableLong(b, nameof(Notification.TemplateId), "template_id");
+        Mapping.NullableLong(b, nameof(Notification.ServiceRequestId), "service_request_id");
+        Mapping.NullableLong(b, nameof(Notification.QuoteId), "quote_id");
+        Mapping.NullableLong(b, nameof(Notification.TransactionId), "transaction_id");
+        Mapping.NullableLong(b, nameof(Notification.AfterServiceCaseId), "after_service_case_id");
+        Mapping.NullableLong(b, nameof(Notification.DisputeCaseId), "dispute_case_id");
+        Mapping.NullableLong(b, nameof(Notification.ReviewId), "review_id");
+        Mapping.NullableLong(b, nameof(Notification.SanctionId), "sanction_id");
+        Mapping.NullableLong(b, nameof(Notification.SubscriptionContractId), "subscription_contract_id");
+        Mapping.NullableLong(b, nameof(Notification.SubscriptionVisitScheduleId), "subscription_visit_schedule_id");
+        Mapping.NullableLong(b, nameof(Notification.InteriorProjectId), "interior_project_id");
         Mapping.String(b, nameof(Notification.TypeCode), "type_code", 50, unicode: false);
+        Mapping.String(b, nameof(Notification.PriorityCode), "priority_code", 20, unicode: false, defaultValue: "NORMAL");
+        Mapping.String(b, nameof(Notification.SourceTypeCode), "source_type_code", 100, unicode: false, nullable: true);
+        Mapping.Guid(b, nameof(Notification.SourcePublicId), "source_public_id", nullable: true);
+        Mapping.String(b, nameof(Notification.TargetTypeCode), "target_type_code", 100, unicode: false, nullable: true);
+        Mapping.Guid(b, nameof(Notification.TargetPublicId), "target_public_id", nullable: true);
+        Mapping.String(b, nameof(Notification.TemplateCodeSnapshot), "template_code_snapshot", 100, unicode: false, nullable: true);
         Mapping.String(b, nameof(Notification.StatusCode), "status_code", 30, unicode: false, defaultValue: "PENDING");
         Mapping.String(b, nameof(Notification.Title), "title", 200);
         Mapping.String(b, nameof(Notification.Body), "body", 2000);
         Mapping.String(b, nameof(Notification.DataJson), "data_json", null, nullable: true);
         Mapping.Bool(b, nameof(Notification.IsUrgent), "is_urgent", false);
         Mapping.DateTime(b, nameof(Notification.RecordedAt), "recorded_at", utcDefault: true);
+        Mapping.DateTime(b, nameof(Notification.ExpiresAt), "expires_at", nullable: true);
         Mapping.DateTime(b, nameof(Notification.ReadAt), "read_at", nullable: true);
         Mapping.String(b, nameof(Notification.IdempotencyKey), "idempotency_key", 100, unicode: false);
         Mapping.NullableLong(b, nameof(Notification.CreatedByUserId), "created_by_user_id");
         Mapping.RowVersion(b);
         Mapping.Fk<Notification, User>(b, nameof(Notification.RecipientUserId));
         Mapping.Fk<Notification, RequestDispatch>(b, nameof(Notification.RequestDispatchId));
+        Mapping.Fk<Notification, NotificationTemplate>(b, nameof(Notification.TemplateId));
+        Mapping.Fk<Notification, ServiceRequest>(b, nameof(Notification.ServiceRequestId));
+        Mapping.Fk<Notification, Quote>(b, nameof(Notification.QuoteId));
+        Mapping.Fk<Notification, TransactionRecord>(b, nameof(Notification.TransactionId));
+        Mapping.Fk<Notification, AfterServiceCase>(b, nameof(Notification.AfterServiceCaseId));
+        Mapping.Fk<Notification, DisputeCase>(b, nameof(Notification.DisputeCaseId));
+        Mapping.Fk<Notification, Review>(b, nameof(Notification.ReviewId));
+        Mapping.Fk<Notification, Sanction>(b, nameof(Notification.SanctionId));
+        Mapping.Fk<Notification, SubscriptionContract>(b, nameof(Notification.SubscriptionContractId));
+        Mapping.Fk<Notification, SubscriptionVisitSchedule>(b, nameof(Notification.SubscriptionVisitScheduleId));
+        Mapping.Fk<Notification, InteriorProject>(b, nameof(Notification.InteriorProjectId));
         Mapping.Fk<Notification, User>(b, nameof(Notification.CreatedByUserId));
         b.HasIndex(x => x.RecipientUserId);
         b.HasIndex(x => x.RequestDispatchId);
@@ -191,16 +220,28 @@ internal sealed class NotificationDeliveryConfiguration() : EntityConfiguration<
 {
     protected override void ConfigureEntity(EntityTypeBuilder<NotificationDelivery> b)
     {
+        Mapping.PublicId(b);
         Mapping.Long(b, nameof(NotificationDelivery.NotificationId), "notification_id");
+        Mapping.NullableLong(b, nameof(NotificationDelivery.NotificationRecipientId), "notification_recipient_id");
         Mapping.String(b, nameof(NotificationDelivery.ChannelCode), "channel_code", 20, unicode: false);
         Mapping.Short(b, nameof(NotificationDelivery.AttemptNo), "attempt_no", 1);
         Mapping.String(b, nameof(NotificationDelivery.StatusCode), "status_code", 20, unicode: false, defaultValue: "PENDING");
         Mapping.String(b, nameof(NotificationDelivery.ProviderMessageId), "provider_message_id", 200, nullable: true);
         Mapping.String(b, nameof(NotificationDelivery.ErrorCode), "error_code", 100, nullable: true);
         Mapping.String(b, nameof(NotificationDelivery.ErrorMessage), "error_message", 1000, nullable: true);
+        Mapping.DateTime(b, nameof(NotificationDelivery.ScheduledAt), "scheduled_at", nullable: true);
+        Mapping.DateTime(b, nameof(NotificationDelivery.SentAt), "sent_at", nullable: true);
+        Mapping.DateTime(b, nameof(NotificationDelivery.DeliveredAt), "delivered_at", nullable: true);
+        Mapping.DateTime(b, nameof(NotificationDelivery.FailedAt), "failed_at", nullable: true);
+        Mapping.String(b, nameof(NotificationDelivery.ExternalProviderCode), "external_provider_code", 50, unicode: false, nullable: true);
+        Mapping.Int(b, nameof(NotificationDelivery.RetryCount), "retry_count", 0);
+        Mapping.DateTime(b, nameof(NotificationDelivery.CreatedAt), "created_at", utcDefault: true);
+        Mapping.DateTime(b, nameof(NotificationDelivery.UpdatedAt), "updated_at", utcDefault: true);
         Mapping.DateTime(b, nameof(NotificationDelivery.AttemptedAt), "attempted_at", utcDefault: true);
         Mapping.DateTime(b, nameof(NotificationDelivery.CompletedAt), "completed_at", nullable: true);
         Mapping.Fk<NotificationDelivery, Notification>(b, nameof(NotificationDelivery.NotificationId));
+        Mapping.Fk<NotificationDelivery, NotificationRecipient>(b, nameof(NotificationDelivery.NotificationRecipientId));
+        Mapping.RowVersion(b);
         b.HasIndex(x => x.NotificationId);
         b.HasIndex(x => x.ChannelCode);
         b.HasIndex(x => x.StatusCode);
@@ -209,8 +250,8 @@ internal sealed class NotificationDeliveryConfiguration() : EntityConfiguration<
         b.HasIndex(x => new { x.NotificationId, x.ChannelCode, x.AttemptNo }).IsUnique();
         b.ToTable("notification_deliveries", t =>
         {
-            t.HasCheckConstraint("CK_notification_deliveries_channel", "[channel_code] IN ('IN_APP','ALIMTALK')");
-            t.HasCheckConstraint("CK_notification_deliveries_status", "[status_code] IN ('PENDING','SENT','FAILED','SKIPPED')");
+            t.HasCheckConstraint("CK_notification_deliveries_channel", "[channel_code] IN ('WEB','IN_APP','KAKAO','ALIMTALK','SMS','EMAIL','PUSH')");
+            t.HasCheckConstraint("CK_notification_deliveries_status", "[status_code] IN ('PENDING','PROCESSING','SENT','DELIVERED','FAILED','CANCELLED','SKIPPED')");
         });
     }
 }

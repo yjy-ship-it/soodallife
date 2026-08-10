@@ -110,35 +110,21 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
             foreach (var dispatch in dispatches.Where(item => item.AvailableAt == now))
             {
                 var recipientUserId = providers.Single(provider => provider.Id == dispatch.ProviderProfileId).UserId;
-                var notificationKey = $"notification:dispatch:{dispatch.PublicId:N}";
-                if (await dbContext.Notifications.AnyAsync(item => item.IdempotencyKey == notificationKey, cancellationToken))
+                var outboxKey = $"notification-outbox:dispatch:{dispatch.PublicId:N}";
+                if (await dbContext.OutboxEvents.AnyAsync(item => item.IdempotencyKey == outboxKey, cancellationToken))
                 {
                     continue;
                 }
-
-                var notification = new Notification
+                dbContext.OutboxEvents.Add(new OutboxEvent
                 {
-                    RecipientUserId = recipientUserId,
-                    RequestDispatchId = dispatch.Id,
-                    TypeCode = "REQUEST_DISPATCHED",
-                    StatusCode = "RECORDED",
-                    Title = "새 서비스 요청이 도착했습니다.",
-                    Body = "등록한 서비스와 출장지역에 일치하는 요청을 확인해 주세요.",
-                    DataJson = JsonSerializer.Serialize(new { requestId = request.PublicId, dispatchId = dispatch.PublicId }),
-                    IsUrgent = request.IsUrgent,
-                    RecordedAt = now,
-                    IdempotencyKey = notificationKey,
-                };
-                dbContext.Notifications.Add(notification);
-                await dbContext.SaveChangesAsync(cancellationToken);
-                dbContext.NotificationDeliveries.Add(new NotificationDelivery
-                {
-                    NotificationId = notification.Id,
-                    ChannelCode = "IN_APP",
-                    AttemptNo = 1,
-                    StatusCode = "SENT",
-                    AttemptedAt = now,
-                    CompletedAt = now,
+                    AggregateType = "RequestDispatch",
+                    AggregatePublicId = dispatch.PublicId,
+                    EventType = "REQUEST_DISPATCHED",
+                    PayloadJson = JsonSerializer.Serialize(new { recipientUserId, request_no = request.PublicId.ToString("N")[..10].ToUpperInvariant(), source_no = dispatch.PublicId.ToString("N")[..10].ToUpperInvariant() }),
+                    StatusCode = "PENDING",
+                    OccurredAt = now,
+                    AvailableAt = now,
+                    IdempotencyKey = outboxKey,
                 });
             }
 
