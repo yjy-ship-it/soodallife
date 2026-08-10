@@ -17,6 +17,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<CategoryCompletionPhotoRequirement> CategoryCompletionPhotoRequirements => Set<CategoryCompletionPhotoRequirement>();
     public DbSet<CategoryFieldDefinition> CategoryFieldDefinitions => Set<CategoryFieldDefinition>();
     public DbSet<CategoryFieldAssignment> CategoryFieldAssignments => Set<CategoryFieldAssignment>();
+    public DbSet<CategoryFieldOption> CategoryFieldOptions => Set<CategoryFieldOption>();
     public DbSet<FeePolicy> FeePolicies => Set<FeePolicy>();
     public DbSet<QualificationPolicy> QualificationPolicies => Set<QualificationPolicy>();
     public DbSet<AdministrativeArea> AdministrativeAreas => Set<AdministrativeArea>();

@@ -82,26 +82,37 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             return null;
         }
 
-        var fields = await (
+        var assignedFields = await (
                 from assignment in dbContext.CategoryFieldAssignments.AsNoTracking()
                 join field in dbContext.CategoryFieldDefinitions.AsNoTracking() on assignment.FieldDefinitionId equals field.Id
                 where assignment.IsActive && field.StatusCode == "ACTIVE" &&
-                      (assignment.TargetCategoryId == service.Id || assignment.TargetCategoryId == service.ParentId)
-                orderby field.DisplayOrder, field.Id
-                select field)
+                      (assignment.TargetCategoryId == service.Id ||
+                       (assignment.TargetCategoryId == service.ParentId &&
+                        !dbContext.CategoryFieldAssignments.Any(serviceOverride =>
+                            serviceOverride.FieldDefinitionId == field.Id &&
+                            serviceOverride.TargetCategoryId == service.Id)))
+                orderby assignment.DisplayOrder, assignment.Id
+                select new { Field = field, Assignment = assignment })
             .ToListAsync(cancellationToken);
 
-        return fields.Select(field => new RequestFieldResponse(
-            field.PublicId,
-            field.FieldKey,
-            field.Label,
-            field.FieldTypeCode,
-            field.IsRequired,
+        var fieldIds = assignedFields.Select(item => item.Field.Id).ToArray();
+        var options = await dbContext.CategoryFieldOptions.AsNoTracking()
+            .Where(option => fieldIds.Contains(option.FieldDefinitionId) && option.IsActive)
+            .OrderBy(option => option.DisplayOrder)
+            .ThenBy(option => option.Id)
+            .ToListAsync(cancellationToken);
+
+        return assignedFields.Select(item => new RequestFieldResponse(
+            item.Field.PublicId,
+            item.Field.FieldKey,
+            item.Field.Label,
+            item.Field.FieldTypeCode,
+            item.Assignment.IsRequired,
             null,
-            ParseOptions(field.FieldTypeCode, field.OptionsOrUnitText),
-            field.OptionsOrUnitText,
-            field.ValidationRuleText,
-            field.DisplayOrder)).ToArray();
+            options.Where(option => option.FieldDefinitionId == item.Field.Id).Select(option => option.Value).ToArray(),
+            item.Field.UnitText,
+            item.Field.ValidationRuleText,
+            item.Assignment.DisplayOrder)).ToArray();
     }
 
     public Task<List<AdministrativeAreaResponse>> GetActiveSidoAsync(CancellationToken cancellationToken) =>

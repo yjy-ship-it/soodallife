@@ -143,6 +143,7 @@ internal sealed class CategoryFieldDefinitionConfiguration() : EntityConfigurati
         Mapping.String(b, nameof(CategoryFieldDefinition.FieldTypeCode), "field_type_code", 20, unicode: false);
         Mapping.Bool(b, nameof(CategoryFieldDefinition.IsRequired), "is_required", false);
         Mapping.String(b, nameof(CategoryFieldDefinition.OptionsOrUnitText), "options_or_unit_text", 2000, nullable: true);
+        Mapping.String(b, nameof(CategoryFieldDefinition.UnitText), "unit_text", 2000, nullable: true);
         Mapping.String(b, nameof(CategoryFieldDefinition.ProviderVisibilityCode), "provider_visibility_code", 20, unicode: false, defaultValue: "FULL");
         Mapping.String(b, nameof(CategoryFieldDefinition.PreAcceptMaskingCode), "pre_accept_masking_code", 30, unicode: false, defaultValue: "NONE");
         Mapping.String(b, nameof(CategoryFieldDefinition.ValidationRuleText), "validation_rule_text", 1000);
@@ -173,6 +174,8 @@ internal sealed class CategoryFieldAssignmentConfiguration() : EntityConfigurati
         Mapping.Long(b, nameof(CategoryFieldAssignment.FieldDefinitionId), "field_definition_id");
         Mapping.Long(b, nameof(CategoryFieldAssignment.TargetCategoryId), "target_category_id");
         Mapping.String(b, nameof(CategoryFieldAssignment.ScopeCode), "scope_code", 20, unicode: false);
+        Mapping.Bool(b, nameof(CategoryFieldAssignment.IsRequired), "is_required", false);
+        Mapping.Int(b, nameof(CategoryFieldAssignment.DisplayOrder), "display_order", 0);
         Mapping.Bool(b, nameof(CategoryFieldAssignment.IsActive), "is_active", true);
         Mapping.FullAudit(b);
         Mapping.Fk<CategoryFieldAssignment, CategoryFieldDefinition>(b, nameof(CategoryFieldAssignment.FieldDefinitionId));
@@ -180,8 +183,33 @@ internal sealed class CategoryFieldAssignmentConfiguration() : EntityConfigurati
         b.HasIndex(x => x.FieldDefinitionId);
         b.HasIndex(x => x.TargetCategoryId);
         b.HasIndex(x => x.IsActive);
+        b.HasIndex(x => new { x.TargetCategoryId, x.IsActive, x.DisplayOrder });
         b.HasIndex(x => new { x.FieldDefinitionId, x.TargetCategoryId }).IsUnique();
-        b.ToTable("category_field_assignments", t => t.HasCheckConstraint("CK_category_field_assignments_scope", "[scope_code] IN ('MIDDLE','SERVICE')"));
+        b.ToTable("category_field_assignments", t =>
+        {
+            t.HasCheckConstraint("CK_category_field_assignments_scope", "[scope_code] IN ('MIDDLE','SERVICE')");
+            t.HasCheckConstraint("CK_category_field_assignments_display_order", "[display_order] >= 0");
+        });
+    }
+}
+
+internal sealed class CategoryFieldOptionConfiguration() : EntityConfiguration<CategoryFieldOption>("category_field_options")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryFieldOption> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryFieldOption.FieldDefinitionId), "field_definition_id");
+        Mapping.String(b, nameof(CategoryFieldOption.Value), "value", 450);
+        Mapping.String(b, nameof(CategoryFieldOption.Label), "label", 1000);
+        Mapping.Int(b, nameof(CategoryFieldOption.DisplayOrder), "display_order", 0);
+        Mapping.Bool(b, nameof(CategoryFieldOption.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryFieldOption, CategoryFieldDefinition>(b, nameof(CategoryFieldOption.FieldDefinitionId));
+        b.HasIndex(x => new { x.FieldDefinitionId, x.Value }).IsUnique();
+        b.HasIndex(x => new { x.FieldDefinitionId, x.DisplayOrder });
+        b.HasIndex(x => new { x.FieldDefinitionId, x.IsActive, x.DisplayOrder });
+        b.ToTable("category_field_options", t =>
+            t.HasCheckConstraint("CK_category_field_options_display_order", "[display_order] >= 0"));
     }
 }
 

@@ -45,13 +45,26 @@ public sealed class CustomerServiceRequestService(
             throw Validation("SERVICE_AREA_INVALID", "사용 가능한 시·군·구를 선택해 주세요.", "administrativeAreaId");
         }
 
-        var fields = await (
+        var assignedFields = await (
                 from assignment in dbContext.CategoryFieldAssignments
                 join field in dbContext.CategoryFieldDefinitions on assignment.FieldDefinitionId equals field.Id
                 where assignment.IsActive && field.StatusCode == "ACTIVE" &&
-                      (assignment.TargetCategoryId == category.Id || assignment.TargetCategoryId == category.ParentId)
-                select field)
+                      (assignment.TargetCategoryId == category.Id ||
+                       (assignment.TargetCategoryId == category.ParentId &&
+                        !dbContext.CategoryFieldAssignments.Any(serviceOverride =>
+                            serviceOverride.FieldDefinitionId == field.Id &&
+                            serviceOverride.TargetCategoryId == category.Id)))
+                select new { Field = field, Assignment = assignment })
             .ToListAsync(cancellationToken);
+        var fields = assignedFields.Select(item => item.Field).ToList();
+        var fieldIds = fields.Select(field => field.Id).ToArray();
+        var activeOptions = await dbContext.CategoryFieldOptions.AsNoTracking()
+            .Where(option => fieldIds.Contains(option.FieldDefinitionId) && option.IsActive)
+            .Select(option => new { option.FieldDefinitionId, option.Value })
+            .ToListAsync(cancellationToken);
+        var activeOptionValues = activeOptions
+            .GroupBy(option => option.FieldDefinitionId)
+            .ToDictionary(group => group.Key, group => (IReadOnlySet<string>)group.Select(option => option.Value).ToHashSet(StringComparer.Ordinal));
         var answersByFieldId = input.Answers
             .GroupBy(answer => answer.FieldId)
             .ToDictionary(group => group.Key, group => group.ToArray());
@@ -68,12 +81,13 @@ public sealed class CustomerServiceRequestService(
 
         var normalizedAnswers = new List<RequestAnswer>();
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        foreach (var field in fields)
+        foreach (var assignedField in assignedFields)
         {
+            var field = assignedField.Field;
             var provided = answersByFieldId.GetValueOrDefault(field.PublicId)?.SingleOrDefault();
             if (provided is null || IsEmpty(provided.Value))
             {
-                if (field.IsRequired)
+                if (assignedField.Assignment.IsRequired)
                 {
                     errors[$"answers.{field.FieldKey}"] = ["필수 입력 항목입니다."];
                 }
@@ -83,7 +97,7 @@ public sealed class CustomerServiceRequestService(
 
             try
             {
-                normalizedAnswers.Add(NormalizeAnswer(field, provided.Value, identity.UserId));
+                normalizedAnswers.Add(NormalizeAnswer(field, provided.Value, identity.UserId, activeOptionValues.GetValueOrDefault(field.Id)));
             }
             catch (FormatException exception)
             {
@@ -302,7 +316,7 @@ public sealed class CustomerServiceRequestService(
         return identity ?? throw new InvalidOperationException("The authenticated CUSTOMER role has no customer profile.");
     }
 
-    private static RequestAnswer NormalizeAnswer(CategoryFieldDefinition field, JsonElement value, long userId)
+    private static RequestAnswer NormalizeAnswer(CategoryFieldDefinition field, JsonElement value, long userId, IReadOnlySet<string>? activeOptions)
     {
         var answer = new RequestAnswer { FieldDefinitionId = field.Id, CreatedByUserId = userId, UpdatedByUserId = userId };
         switch (field.FieldTypeCode)
@@ -320,8 +334,7 @@ public sealed class CustomerServiceRequestService(
             case "SELECT":
             case "RADIO":
                 answer.ValueText = RequireString(value);
-                var options = CatalogQueryService.ParseOptions(field.FieldTypeCode, field.OptionsOrUnitText);
-                if (options.Count > 0 && !options.Contains(answer.ValueText, StringComparer.Ordinal))
+                if (activeOptions is null || !activeOptions.Contains(answer.ValueText))
                 {
                     throw new FormatException("허용된 선택값을 입력해 주세요.");
                 }

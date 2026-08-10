@@ -16,6 +16,7 @@ import type {
   AdminServiceCategoryListItem,
   ServiceCategoryStatus,
 } from './serviceCategoryTypes'
+import { AdminRequestFieldsPanel } from './AdminRequestFieldsPanel'
 
 const statusLabels: Record<ServiceCategoryStatus, string> = {
   ACTIVE: '운영중',
@@ -206,13 +207,13 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
           </div>
         </div>
 
-        <aside className="categoryDetail" aria-label="서비스 상세정보">
+        <aside className={`categoryDetail ${activeTab === '고객 요청항목' ? 'requestFieldsOpen' : ''}`} aria-label="서비스 상세정보">
           {!selected ? <div className="categoryDetailEmpty"><span>서비스 선택</span><h2>관리할 서비스를 선택해 주세요.</h2><p>왼쪽 계층 목록에서 하위 서비스를 선택하면 기본정보가 표시됩니다.</p></div> : <>
             <header><div><span>{selected.majorName} › {selected.middleName}</span><h2>{selected.name}</h2></div><em className={`categoryStatus ${selected.statusCode.toLowerCase()}`}>{statusLabels[selected.statusCode]}</em></header>
             <div className="categoryTabs" role="tablist" aria-label="서비스 관리 항목">
               {detailTabs.map((tab) => <button className={activeTab === tab ? 'active' : ''} key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}
             </div>
-            {activeTab !== '기본정보' ? <div className="categoryFutureTab"><strong>{activeTab}</strong><p>다음 개발 단계에서 제공됩니다.</p></div> : (
+            {activeTab === '고객 요청항목' ? <AdminRequestFieldsPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab !== '기본정보' ? <div className="categoryFutureTab"><strong>{activeTab}</strong><p>다음 개발 단계에서 제공됩니다.</p></div> : (
               <form className="categoryEditForm" onSubmit={saveService}>
                 <div className="categoryReadOnlyRow"><span>대분류</span><strong>{selected.majorName}</strong></div>
                 <div className="categoryReadOnlyRow"><span>중분류</span><strong>{selected.middleName}</strong></div>

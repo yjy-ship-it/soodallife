@@ -191,6 +191,7 @@ public sealed class CategoryFieldDefinition
     public string FieldTypeCode { get; set; } = string.Empty;
     public bool IsRequired { get; set; }
     public string? OptionsOrUnitText { get; set; }
+    public string? UnitText { get; set; }
     public string ProviderVisibilityCode { get; set; } = "FULL";
     public string PreAcceptMaskingCode { get; set; } = "NONE";
     public string ValidationRuleText { get; set; } = string.Empty;
@@ -209,6 +210,24 @@ public sealed class CategoryFieldAssignment
     public long FieldDefinitionId { get; set; }
     public long TargetCategoryId { get; set; }
     public string ScopeCode { get; set; } = string.Empty;
+    public bool IsRequired { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryFieldOption
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long FieldDefinitionId { get; set; }
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }

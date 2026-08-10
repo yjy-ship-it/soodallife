@@ -254,8 +254,13 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             FieldDefinitionId = field.Id,
             TargetCategoryId = middle.Id,
             ScopeCode = "MIDDLE",
+            IsRequired = field.IsRequired,
+            DisplayOrder = field.DisplayOrder,
             IsActive = true,
         }));
+        dbContext.CategoryFieldOptions.AddRange(
+            new CategoryFieldOption { FieldDefinitionId = fields[2].Id, Value = "주거", Label = "주거", DisplayOrder = 1, IsActive = true },
+            new CategoryFieldOption { FieldDefinitionId = fields[2].Id, Value = "상가", Label = "상가", DisplayOrder = 2, IsActive = true });
         dbContext.SaveChanges();
         Catalog = new TestCatalogIds(
             service.PublicId,

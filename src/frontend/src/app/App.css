@@ -403,3 +403,81 @@
   .categoryExplorerHeader { align-items: flex-start; flex-direction: column; padding-block: 13px; }
   .categoryTabs button { padding-inline: 8px; }
 }
+
+/* 서비스별 고객 요청항목 관리 */
+.categoryDetail.requestFieldsOpen { position: static; grid-column: 1 / -1; min-height: 0; }
+.requestFieldManager { display: grid; grid-template-columns: minmax(310px, .8fr) minmax(480px, 1.2fr); min-height: 620px; }
+.requestFieldListPane { min-width: 0; border-right: 1px solid #e0e5e2; background: #f8faf9; }
+.requestFieldListPane > header { display: grid; gap: 13px; padding: 17px; border-bottom: 1px solid #e0e5e2; background: #fff; }
+.requestFieldListPane > header > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.requestFieldListPane > header strong { color: #24332d; font-size: .9rem; }
+.requestFieldListPane > header span { color: #6f7c76; font-size: .7rem; }
+.requestFieldListPane > header input { min-height: 39px; padding: 0 11px; border: 1px solid #cfd8d4; border-radius: 8px; outline: none; }
+.requestFieldListPane > header input:focus { border-color: #398163; box-shadow: 0 0 0 3px rgb(57 129 99 / 12%); }
+.requestFieldResultCount { padding: 10px 16px 5px; color: #7d8883; font-size: .68rem; }
+.requestFieldList { overflow-y: auto; height: 510px; padding: 7px 10px 16px; }
+.requestFieldList > p { padding: 40px 12px; color: #89938f; font-size: .76rem; text-align: center; }
+.requestFieldList > button { display: grid; width: 100%; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 68px; padding: 9px 10px; border: 0; border-bottom: 1px solid #e8ece9; border-radius: 8px; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.requestFieldList > button:hover { background: #eef4f1; }
+.requestFieldList > button.selected { background: #e3f1e9; box-shadow: inset 3px 0 #277c56; }
+.requestFieldOrder { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; color: #507063; background: #e8eeeb; font-size: .7rem; font-weight: 900; }
+.requestFieldListText { display: grid; min-width: 0; gap: 5px; }
+.requestFieldListText strong { overflow: hidden; color: #2e3d37; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.requestFieldListText small { overflow: hidden; color: #7b8681; font-size: .66rem; text-overflow: ellipsis; white-space: nowrap; }
+.requestFieldList em { padding: 4px 7px; border-radius: 999px; font-size: .62rem; font-style: normal; font-weight: 850; }
+.requestFieldList em.using { color: #17613f; background: #daf1e4; }
+.requestFieldList em.stopped { color: #7c6251; background: #f1ebe7; }
+.requestFieldEditPane { min-width: 0; background: #fff; }
+.requestFieldEditPane > header { display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #e1e6e3; }
+.requestFieldEditPane > header > div { display: grid; gap: 5px; }
+.requestFieldEditPane > header span { color: #76817c; font-size: .68rem; }
+.requestFieldEditPane > header h3 { margin: 0; color: #26352f; font-size: 1rem; }
+.requestFieldImpact { padding: 6px 9px; border-radius: 7px; color: #6e603d !important; background: #f5f0e3; font-weight: 800; }
+.requestFieldMessage { margin: 14px 18px 0; }
+.serviceUsageBox { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 15px; align-items: center; padding: 16px 18px; margin: 16px 18px 0; border: 1px solid #cfe0d7; border-radius: 10px; background: #f1f7f4; }
+.serviceUsageBox strong { color: #2d443a; font-size: .79rem; }
+.serviceUsageBox p { margin: 4px 0 0; color: #78847f; font-size: .67rem; line-height: 1.5; }
+.serviceUsageBox > button { min-height: 34px; padding: 0 10px; border: 1px solid #b9cec3; border-radius: 7px; color: #315b49; background: #fff; font-size: .68rem; font-weight: 800; cursor: pointer; }
+.serviceUsageBox > button:disabled { cursor: not-allowed; opacity: .45; }
+.requestFieldSwitch { display: flex; align-items: center; gap: 6px; color: #385449; font-size: .72rem; font-weight: 850; }
+.requestFieldSwitch input { width: 17px; height: 17px; accent-color: #247751; }
+.requestFieldDefinitionForm { display: grid; gap: 15px; padding: 18px; }
+.requestFieldDefinitionForm > label, .requestFieldTwoColumns > label { display: grid; gap: 7px; color: #4d5a55; font-size: .73rem; font-weight: 800; }
+.requestFieldDefinitionForm input:not([type='checkbox']), .requestFieldDefinitionForm select, .requestFieldDefinitionForm textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #cfd8d4; border-radius: 8px; color: #1c2924; background: #fff; font: inherit; outline: none; }
+.requestFieldDefinitionForm textarea { resize: vertical; line-height: 1.55; }
+.requestFieldDefinitionForm input:focus, .requestFieldDefinitionForm select:focus, .requestFieldDefinitionForm textarea:focus { border-color: #398163; box-shadow: 0 0 0 3px rgb(57 129 99 / 12%); }
+.requestFieldDefinitionForm label small { color: #87918d; font-size: .64rem; font-weight: 500; line-height: 1.5; }
+.requestFieldTwoColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.requestFieldCheck { grid-template-columns: auto 1fr; align-content: center; align-items: center; padding: 10px 12px; border: 1px solid #dce3df; border-radius: 8px; background: #fafcfb; }
+.requestFieldCheck input { width: 17px; height: 17px; accent-color: #247751; }
+.requestFieldCheck small { grid-column: 1 / -1; }
+.sharedDefinitionNotice { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 12px; border-radius: 8px; color: #6e613f; background: #f7f3e8; }
+.sharedDefinitionNotice strong { flex: 0 0 auto; font-size: .72rem; }
+.sharedDefinitionNotice span { font-size: .65rem; line-height: 1.5; text-align: right; }
+.requestFieldProtection { padding: 10px 12px; border-radius: 8px; color: #5d6964; background: #f2f5f3; font-size: .66rem; }
+.requestFieldAssignmentBox { flex-wrap: wrap; }
+.requestFieldAssignmentBox > label:not(.requestFieldSwitch) { min-width: 120px; }
+.requestFieldOptions { display: grid; gap: 12px; margin: 20px 18px 18px; padding-top: 20px; border-top: 1px solid #dce3ea; }
+.requestFieldOptionRow { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) 80px auto auto; gap: 10px; align-items: end; }
+.requestFieldOptionRow label { display: grid; gap: 6px; color: #51606d; font-size: .68rem; font-weight: 700; }
+.requestFieldOptionRow input { min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid #cfd8d4; border-radius: 8px; }
+.requestFieldOptionRow input[readonly] { background: #f2f5f7; color: #697780; }
+.requestFieldOptionRow > button { min-height: 40px; padding: 0 11px; border: 1px solid #b9cec3; border-radius: 7px; color: #315b49; background: #fff; font-weight: 800; }
+.requestFieldEmpty { display: grid; min-height: 480px; place-items: center; align-content: center; text-align: center; }
+.requestFieldEmpty strong { font-size: .9rem; }
+.requestFieldEmpty p { margin: 8px 0 0; color: #7c8782; font-size: .72rem; }
+
+@media (max-width: 900px) {
+  .requestFieldManager { grid-template-columns: 1fr; }
+  .requestFieldListPane { border-right: 0; border-bottom: 1px solid #e0e5e2; }
+  .requestFieldList { height: 340px; }
+  .requestFieldOptionRow { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .serviceUsageBox { grid-template-columns: 1fr auto; }
+  .serviceUsageBox > button { grid-column: 1 / -1; }
+  .requestFieldTwoColumns { grid-template-columns: 1fr; }
+  .sharedDefinitionNotice { align-items: flex-start; flex-direction: column; }
+  .sharedDefinitionNotice span { text-align: left; }
+}

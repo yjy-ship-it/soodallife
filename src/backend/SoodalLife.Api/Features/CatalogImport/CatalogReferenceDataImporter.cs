@@ -367,6 +367,7 @@ public sealed class CatalogReferenceDataImporter(
             definition.FieldTypeCode = typeCode;
             definition.IsRequired = Required(row, "필수여부") == "필수";
             definition.OptionsOrUnitText = options;
+            definition.UnitText = typeCode == "SELECT" ? null : options;
             definition.ProviderVisibilityCode = Required(row, "공급자 공개") == "공개" ? "FULL" : "AREA_ONLY";
             definition.PreAcceptMaskingCode = Required(row, "채택 전 마스킹") == "상세주소 마스킹" ? "DETAIL_ADDRESS" : "NONE";
             definition.ValidationRuleText = Required(row, "검증 규칙");
@@ -382,6 +383,42 @@ public sealed class CatalogReferenceDataImporter(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        var fieldOptions = await dbContext.CategoryFieldOptions.ToListAsync(cancellationToken);
+        foreach (var (_, value) in imported)
+        {
+            var importedOptions = value.Definition.FieldTypeCode == "SELECT" && !string.IsNullOrWhiteSpace(value.Definition.OptionsOrUnitText)
+                ? value.Definition.OptionsOrUnitText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                : [];
+            var existingOptions = fieldOptions.Where(option => option.FieldDefinitionId == value.Definition.Id).ToList();
+            foreach (var existingOption in existingOptions)
+            {
+                existingOption.IsActive = false;
+                existingOption.UpdatedAt = now;
+            }
+
+            for (var optionIndex = 0; optionIndex < importedOptions.Length; optionIndex++)
+            {
+                var optionValue = importedOptions[optionIndex];
+                var option = existingOptions.SingleOrDefault(candidate => candidate.Value == optionValue);
+                if (option is null)
+                {
+                    option = new CategoryFieldOption
+                    {
+                        FieldDefinitionId = value.Definition.Id,
+                        Value = optionValue,
+                        Label = optionValue,
+                        CreatedAt = now,
+                    };
+                    dbContext.CategoryFieldOptions.Add(option);
+                    fieldOptions.Add(option);
+                }
+
+                option.DisplayOrder = optionIndex + 1;
+                option.IsActive = true;
+                option.UpdatedAt = now;
+            }
+        }
+
         var assignments = await dbContext.CategoryFieldAssignments.ToListAsync(cancellationToken);
         foreach (var assignment in assignments.Where(item => imported.Values.Any(value => value.Definition.Id == item.FieldDefinitionId)))
         {
@@ -408,6 +445,8 @@ public sealed class CatalogReferenceDataImporter(
 
             assignment.ScopeCode = "MIDDLE";
             assignment.IsActive = true;
+            assignment.IsRequired = value.Definition.IsRequired;
+            assignment.DisplayOrder = value.Definition.DisplayOrder;
             assignment.UpdatedAt = now;
         }
 
