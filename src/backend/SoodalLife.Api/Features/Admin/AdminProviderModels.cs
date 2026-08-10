@@ -24,7 +24,9 @@ public sealed record AdminProviderAreaResponse(Guid ServiceId, string ServiceNam
 public sealed record AdminProviderDocumentResponse(long InternalId, string DocumentTypeName, string DocumentTypeCode, string? DocumentNumber,
     DateOnly? IssuedAt, DateOnly? ExpiresAt, string VerificationStatusCode, DateTime? VerifiedAt, string? VerifierName,
     string OriginalFileName, bool CanOpenFile, string FileAccessMessage);
-public sealed record AdminProviderServiceReviewResponse(Guid ServiceId, string ServiceName, string RegistrationStatusCode, bool StructuredRequirementsConfigured,
+public sealed record AdminProviderServiceReviewResponse(Guid ServiceId, string ServiceName, string RegistrationStatusCode,
+    string ApprovalStatusCode, DateTime ApprovalRequestedAt, DateTime? ApprovalDecidedAt, string? DecisionReason, string RowVersion,
+    IReadOnlyList<AdminProviderServiceApprovalEventResponse> ApprovalHistory, bool StructuredRequirementsConfigured,
     string LegacyQualificationText, string LegacyInsuranceText, string LegacySafetyGradeCode, IReadOnlyList<AdminProviderRequirementComparisonResponse> Requirements);
 public sealed record AdminProviderRequirementComparisonResponse(Guid AssignmentId, string RequirementName, bool IsRequired, bool VerificationRequired,
     bool ExpiryCheckRequired, IReadOnlyList<string> RequiredEvidenceTypes, string VerificationStatusCode, string? LinkedDocumentType,
@@ -34,3 +36,7 @@ public sealed record AdminProviderQuoteResponse(Guid Id, Guid RequestId, string 
 public sealed record AdminProviderTransactionResponse(Guid Id, string ServiceName, string StatusCode, decimal AgreedAmount, string CurrencyCode,
     DateTime? StartedAt, DateTime? CompletedAt);
 public sealed record AdminProviderApprovalEventResponse(string? FromStatusCode, string ToStatusCode, string ActionCode, string? Reason, DateTime DecidedAt);
+public sealed record AdminProviderServiceApprovalEventResponse(string? FromStatusCode, string ToStatusCode, string ActionCode, string? DecisionReason, DateTime DecidedAt);
+public sealed record AdminProviderServiceApprovalDecisionRequest(string ActionCode, string? DecisionReason, string RowVersion);
+public sealed record AdminProviderServiceApprovalDecisionResponse(Guid ServiceId, string ApprovalStatusCode, DateTime ApprovalRequestedAt,
+    DateTime? ApprovalDecidedAt, string? DecisionReason, string RowVersion, IReadOnlyList<AdminProviderServiceApprovalEventResponse> History);

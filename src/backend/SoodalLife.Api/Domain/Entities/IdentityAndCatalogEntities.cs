@@ -530,6 +530,37 @@ public sealed class ProviderServiceCategory
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class ProviderServiceApproval
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderServiceCategoryId { get; set; }
+    public string ApprovalStatusCode { get; set; } = "PENDING";
+    public DateTime ApprovalRequestedAt { get; set; }
+    public DateTime? ApprovalDecidedAt { get; set; }
+    public long? ApprovalDecidedByUserId { get; set; }
+    public string? DecisionReason { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ProviderServiceApprovalEvent
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderServiceCategoryId { get; set; }
+    public string? FromStatusCode { get; set; }
+    public string ToStatusCode { get; set; } = string.Empty;
+    public string ActionCode { get; set; } = string.Empty;
+    public string? DecisionReason { get; set; }
+    public DateTime DecidedAt { get; set; }
+    public long DecidedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 public sealed class ProviderServiceArea
 {
     public long Id { get; set; }

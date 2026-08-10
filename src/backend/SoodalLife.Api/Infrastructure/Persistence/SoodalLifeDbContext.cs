@@ -32,6 +32,8 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<CategoryProviderRequirementEvidenceType> CategoryProviderRequirementEvidenceTypes => Set<CategoryProviderRequirementEvidenceType>();
     public DbSet<AdministrativeArea> AdministrativeAreas => Set<AdministrativeArea>();
     public DbSet<ProviderServiceCategory> ProviderServiceCategories => Set<ProviderServiceCategory>();
+    public DbSet<ProviderServiceApproval> ProviderServiceApprovals => Set<ProviderServiceApproval>();
+    public DbSet<ProviderServiceApprovalEvent> ProviderServiceApprovalEvents => Set<ProviderServiceApprovalEvent>();
     public DbSet<ProviderServiceArea> ProviderServiceAreas => Set<ProviderServiceArea>();
     public DbSet<StoredFile> Files => Set<StoredFile>();
     public DbSet<ProviderDocument> ProviderDocuments => Set<ProviderDocument>();

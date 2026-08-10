@@ -85,7 +85,13 @@ public sealed class AdminProviderService(SoodalLifeDbContext dbContext)
                 comparisons.Add(new(item.Assignment.PublicId, item.Definition.Name, item.Assignment.IsRequired, item.Assignment.VerificationRequired, item.Assignment.ExpiryCheckRequired,
                     evidenceNames, verification?.VerificationStatusCode ?? "검증결과 없음", linkedDocument, verification?.VerifiedAt, verification?.ExpiresAt, verification?.RejectionReason));
             }
-            reviews.Add(new(service.ServiceId, service.ServiceName, service.RegistrationStatusCode, assignments.Count > 0, policy.RequiredQualificationSummaryText, policy.InsuranceRequirementText, policy.SafetyGradeCode, comparisons));
+            var approval = await dbContext.ProviderServiceApprovals.AsNoTracking().SingleOrDefaultAsync(value => value.ProviderServiceCategoryId == service.InternalId, cancellationToken);
+            var approvalEvents = await dbContext.ProviderServiceApprovalEvents.AsNoTracking().Where(value => value.ProviderServiceCategoryId == service.InternalId)
+                .OrderByDescending(value => value.DecidedAt).Select(value => new AdminProviderServiceApprovalEventResponse(value.FromStatusCode, value.ToStatusCode, value.ActionCode, value.DecisionReason, value.DecidedAt)).ToListAsync(cancellationToken);
+            reviews.Add(new(service.ServiceId, service.ServiceName, service.RegistrationStatusCode,
+                approval?.ApprovalStatusCode ?? "PENDING", approval?.ApprovalRequestedAt ?? service.ActivatedAt, approval?.ApprovalDecidedAt,
+                approval?.DecisionReason, approval is null ? string.Empty : Convert.ToBase64String(approval.RowVersion), approvalEvents,
+                assignments.Count > 0, policy.RequiredQualificationSummaryText, policy.InsuranceRequirementText, policy.SafetyGradeCode, comparisons));
         }
         var quoteRows = await (from quote in dbContext.Quotes.AsNoTracking() join request in dbContext.ServiceRequests.AsNoTracking() on quote.ServiceRequestId equals request.Id join category in dbContext.ServiceCategories.AsNoTracking() on request.CategoryId equals category.Id where quote.ProviderProfileId == identity.Provider.Id orderby quote.CreatedAt descending select new { quote, request, category.Name }).ToListAsync(cancellationToken);
         var quoteIds = quoteRows.Select(row => row.quote.Id).ToArray();

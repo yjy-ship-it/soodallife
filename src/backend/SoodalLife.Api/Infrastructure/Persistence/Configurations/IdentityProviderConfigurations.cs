@@ -151,6 +151,54 @@ internal sealed class ProviderServiceCategoryConfiguration() : EntityConfigurati
     }
 }
 
+internal sealed class ProviderServiceApprovalConfiguration() : EntityConfiguration<ProviderServiceApproval>("provider_service_approvals")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderServiceApproval> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(ProviderServiceApproval.ProviderServiceCategoryId), "provider_service_category_id");
+        Mapping.String(b, nameof(ProviderServiceApproval.ApprovalStatusCode), "approval_status_code", 20, unicode: false, defaultValue: "PENDING");
+        Mapping.DateTime(b, nameof(ProviderServiceApproval.ApprovalRequestedAt), "approval_requested_at", utcDefault: true);
+        Mapping.DateTime(b, nameof(ProviderServiceApproval.ApprovalDecidedAt), "approval_decided_at", nullable: true);
+        Mapping.NullableLong(b, nameof(ProviderServiceApproval.ApprovalDecidedByUserId), "approval_decided_by_user_id");
+        Mapping.String(b, nameof(ProviderServiceApproval.DecisionReason), "decision_reason", 1000, nullable: true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<ProviderServiceApproval, ProviderServiceCategory>(b, nameof(ProviderServiceApproval.ProviderServiceCategoryId));
+        Mapping.Fk<ProviderServiceApproval, User>(b, nameof(ProviderServiceApproval.ApprovalDecidedByUserId));
+        b.HasIndex(x => x.ProviderServiceCategoryId).IsUnique();
+        b.HasIndex(x => x.ApprovalStatusCode);
+        b.HasIndex(x => x.ApprovalRequestedAt);
+        b.ToTable("provider_service_approvals", t => t.HasCheckConstraint("CK_provider_service_approvals_status", "[approval_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')"));
+    }
+}
+
+internal sealed class ProviderServiceApprovalEventConfiguration() : EntityConfiguration<ProviderServiceApprovalEvent>("provider_service_approval_events")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderServiceApprovalEvent> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(ProviderServiceApprovalEvent.ProviderServiceCategoryId), "provider_service_category_id");
+        Mapping.String(b, nameof(ProviderServiceApprovalEvent.FromStatusCode), "from_status_code", 20, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ProviderServiceApprovalEvent.ToStatusCode), "to_status_code", 20, unicode: false);
+        Mapping.String(b, nameof(ProviderServiceApprovalEvent.ActionCode), "action_code", 20, unicode: false);
+        Mapping.String(b, nameof(ProviderServiceApprovalEvent.DecisionReason), "decision_reason", 1000, nullable: true);
+        Mapping.DateTime(b, nameof(ProviderServiceApprovalEvent.DecidedAt), "decided_at", utcDefault: true);
+        Mapping.Long(b, nameof(ProviderServiceApprovalEvent.DecidedByUserId), "decided_by_user_id");
+        Mapping.DateTime(b, nameof(ProviderServiceApprovalEvent.CreatedAt), "created_at", utcDefault: true);
+        Mapping.Fk<ProviderServiceApprovalEvent, ProviderServiceCategory>(b, nameof(ProviderServiceApprovalEvent.ProviderServiceCategoryId));
+        Mapping.Fk<ProviderServiceApprovalEvent, User>(b, nameof(ProviderServiceApprovalEvent.DecidedByUserId));
+        b.HasIndex(x => x.ProviderServiceCategoryId);
+        b.HasIndex(x => x.DecidedByUserId);
+        b.HasIndex(x => new { x.ProviderServiceCategoryId, x.DecidedAt }).IsDescending(false, true);
+        b.ToTable("provider_service_approval_events", t =>
+        {
+            t.HasCheckConstraint("CK_provider_service_approval_events_from_status", "[from_status_code] IS NULL OR [from_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
+            t.HasCheckConstraint("CK_provider_service_approval_events_to_status", "[to_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
+            t.HasCheckConstraint("CK_provider_service_approval_events_action", "[action_code] IN ('APPROVE','REJECT','SUSPEND','REOPEN')");
+        });
+    }
+}
+
 internal sealed class ProviderServiceAreaConfiguration() : EntityConfiguration<ProviderServiceArea>("provider_service_areas")
 {
     protected override void ConfigureEntity(EntityTypeBuilder<ProviderServiceArea> b)

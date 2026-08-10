@@ -671,6 +671,12 @@
 .providerLegacyInfo { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 11px; }
 .providerLegacyInfo p { margin: 0; padding: 10px; border-radius: 7px; color: #655d48; background: #f8f3e8; font-size: .66rem; }
 .providerLegacyInfo strong { display: block; margin-bottom: 4px; color: #78673e; font-size: .59rem; }
+.providerDecisionBox { display: grid; grid-template-columns: minmax(180px,.7fr) minmax(240px,1.3fr) auto; gap: 10px; align-items: center; padding: 13px; margin-top: 11px; border: 1px solid #cfdcd5; border-radius: 8px; background: #f7faf8; }
+.providerDecisionBox strong, .providerDecisionBox span { display: block; }
+.providerDecisionBox strong { color: #35483e; font-size: .72rem; }.providerDecisionBox span { margin-top: 4px; color: #718078; font-size: .61rem; }
+.providerDecisionBox textarea { min-height: 52px; padding: 8px; border: 1px solid #cbd7d1; border-radius: 6px; resize: vertical; font: inherit; }
+.providerDecisionBox > div:nth-of-type(2) { display: flex; gap: 6px; }.providerDecisionBox button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; color: #fff; background: #287052; font-weight: 850; }.providerDecisionBox button.reject { background: #a44a42; }.providerDecisionBox button:disabled { opacity: .45; }
+.providerDecisionBox details { grid-column: 1 / -1; color: #5f6d66; font-size: .64rem; }.providerDecisionBox details p { margin: 6px 0 0; }
 
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
@@ -702,4 +708,5 @@
   .customerUsageCards, .customerInfoGrid, .customerSplit { grid-template-columns: 1fr; }
   .customerHistoryCard dl { grid-template-columns: repeat(2, 1fr); }
   .providerLegacyInfo { grid-template-columns: 1fr; }
+  .providerDecisionBox { grid-template-columns: 1fr; }.providerDecisionBox details { grid-column: auto; }
 }
