@@ -7,7 +7,7 @@ using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Matching;
 
-public sealed class RequestMatchingService(SoodalLifeDbContext dbContext)
+public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, ProviderTradingEligibilityService eligibilityService)
 {
     public async Task<MatchAndDispatchResult> MatchAndDispatchAsync(Guid requestPublicId, CancellationToken cancellationToken)
     {
@@ -40,13 +40,6 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext)
         {
             var providers = await dbContext.ProviderProfiles.ToListAsync(cancellationToken);
             var providerIds = providers.Select(provider => provider.Id).ToArray();
-            var providerServices = await dbContext.ProviderServiceCategories
-                .Where(item => providerIds.Contains(item.ProviderProfileId) && item.StatusCode == "ACTIVE")
-                .ToListAsync(cancellationToken);
-            var providerServiceIds = providerServices.Select(item => item.Id).ToArray();
-            var providerAreas = await dbContext.ProviderServiceAreas
-                .Where(item => providerServiceIds.Contains(item.ProviderServiceCategoryId) && item.StatusCode == "ACTIVE")
-                .ToListAsync(cancellationToken);
             var candidates = await dbContext.DispatchCandidates
                 .Where(item => item.ServiceRequestId == request.Id)
                 .ToListAsync(cancellationToken);
@@ -57,13 +50,11 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext)
             var eligibleCount = 0;
             foreach (var provider in providers)
             {
-                var matchingService = providerServices.SingleOrDefault(item =>
-                    item.ProviderProfileId == provider.Id && item.CategoryId == request.CategoryId);
-                var categoryMatch = matchingService is not null;
-                var areaMatch = matchingService is not null && providerAreas.Any(item =>
-                    item.ProviderServiceCategoryId == matchingService.Id && item.AdministrativeAreaId == request.AdministrativeAreaId);
-                var approvalMatch = provider.ApprovalStatusCode == "APPROVED" && provider.ActivityStatusCode == "ACTIVE";
-                var eligible = categoryMatch && areaMatch && approvalMatch;
+                var evaluation = await eligibilityService.EvaluateAsync(provider.Id, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+                var categoryMatch = evaluation.ServiceRegistered;
+                var areaMatch = evaluation.AreaMatched;
+                var approvalMatch = evaluation.UserAndRoleActive && evaluation.ProviderApprovedAndActive && evaluation.ServiceApproved;
+                var eligible = evaluation.IsEligible;
                 if (eligible) eligibleCount++;
 
                 var candidate = candidates.SingleOrDefault(item => item.ProviderProfileId == provider.Id);
@@ -84,11 +75,7 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext)
                 candidate.ApprovalMatch = approvalMatch;
                 candidate.EvaluatedAt = now;
                 candidate.ExpiresAt = request.ExpiresAt;
-                candidate.ReasonCode = eligible
-                    ? null
-                    : !approvalMatch ? "PROVIDER_NOT_APPROVED_ACTIVE"
-                    : !categoryMatch ? "SERVICE_CATEGORY_MISMATCH"
-                    : "SERVICE_AREA_MISMATCH";
+                candidate.ReasonCode = evaluation.ReasonCode;
                 candidate.StatusCode = eligible ? "ELIGIBLE" : "INELIGIBLE";
             }
 
@@ -292,6 +279,8 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext)
             row.Dispatch.ExpiresAt,
             row.Dispatch.StatusCode,
             row.Request.StatusCode,
+            null,
+            null,
             responseAnswers);
     }
 

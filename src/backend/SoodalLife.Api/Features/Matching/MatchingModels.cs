@@ -45,6 +45,8 @@ public sealed record ProviderMatchedRequestDetail(
     DateTime ExpiresAt,
     string DispatchStatus,
     string RequestStatus,
+    string? CustomerPhone,
+    string? DetailAddress,
     IReadOnlyList<ProviderMatchedRequestAnswer> Answers);
 
 public sealed class MatchingException(

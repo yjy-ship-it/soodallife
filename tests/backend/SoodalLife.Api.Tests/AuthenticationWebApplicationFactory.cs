@@ -129,6 +129,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
 
         SeedRequestCatalog(dbContext);
         SeedMatchingProviderScopes(dbContext);
+        SeedTradingPrerequisites(dbContext);
     }
 
     private void SeedRequestCatalog(SoodalLifeDbContext dbContext)
@@ -325,9 +326,53 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
 
     private void SeedMatchingProviderScopes(SoodalLifeDbContext dbContext)
     {
+        SeedProviderScope(dbContext, Credentials[RoleCodes.Provider].LoginId, Catalog.ServiceId, Catalog.AreaId);
         SeedProviderScope(dbContext, ServiceMismatchProviderCredential.LoginId, Catalog.OtherServiceId, Catalog.AreaId);
         SeedProviderScope(dbContext, AreaMismatchProviderCredential.LoginId, Catalog.ServiceId, Catalog.OtherAreaId);
         SeedProviderScope(dbContext, InactiveProviderCredential.LoginId, Catalog.ServiceId, Catalog.AreaId);
+    }
+
+    private void SeedTradingPrerequisites(SoodalLifeDbContext dbContext)
+    {
+        var serviceId = dbContext.ServiceCategories.Single(item => item.PublicId == Catalog.ServiceId).Id;
+        var operationPolicy = dbContext.CategoryOperationPolicies.Single(item => item.CategoryId == serviceId);
+        var definition = new ProviderRequirementDefinition
+        {
+            RequirementTypeCode = "QUALIFICATION", RequirementCode = "TEST_REQUIRED_QUALIFICATION",
+            Name = "테스트 필수 자격", IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        };
+        dbContext.ProviderRequirementDefinitions.Add(definition);
+        dbContext.SaveChanges();
+        var assignment = new CategoryProviderRequirementAssignment
+        {
+            CategoryOperationPolicyId = operationPolicy.Id, RequirementDefinitionId = definition.Id,
+            IsRequired = true, VerificationRequired = true, ExpiryCheckRequired = false, DisplayOrder = 1,
+            IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        };
+        dbContext.CategoryProviderRequirementAssignments.Add(assignment);
+        dbContext.SaveChanges();
+        foreach (var service in dbContext.ProviderServiceCategories.Where(item => item.CategoryId == serviceId).ToList())
+        {
+            dbContext.ProviderServiceApprovals.Add(new ProviderServiceApproval
+            {
+                ProviderServiceCategoryId = service.Id, ApprovalStatusCode = "APPROVED", ApprovalRequestedAt = DateTime.UtcNow,
+                ApprovalDecidedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            });
+            dbContext.ProviderServiceRequirementVerifications.Add(new ProviderServiceRequirementVerification
+            {
+                ProviderServiceCategoryId = service.Id, RequirementAssignmentId = assignment.Id,
+                VerificationStatusCode = "APPROVED", VerifiedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            });
+        }
+        foreach (var provider in dbContext.ProviderProfiles.ToList())
+        {
+            dbContext.ProviderWallets.Add(new ProviderWallet
+            {
+                ProviderProfileId = provider.Id, CurrencyCode = "KRW", AvailableBalance = 100000m,
+                ReservedBalance = 0, StatusCode = "ACTIVE", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            });
+        }
+        dbContext.SaveChanges();
     }
 
     private static void SeedProviderScope(SoodalLifeDbContext dbContext, string loginId, Guid categoryPublicId, Guid areaPublicId)

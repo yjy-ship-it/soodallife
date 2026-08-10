@@ -18,6 +18,11 @@ public sealed class QuotesController(QuoteService quoteService) : ControllerBase
     }
 
     [Authorize(Roles = RoleCodes.Provider)]
+    [HttpGet("providers/me/requests/{requestId:guid}/quote-submission-readiness")]
+    public Task<ActionResult<QuoteSubmissionReadinessResponse>> GetSubmissionReadiness(Guid requestId, CancellationToken cancellationToken) =>
+        Execute(() => quoteService.GetSubmissionReadinessAsync(User, requestId, cancellationToken));
+
+    [Authorize(Roles = RoleCodes.Provider)]
     [HttpPost("requests/{requestId:guid}/quotes")]
     public Task<ActionResult<QuoteDetailResponse>> Create(Guid requestId, SaveQuoteRevisionInput input, CancellationToken cancellationToken) =>
         Execute(() => quoteService.CreateQuoteAsync(User, requestId, input, cancellationToken));

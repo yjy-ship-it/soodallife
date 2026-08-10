@@ -79,9 +79,8 @@ public sealed class ProviderMatchingApiTests(AuthenticationWebApplicationFactory
         var detail = (await detailResponse.Content.ReadFromJsonAsync<ProviderMatchedRequestDetail>())!;
         Assert.Equal(created.Id, detail.RequestId);
         Assert.Equal("VIEWED", detail.DispatchStatus);
-        var detailJson = await detailResponse.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("detailAddress", detailJson, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("customerProfile", detailJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(detail.DetailAddress);
+        Assert.Null(detail.CustomerPhone);
 
         await AssertCandidateOutcomesAsync(created.Id);
 

@@ -184,12 +184,24 @@ public sealed class TransactionRecord
     public long CustomerProfileId { get; set; }
     public long ProviderProfileId { get; set; }
     public long CategoryId { get; set; }
+    public long? CategoryFeePolicyId { get; set; }
+    public long? WalletLedgerEntryId { get; set; }
     public string StatusCode { get; set; } = "CREATED";
     public decimal AgreedAmount { get; set; }
     public string CurrencyCode { get; set; } = "KRW";
     public string QuoteSnapshotJson { get; set; } = string.Empty;
     public string CategoryPolicySnapshotJson { get; set; } = string.Empty;
     public string CompletionPolicySnapshotJson { get; set; } = string.Empty;
+    public string? FeePolicySnapshotJson { get; set; }
+    public string? FeePolicyVersionSnapshot { get; set; }
+    public string? FeePolicyKindSnapshot { get; set; }
+    public string? FeeTransactionTypeSnapshot { get; set; }
+    public string? FeeCalculationMethodSnapshot { get; set; }
+    public decimal? CalculatedFeeAmount { get; set; }
+    public decimal? ActualChargedFeeAmount { get; set; }
+    public string? FeeCurrencyCode { get; set; }
+    public string? FeeChargeTimingSnapshot { get; set; }
+    public string? FeeRestoreRuleSnapshot { get; set; }
     public short WarrantyDaysSnapshot { get; set; }
     public decimal? ProviderTrustScoreSnapshot { get; set; }
     public DateTime? StartedAt { get; set; }

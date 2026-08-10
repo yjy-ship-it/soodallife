@@ -354,9 +354,11 @@ public sealed class WorkService(
                               join middle in db.ServiceCategories.AsNoTracking() on category.ParentId equals middle.Id
                               join major in db.ServiceCategories.AsNoTracking() on middle.ParentId equals major.Id
                               join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                              join customer in db.CustomerProfiles.AsNoTracking() on transaction.CustomerProfileId equals customer.Id
+                              join customerUser in db.Users.AsNoTracking() on customer.UserId equals customerUser.Id
                               join provider in db.ProviderProfiles.AsNoTracking() on transaction.ProviderProfileId equals provider.Id
                               where request.Id == transaction.ServiceRequestId
-                              select new { Request = request, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name, area.AreaName, provider.BusinessName })
+                              select new { Request = request, CustomerPhone = customerUser.Phone, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name, area.AreaName, provider.BusinessName })
             .SingleAsync(cancellationToken);
         var items = await db.QuoteItems.AsNoTracking().Where(item => item.QuoteRevisionId == transaction.AcceptedQuoteRevisionId)
             .OrderBy(item => item.LineNo).Select(item => new WorkQuoteItem(item.LineNo, item.ItemName, item.Description,
@@ -385,7 +387,8 @@ public sealed class WorkService(
         var roles = await db.CompletionPhotoRoles.AsNoTracking().Where(item => item.IsActive).OrderBy(item => item.Id)
             .Select(item => new PhotoRoleOption(item.Code, item.Name, item.Description)).ToListAsync(cancellationToken);
         return new WorkTransactionDetail(transaction.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
-            baseData.Request.Title, baseData.Request.Description, baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
+            baseData.Request.Title, baseData.Request.Description, baseData.CustomerPhone, baseData.Request.DetailAddress,
+            baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
             transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse);
     }
 

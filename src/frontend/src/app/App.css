@@ -711,6 +711,11 @@
 .providerDecisionBox textarea { min-height: 52px; padding: 8px; border: 1px solid #cbd7d1; border-radius: 6px; resize: vertical; font: inherit; }
 .providerDecisionBox > div:nth-of-type(2) { display: flex; gap: 6px; }.providerDecisionBox button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 6px; color: #fff; background: #287052; font-weight: 850; }.providerDecisionBox button.reject { background: #a44a42; }.providerDecisionBox button:disabled { opacity: .45; }
 .providerDecisionBox details { grid-column: 1 / -1; color: #5f6d66; font-size: .64rem; }.providerDecisionBox details p { margin: 6px 0 0; }
+.operationFilters { grid-template-columns: minmax(280px, 1.7fr) repeat(3, minmax(130px, .7fr)) auto; }
+.transactionFilters { grid-template-columns: minmax(300px, 1.7fr) minmax(150px, .7fr) auto; }
+.operationSections { display: grid; gap: 12px; margin-top: 13px; }
+.operationSection { min-width: 0; padding: 17px; border: 1px solid #dbe3df; border-radius: 10px; background: #fff; }
+.operationSection > h2 { margin: 0 0 13px; color: #34463d; font-size: .84rem; }
 
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
@@ -723,6 +728,7 @@
   .customerUsageCards { grid-template-columns: repeat(2, 1fr); }
   .providerFilters { grid-template-columns: repeat(2, 1fr); }
   .providerSummaryCards { grid-template-columns: repeat(2, 1fr); }
+  .operationFilters, .transactionFilters { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 620px) {

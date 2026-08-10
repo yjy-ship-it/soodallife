@@ -1,16 +1,48 @@
 using System.Data;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.Matching;
+using SoodalLife.Api.Features.Wallet;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Quotes;
 
-public sealed class QuoteService(SoodalLifeDbContext dbContext)
+public sealed class QuoteService(
+    SoodalLifeDbContext dbContext,
+    ProviderTradingEligibilityService eligibilityService,
+    ProviderWalletService walletService)
 {
     private const decimal MaximumAmount = 999_999_999_999_999m;
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> AcceptanceLocks = new();
+
+    public async Task<QuoteSubmissionReadinessResponse> GetSubmissionReadinessAsync(
+        ClaimsPrincipal principal,
+        Guid requestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var identity = await GetProviderIdentityAsync(principal, cancellationToken);
+        var dispatch = await FindOwnedDispatchAsync(identity.ProviderId, requestPublicId, cancellationToken);
+        ValidateRequestOpen(dispatch.Request);
+        var evaluation = await eligibilityService.EvaluateAsync(identity.ProviderId, dispatch.Request.CategoryId,
+            dispatch.Request.AdministrativeAreaId, cancellationToken);
+        var policy = await ResolveAcceptanceFeePolicyAsync(dispatch.Request, cancellationToken);
+        var amount = FeeAmount(policy);
+        var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == identity.ProviderId)
+            .Select(item => item.PublicId).SingleAsync(cancellationToken);
+        var wallet = await walletService.GetBalanceAsync(providerPublicId, amount, cancellationToken);
+        var canSubmit = evaluation.IsEligible && wallet is { StatusCode: "ACTIVE", HasSufficientBalance: true };
+        var reason = !evaluation.IsEligible ? evaluation.ReasonCode
+            : wallet is null ? "WALLET_NOT_FOUND"
+            : wallet.StatusCode != "ACTIVE" ? "WALLET_NOT_ACTIVE"
+            : !wallet.HasSufficientBalance ? "WALLET_INSUFFICIENT_BALANCE"
+            : null;
+        return new(dispatch.Request.PublicId, providerPublicId, policy.PublicId, policy.PolicyVersion, amount,
+            policy.CurrencyCode, wallet?.AvailableBalance ?? 0, wallet?.StatusCode ?? "NOT_FOUND", canSubmit, reason);
+    }
 
     public async Task<QuoteDetailResponse?> GetProviderQuoteAsync(
         ClaimsPrincipal principal,
@@ -105,6 +137,9 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
         var request = await dbContext.ServiceRequests.SingleAsync(item => item.Id == quote.ServiceRequestId, cancellationToken);
         ValidateRequestOpen(request);
         await ValidateProviderEligibilityAsync(identity.ProviderId, request, cancellationToken);
+        var readiness = await BuildSubmissionReadinessAsync(identity.ProviderId, request, cancellationToken);
+        if (!readiness.CanSubmit)
+            throw Conflict(readiness.UnavailableReason ?? "QUOTE_SUBMISSION_NOT_ALLOWED", "현재 Wallet 잔액 또는 공급자 자격으로 견적을 제출할 수 없습니다.");
         var revision = await LatestRevisionAsync(quote.Id, cancellationToken)
             ?? throw Conflict("QUOTE_REVISION_REQUIRED", "제출할 견적 내용을 먼저 저장해 주세요.");
         var now = DateTime.UtcNow;
@@ -194,9 +229,17 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var customer = await GetCustomerIdentityAsync(principal, cancellationToken);
-        await using var transaction = await BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
+        var requestLockId = await (from quote in dbContext.Quotes.AsNoTracking()
+                                   join request in dbContext.ServiceRequests.AsNoTracking() on quote.ServiceRequestId equals request.Id
+                                   where quote.PublicId == quotePublicId && request.CustomerProfileId == customer.CustomerId
+                                   select (Guid?)request.PublicId).SingleOrDefaultAsync(cancellationToken)
+            ?? throw NotFound();
+        var acceptanceLock = AcceptanceLocks.GetOrAdd(requestLockId, _ => new SemaphoreSlim(1, 1));
+        await acceptanceLock.WaitAsync(cancellationToken);
+        IDbContextTransaction? transaction = null;
         try
         {
+            transaction = await BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
             var quote = await dbContext.Quotes.SingleOrDefaultAsync(item => item.PublicId == quotePublicId, cancellationToken)
                 ?? throw NotFound();
             var request = await dbContext.ServiceRequests.SingleAsync(item => item.Id == quote.ServiceRequestId, cancellationToken);
@@ -208,7 +251,9 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
                 var acceptedRevision = await dbContext.QuoteRevisions.AsNoTracking().SingleAsync(item => item.Id == existing.AcceptedQuoteRevisionId, cancellationToken);
                 var acceptedQuote = await dbContext.Quotes.AsNoTracking().SingleAsync(item => item.Id == acceptedRevision.QuoteId, cancellationToken);
                 if (acceptedQuote.Id == quote.Id)
-                    return new AcceptQuoteResponse(existing.PublicId, quote.PublicId, request.PublicId, existing.StatusCode, existing.AgreedAmount, existing.CurrencyCode);
+                    return new AcceptQuoteResponse(existing.PublicId, quote.PublicId, request.PublicId, existing.StatusCode,
+                        existing.AgreedAmount, existing.CurrencyCode, existing.ActualChargedFeeAmount,
+                        await GetLedgerPublicIdAsync(existing.WalletLedgerEntryId, cancellationToken));
                 throw Conflict("REQUEST_ALREADY_ACCEPTED", "이미 다른 견적이 선택된 요청입니다.");
             }
 
@@ -219,8 +264,13 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
             var now = DateTime.UtcNow;
             if (revision.ValidUntil <= now || quote.ExpiresAt <= now) throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
             var provider = await dbContext.ProviderProfiles.SingleAsync(item => item.Id == quote.ProviderProfileId, cancellationToken);
-            if (provider.ApprovalStatusCode != "APPROVED" || provider.ActivityStatusCode != "ACTIVE")
-                throw Conflict("PROVIDER_NOT_APPROVED", "현재 거래 가능한 공급자가 아닙니다.");
+            await ValidateProviderEligibilityAsync(provider.Id, request, cancellationToken);
+            var feePolicy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
+            var feeAmount = FeeAmount(feePolicy);
+            var balance = await walletService.GetBalanceAsync(provider.PublicId, feeAmount, cancellationToken);
+            if (balance is null) throw Conflict("WALLET_NOT_FOUND", "공급자 Wallet을 찾을 수 없습니다.");
+            if (balance.StatusCode != "ACTIVE") throw Conflict("WALLET_NOT_ACTIVE", "현재 사용할 수 없는 공급자 Wallet입니다.");
+            if (!balance.HasSufficientBalance) throw Conflict("WALLET_INSUFFICIENT_BALANCE", "견적 채택 수수료를 차감할 Wallet 잔액이 부족합니다.");
 
             var items = await dbContext.QuoteItems.AsNoTracking().Where(item => item.QuoteRevisionId == revision.Id)
                 .OrderBy(item => item.LineNo).ToListAsync(cancellationToken);
@@ -242,6 +292,7 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
                 CustomerProfileId = customer.CustomerId,
                 ProviderProfileId = provider.Id,
                 CategoryId = request.CategoryId,
+                CategoryFeePolicyId = feePolicy.Id,
                 StatusCode = "CREATED",
                 AgreedAmount = revision.TotalAmount,
                 CurrencyCode = revision.CurrencyCode,
@@ -272,6 +323,28 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
                     policy.CompletionEvidenceRuleText,
                     roles = requirements,
                 }),
+                FeePolicySnapshotJson = JsonSerializer.Serialize(new
+                {
+                    policyId = feePolicy.PublicId,
+                    feePolicy.PolicyVersion,
+                    feePolicy.PolicyKindCode,
+                    feePolicy.TransactionTypeCode,
+                    feePolicy.CalculationMethodText,
+                    calculatedFeeAmount = feeAmount,
+                    feePolicy.CurrencyCode,
+                    feePolicy.ChargeTimingText,
+                    feePolicy.RestoreRuleText,
+                    feePolicy.EffectiveFrom,
+                    feePolicy.EffectiveTo,
+                }),
+                FeePolicyVersionSnapshot = feePolicy.PolicyVersion,
+                FeePolicyKindSnapshot = feePolicy.PolicyKindCode,
+                FeeTransactionTypeSnapshot = feePolicy.TransactionTypeCode,
+                FeeCalculationMethodSnapshot = feePolicy.CalculationMethodText,
+                CalculatedFeeAmount = feeAmount,
+                FeeCurrencyCode = feePolicy.CurrencyCode,
+                FeeChargeTimingSnapshot = feePolicy.ChargeTimingText,
+                FeeRestoreRuleSnapshot = feePolicy.RestoreRuleText,
                 WarrantyDaysSnapshot = policy.DefaultWarrantyDays,
                 ProviderTrustScoreSnapshot = provider.TrustScore,
                 CreatedAt = now,
@@ -280,6 +353,21 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
                 UpdatedByUserId = customer.UserId,
             };
             dbContext.Transactions.Add(transactionRecord);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            WalletOperationResponse debit;
+            try
+            {
+                debit = await walletService.DebitFeeAsync(new DebitFeeCommand(provider.PublicId, transactionRecord.PublicId,
+                    feePolicy.PublicId, feeAmount, $"quote-accept-fee:{request.PublicId:N}", "고객 견적 채택 수수료"), customer.UserId, cancellationToken);
+            }
+            catch (WalletOperationException exception)
+            {
+                throw Conflict(exception.BusinessCode, exception.Message);
+            }
+            var feeCharge = await dbContext.FeeCharges.SingleAsync(item => item.TransactionId == transactionRecord.Id &&
+                item.CategoryFeePolicyId == feePolicy.Id, cancellationToken);
+            transactionRecord.WalletLedgerEntryId = feeCharge.LedgerEntryId;
+            transactionRecord.ActualChargedFeeAmount = feeCharge.FeeAmount;
             quote.StatusCode = "ACCEPTED";
             quote.AcceptedAt = now;
             quote.UpdatedAt = now;
@@ -306,7 +394,13 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
 
             await dbContext.SaveChangesAsync(cancellationToken);
             if (transaction is not null) await transaction.CommitAsync(cancellationToken);
-            return new AcceptQuoteResponse(transactionRecord.PublicId, quote.PublicId, request.PublicId, transactionRecord.StatusCode, transactionRecord.AgreedAmount, transactionRecord.CurrencyCode);
+            return new AcceptQuoteResponse(transactionRecord.PublicId, quote.PublicId, request.PublicId, transactionRecord.StatusCode,
+                transactionRecord.AgreedAmount, transactionRecord.CurrencyCode, transactionRecord.ActualChargedFeeAmount, debit.LedgerEntryId);
+        }
+        catch (DbUpdateException)
+        {
+            if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
+            throw Conflict("QUOTE_ACCEPTANCE_CONFLICT", "다른 요청에서 견적 채택이 먼저 완료되었습니다.");
         }
         catch
         {
@@ -316,6 +410,7 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
         finally
         {
             if (transaction is not null) await transaction.DisposeAsync();
+            acceptanceLock.Release();
         }
     }
 
@@ -436,14 +531,46 @@ public sealed class QuoteService(SoodalLifeDbContext dbContext)
 
     private async Task ValidateProviderEligibilityAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
     {
-        var eligible = await dbContext.ProviderProfiles.AnyAsync(provider => provider.Id == providerId &&
-            provider.ApprovalStatusCode == "APPROVED" && provider.ActivityStatusCode == "ACTIVE" &&
-            dbContext.ProviderServiceCategories.Any(service => service.ProviderProfileId == provider.Id &&
-                service.CategoryId == request.CategoryId && service.StatusCode == "ACTIVE" &&
-                dbContext.ProviderServiceAreas.Any(area => area.ProviderServiceCategoryId == service.Id &&
-                    area.AdministrativeAreaId == request.AdministrativeAreaId && area.StatusCode == "ACTIVE")), cancellationToken);
-        if (!eligible) throw Forbidden("PROVIDER_NOT_APPROVED", "현재 이 요청에 견적을 제출할 수 없는 공급자 상태입니다.");
+        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+        if (!evaluation.IsEligible)
+            throw Forbidden(evaluation.ReasonCode ?? "PROVIDER_NOT_ELIGIBLE", "현재 이 요청에 견적을 제출하거나 채택될 수 없는 공급자 상태입니다.");
     }
+
+    private async Task<QuoteSubmissionReadinessResponse> BuildSubmissionReadinessAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
+    {
+        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+        var policy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
+        var amount = FeeAmount(policy);
+        var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == providerId)
+            .Select(item => item.PublicId).SingleAsync(cancellationToken);
+        var wallet = await walletService.GetBalanceAsync(providerPublicId, amount, cancellationToken);
+        var canSubmit = evaluation.IsEligible && wallet is { StatusCode: "ACTIVE", HasSufficientBalance: true };
+        var reason = !evaluation.IsEligible ? evaluation.ReasonCode : wallet is null ? "WALLET_NOT_FOUND"
+            : wallet.StatusCode != "ACTIVE" ? "WALLET_NOT_ACTIVE" : !wallet.HasSufficientBalance ? "WALLET_INSUFFICIENT_BALANCE" : null;
+        return new(request.PublicId, providerPublicId, policy.PublicId, policy.PolicyVersion, amount, policy.CurrencyCode,
+            wallet?.AvailableBalance ?? 0, wallet?.StatusCode ?? "NOT_FOUND", canSubmit, reason);
+    }
+
+    private async Task<CategoryFeePolicy> ResolveAcceptanceFeePolicyAsync(ServiceRequest request, CancellationToken cancellationToken)
+    {
+        var transactionType = await dbContext.CategoryPolicies.AsNoTracking().Where(item => item.Id == request.CategoryPolicyId)
+            .Select(item => item.TransactionTypeCode).SingleAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return await dbContext.CategoryFeePolicies.AsNoTracking()
+            .Where(item => item.CategoryId == request.CategoryId && item.TransactionTypeCode == transactionType && item.IsActive &&
+                item.EffectiveFrom <= today && (item.EffectiveTo == null || item.EffectiveTo > today))
+            .OrderByDescending(item => item.EffectiveFrom).ThenByDescending(item => item.Id)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw Conflict("FEE_POLICY_NOT_FOUND", "현재 적용할 수수료정책이 없습니다.");
+    }
+
+    private static decimal FeeAmount(CategoryFeePolicy policy) => policy.FeeAmount is > 0
+        ? policy.FeeAmount.Value
+        : throw Conflict("FEE_POLICY_NOT_CHARGEABLE", "견적 채택 시 차감할 수수료가 확정되지 않았습니다.");
+
+    private async Task<Guid?> GetLedgerPublicIdAsync(long? ledgerId, CancellationToken cancellationToken) => ledgerId.HasValue
+        ? await dbContext.WalletLedgerEntries.AsNoTracking().Where(item => item.Id == ledgerId.Value).Select(item => (Guid?)item.PublicId).SingleOrDefaultAsync(cancellationToken)
+        : null;
 
     private async Task<OwnedDispatch> FindOwnedDispatchAsync(long providerId, Guid requestPublicId, CancellationToken cancellationToken)
     {

@@ -25,6 +25,8 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         await LoginAsync(customer, factory.Credentials[RoleCodes.Customer]);
         await ConfigureProviderAsync(provider);
         await ConfigureProviderAsync(secondProvider);
+        await EnsureTradingReadyAsync(factory.Credentials[RoleCodes.Provider]);
+        await EnsureTradingReadyAsync(factory.ServiceMismatchProviderCredential);
 
         var request = await CreateAndPublishRequestAsync(customer);
         var firstInput = QuoteInput("첫 견적", 35m, 100m, 50m, $"quote-{Guid.NewGuid():N}");
@@ -131,6 +133,22 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         {
             services = new[] { new { serviceCategoryId = factory.Catalog.ServiceId, administrativeAreaIds = new[] { factory.Catalog.AreaId } } },
         });
+    }
+
+    private async Task EnsureTradingReadyAsync(TestCredential credential)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var serviceId = await db.ServiceCategories.Where(item => item.PublicId == factory.Catalog.ServiceId).Select(item => item.Id).SingleAsync();
+        var link = await (from user in db.Users join profile in db.ProviderProfiles on user.Id equals profile.UserId
+                          join service in db.ProviderServiceCategories on profile.Id equals service.ProviderProfileId
+                          where user.LoginId == credential.LoginId && service.CategoryId == serviceId select service).SingleAsync();
+        if (!await db.ProviderServiceApprovals.AnyAsync(item => item.ProviderServiceCategoryId == link.Id))
+            db.ProviderServiceApprovals.Add(new() { ProviderServiceCategoryId = link.Id, ApprovalStatusCode = "APPROVED", ApprovalRequestedAt = DateTime.UtcNow, ApprovalDecidedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        var assignment = await db.CategoryProviderRequirementAssignments.SingleAsync(item => item.IsActive);
+        if (!await db.ProviderServiceRequirementVerifications.AnyAsync(item => item.ProviderServiceCategoryId == link.Id && item.RequirementAssignmentId == assignment.Id))
+            db.ProviderServiceRequirementVerifications.Add(new() { ProviderServiceCategoryId = link.Id, RequirementAssignmentId = assignment.Id, VerificationStatusCode = "APPROVED", VerifiedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
     }
 
     private async Task<ServiceRequestCreatedResponse> CreateAndPublishRequestAsync(HttpClient client)

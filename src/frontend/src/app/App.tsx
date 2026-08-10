@@ -15,6 +15,7 @@ import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderReq
 import { AdminCustomersPage } from '../admin/AdminCustomersPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
 import { AdminWalletsPage } from '../admin/AdminWalletsPage'
+import { AdminRequestsPage, AdminTransactionsPage } from '../admin/AdminOperationsPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -68,6 +69,8 @@ function ApplicationRoutes() {
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
   const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
+  const adminRequestMatch = pathname.match(/^\/admin\/requests\/([0-9a-f-]+)$/i)
+  const adminTransactionMatch = pathname.match(/^\/admin\/transactions\/([0-9a-f-]+)$/i)
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
@@ -80,6 +83,10 @@ function ApplicationRoutes() {
     if (adminProviderMatch) return <AdminProvidersPage pathname={pathname} providerId={adminProviderMatch[1]} />
     if (pathname === '/admin/credits') return <AdminWalletsPage pathname={pathname} />
     if (adminWalletMatch) return <AdminWalletsPage pathname={pathname} providerId={adminWalletMatch[1]} />
+    if (pathname === '/admin/requests') return <AdminRequestsPage pathname={pathname} />
+    if (adminRequestMatch) return <AdminRequestsPage pathname={pathname} requestId={adminRequestMatch[1]} />
+    if (pathname === '/admin/transactions') return <AdminTransactionsPage pathname={pathname} />
+    if (adminTransactionMatch) return <AdminTransactionsPage pathname={pathname} transactionId={adminTransactionMatch[1]} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

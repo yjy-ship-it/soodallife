@@ -89,7 +89,9 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
     }
 
     internal async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken cancellationToken) =>
-        dbContext.Database.IsRelational() ? await dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+        dbContext.Database.IsRelational() && dbContext.Database.CurrentTransaction is null
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
 
     internal async Task SaveWithConcurrencyAsync(CancellationToken cancellationToken)
     {

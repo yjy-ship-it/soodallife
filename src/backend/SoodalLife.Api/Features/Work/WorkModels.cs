@@ -72,6 +72,8 @@ public sealed record WorkTransactionDetail(
     string AreaName,
     string RequestTitle,
     string? RequestDescription,
+    string? CustomerPhone,
+    string? DetailAddress,
     string ProviderName,
     decimal AgreedAmount,
     string CurrencyCode,

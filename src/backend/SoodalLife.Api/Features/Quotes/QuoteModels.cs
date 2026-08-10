@@ -68,13 +68,27 @@ public sealed record QuoteListItemResponse(
     DateTime ValidUntil,
     bool IsSelected);
 
+public sealed record QuoteSubmissionReadinessResponse(
+    Guid RequestId,
+    Guid ProviderId,
+    Guid CategoryFeePolicyId,
+    string PolicyVersion,
+    decimal ExpectedAcceptanceFee,
+    string CurrencyCode,
+    decimal AvailableWalletBalance,
+    string WalletStatus,
+    bool CanSubmit,
+    string? UnavailableReason);
+
 public sealed record AcceptQuoteResponse(
     Guid TransactionId,
     Guid QuoteId,
     Guid RequestId,
     string TransactionStatus,
     decimal AgreedAmount,
-    string CurrencyCode);
+    string CurrencyCode,
+    decimal? ChargedFeeAmount = null,
+    Guid? WalletLedgerEntryId = null);
 
 public sealed class QuoteBusinessException(
     string businessCode,
