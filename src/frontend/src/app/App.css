@@ -657,6 +657,20 @@
 .customerRoleHistory span { color: #76827c; font-size: .62rem; }
 .customerNotice, .customerWarning { padding: 11px; border-radius: 7px; color: #526159; background: #f2f6f4; font-size: .67rem; line-height: 1.6; }
 .customerWarning { color: #785e30; background: #fbf4e6; }
+.providerFilters { grid-template-columns: minmax(270px, 1.7fr) repeat(4, minmax(125px, .7fr)) auto; }
+.providerSummaryCards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 12px 0; }
+.providerSummaryCards article { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid #dce4e0; border-radius: 9px; background: #fff; }
+.providerSummaryCards span { color: #6c7872; font-size: .64rem; font-weight: 750; }
+.providerSummaryCards strong { color: #28674c; font-size: .9rem; }
+.providerUnsupported { grid-column: 1 / -1; }
+.providerReviewList { display: grid; gap: 13px; }
+.providerReviewList > article { padding: 15px; border: 1px solid #dfe5e2; border-radius: 9px; }
+.providerReviewList > article > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+.providerReviewList h2 { margin: 0; color: #34453d; font-size: .84rem; }
+.providerReviewList header span { color: #397057; font-size: .63rem; font-weight: 800; }
+.providerLegacyInfo { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 11px; }
+.providerLegacyInfo p { margin: 0; padding: 10px; border-radius: 7px; color: #655d48; background: #f8f3e8; font-size: .66rem; }
+.providerLegacyInfo strong { display: block; margin-bottom: 4px; color: #78673e; font-size: .59rem; }
 
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
@@ -667,6 +681,8 @@
   .customerFilters { grid-template-columns: repeat(2, 1fr); }
   .customerSearch, .customerFilterActions { grid-column: 1 / -1; }
   .customerUsageCards { grid-template-columns: repeat(2, 1fr); }
+  .providerFilters { grid-template-columns: repeat(2, 1fr); }
+  .providerSummaryCards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 620px) {
@@ -685,4 +701,5 @@
   .customerDetailHero, .customerDetailHero dl { align-items: flex-start; flex-direction: column; }
   .customerUsageCards, .customerInfoGrid, .customerSplit { grid-template-columns: 1fr; }
   .customerHistoryCard dl { grid-template-columns: repeat(2, 1fr); }
+  .providerLegacyInfo { grid-template-columns: 1fr; }
 }
