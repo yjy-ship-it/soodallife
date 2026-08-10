@@ -128,8 +128,19 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         dbContext.SaveChanges();
 
         SeedRequestCatalog(dbContext);
+        SeedAdvertisingPlacements(dbContext);
         SeedMatchingProviderScopes(dbContext);
         SeedTradingPrerequisites(dbContext);
+    }
+
+    private static void SeedAdvertisingPlacements(SoodalLifeDbContext dbContext)
+    {
+        if (dbContext.AdvertisingPlacements.Any()) return;
+        var now = DateTime.UtcNow;
+        dbContext.AdvertisingPlacements.AddRange(
+            new AdvertisingPlacement { Code = "CUSTOMER_HOME", Name = "고객 홈", Description = "고객 역할 홈 화면", RouteHint = "/customer", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new AdvertisingPlacement { Code = "PROVIDER_HOME", Name = "공급자 홈", Description = "공급자 역할 홈 화면", RouteHint = "/provider", IsActive = true, CreatedAt = now, UpdatedAt = now });
+        dbContext.SaveChanges();
     }
 
     private void SeedRequestCatalog(SoodalLifeDbContext dbContext)

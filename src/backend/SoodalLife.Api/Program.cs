@@ -40,6 +40,7 @@ builder.Services.AddScoped<AdminProviderServiceApprovalService>();
 builder.Services.AddScoped<ProviderWalletService>();
 builder.Services.AddScoped<AdminWalletService>();
 builder.Services.AddScoped<AdminRequestTransactionService>();
+builder.Services.AddScoped<AdvertisingContentService>();
 builder.Services.AddScoped<ActiveUserCookieEvents>();
 builder.Services.AddScoped<DevelopmentAccountInitializer>();
 builder.Services.AddSingleton<CatalogWorkbookReader>();

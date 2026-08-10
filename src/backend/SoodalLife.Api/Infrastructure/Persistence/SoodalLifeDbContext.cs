@@ -68,6 +68,17 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<AfterServiceFile> AfterServiceFiles => Set<AfterServiceFile>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<AdvertisingPlacement> AdvertisingPlacements => Set<AdvertisingPlacement>();
+    public DbSet<AdvertisingCampaign> AdvertisingCampaigns => Set<AdvertisingCampaign>();
+    public DbSet<AdvertisingCampaignPlacement> AdvertisingCampaignPlacements => Set<AdvertisingCampaignPlacement>();
+    public DbSet<AdvertisingCampaignCategory> AdvertisingCampaignCategories => Set<AdvertisingCampaignCategory>();
+    public DbSet<AdvertisingCampaignArea> AdvertisingCampaignAreas => Set<AdvertisingCampaignArea>();
+    public DbSet<AdvertisingCreative> AdvertisingCreatives => Set<AdvertisingCreative>();
+    public DbSet<AdvertisingEvent> AdvertisingEvents => Set<AdvertisingEvent>();
+    public DbSet<ManagedContent> ManagedContents => Set<ManagedContent>();
+    public DbSet<ManagedContentVersion> ManagedContentVersions => Set<ManagedContentVersion>();
+    public DbSet<ManagedContentCategory> ManagedContentCategories => Set<ManagedContentCategory>();
+    public DbSet<ManagedContentArea> ManagedContentAreas => Set<ManagedContentArea>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

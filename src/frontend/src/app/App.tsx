@@ -16,6 +16,7 @@ import { AdminCustomersPage } from '../admin/AdminCustomersPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
 import { AdminWalletsPage } from '../admin/AdminWalletsPage'
 import { AdminRequestsPage, AdminTransactionsPage } from '../admin/AdminOperationsPages'
+import { AdminAdvertisingContentPage } from '../admin/AdminAdvertisingContentPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -87,6 +88,7 @@ function ApplicationRoutes() {
     if (adminRequestMatch) return <AdminRequestsPage pathname={pathname} requestId={adminRequestMatch[1]} />
     if (pathname === '/admin/transactions') return <AdminTransactionsPage pathname={pathname} />
     if (adminTransactionMatch) return <AdminTransactionsPage pathname={pathname} transactionId={adminTransactionMatch[1]} />
+    if (pathname === '/admin/content') return <AdminAdvertisingContentPage pathname={pathname} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />
