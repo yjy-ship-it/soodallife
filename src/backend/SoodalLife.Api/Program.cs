@@ -62,6 +62,8 @@ builder.Services.AddSingleton<CompletionPolicyEvaluator>();
 builder.Services.AddSingleton<IPrivateFileStorage, DevelopmentPrivateFileStorage>();
 builder.Services.AddScoped<WorkService>();
 builder.Services.AddScoped<CareSubscriptionService>();
+builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
+builder.Services.AddScoped<SubscriptionBillingService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)

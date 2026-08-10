@@ -56,3 +56,33 @@ public sealed class AdminSubscriptionsController(CareSubscriptionService service
     private Guid Actor()=>Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private async Task<ActionResult<T>> Run<T>(Func<Task<T>> action){try{return Ok(await action());}catch(SubscriptionBusinessException e){return StatusCode(e.StatusCode,ApiErrorResponse.Create(HttpContext,e.BusinessCode,e.Message));}}
 }
+
+[ApiController,Authorize(Roles=RoleCodes.Admin),Route("api/v1/admin/subscription-accounting")]
+public sealed class AdminSubscriptionAccountingController(SubscriptionBillingService service):ControllerBase
+{
+    [HttpGet("dashboard")] public Task<ActionResult<SubscriptionAccountingDashboard>> Dashboard(CancellationToken token)=>Run(()=>service.Dashboard(token));
+    [HttpGet("payment-methods")] public Task<ActionResult<List<SubscriptionPaymentMethodResponse>>> PaymentMethods(CancellationToken token)=>Run(()=>service.PaymentMethods(token));
+    [HttpPost("payment-methods")] public Task<ActionResult<SubscriptionPaymentMethodResponse>> RegisterPaymentMethod(RegisterSubscriptionPaymentMethodRequest input,CancellationToken token)=>Run(()=>service.RegisterPaymentMethod(input,Actor(),token));
+    [HttpGet("payments")] public Task<ActionResult<List<SubscriptionPaymentResponse>>> Payments(CancellationToken token)=>Run(()=>service.Payments(token));
+    [HttpPost("payments")] public Task<ActionResult<SubscriptionPaymentResponse>> CreatePayment(CreateSubscriptionPaymentRequest input,CancellationToken token)=>Run(()=>service.CreatePayment(input,Actor(),token));
+    [HttpPost("payments/{id:guid}/development-confirmation")] public Task<ActionResult<SubscriptionPaymentResponse>> ConfirmPayment(Guid id,DevelopmentPaymentConfirmationRequest input,CancellationToken token)=>Run(()=>service.ConfirmPayment(id,input,Actor(),token));
+    [HttpPost("payments/{id:guid}/cancel")] public Task<ActionResult<SubscriptionPaymentResponse>> CancelPayment(Guid id,PaymentStateRequest input,CancellationToken token)=>Run(()=>service.CancelPayment(id,input,Actor(),token));
+    [HttpGet("payment-ledger")] public Task<ActionResult<List<SubscriptionPaymentLedgerResponse>>> PaymentLedger(CancellationToken token)=>Run(()=>service.PaymentLedger(token));
+    [HttpGet("settlement-items")] public Task<ActionResult<List<SubscriptionSettlementItemResponse>>> SettlementItems([FromQuery]int? year,[FromQuery]int? month,CancellationToken token)=>Run(()=>service.SettlementItems(year,month,token));
+    [HttpPost("settlement-items/prepare")] public Task<ActionResult<List<SubscriptionSettlementItemResponse>>> PrepareSettlementItems(PrepareSettlementItemsRequest input,CancellationToken token)=>Run(()=>service.PrepareSettlementItems(input,Actor(),token));
+    [HttpPost("settlement-items/{id:guid}/hold")] public Task<ActionResult<SubscriptionSettlementItemResponse>> Hold(Guid id,SettlementDecisionRequest input,CancellationToken token)=>Run(()=>service.HoldSettlementItem(id,input,false,Actor(),token));
+    [HttpPost("settlement-items/{id:guid}/release")] public Task<ActionResult<SubscriptionSettlementItemResponse>> Release(Guid id,SettlementDecisionRequest input,CancellationToken token)=>Run(()=>service.HoldSettlementItem(id,input,true,Actor(),token));
+    [HttpGet("monthly-settlements")] public Task<ActionResult<List<MonthlySettlementResponse>>> MonthlySettlements(CancellationToken token)=>Run(()=>service.MonthlySettlements(token));
+    [HttpPost("monthly-settlements")] public Task<ActionResult<MonthlySettlementResponse>> CreateMonthlySettlement(CreateMonthlySettlementRequest input,CancellationToken token)=>Run(()=>service.CreateMonthlySettlement(input,Actor(),token));
+    [HttpPost("monthly-settlements/{id:guid}/approve")] public Task<ActionResult<MonthlySettlementResponse>> ApproveMonthlySettlement(Guid id,SettlementDecisionRequest input,CancellationToken token)=>Run(()=>service.ApproveMonthlySettlement(id,input,Actor(),token));
+    [HttpGet("payouts")] public Task<ActionResult<List<SubscriptionPayoutResponse>>> Payouts(CancellationToken token)=>Run(()=>service.Payouts(token));
+    [HttpPost("payouts")] public Task<ActionResult<SubscriptionPayoutResponse>> CreatePayout(CreateSubscriptionPayoutRequest input,CancellationToken token)=>Run(()=>service.CreatePayout(input,Actor(),token));
+    [HttpPost("payouts/{id:guid}/approve")] public Task<ActionResult<SubscriptionPayoutResponse>> ApprovePayout(Guid id,PayoutDecisionRequest input,CancellationToken token)=>Run(()=>service.ApprovePayout(id,input,Actor(),token));
+    [HttpPost("payouts/{id:guid}/development-completion")] public Task<ActionResult<SubscriptionPayoutResponse>> CompletePayout(Guid id,PayoutDecisionRequest input,CancellationToken token)=>Run(()=>service.CompletePayout(id,input,Actor(),token));
+    [HttpGet("refund-adjustments")] public Task<ActionResult<List<SubscriptionRefundAdjustmentResponse>>> Refunds(CancellationToken token)=>Run(()=>service.Refunds(token));
+    [HttpPost("refund-adjustments")] public Task<ActionResult<SubscriptionRefundAdjustmentResponse>> CreateRefund(CreateRefundAdjustmentRequest input,CancellationToken token)=>Run(()=>service.CreateRefund(input,Actor(),token));
+    [HttpPost("refund-adjustments/{id:guid}/approve")] public Task<ActionResult<SubscriptionRefundAdjustmentResponse>> ApproveRefund(Guid id,RefundAdjustmentDecisionRequest input,CancellationToken token)=>Run(()=>service.ApproveRefund(id,input,Actor(),token));
+    [HttpPost("refund-adjustments/{id:guid}/development-completion")] public Task<ActionResult<SubscriptionRefundAdjustmentResponse>> CompleteRefund(Guid id,RefundAdjustmentDecisionRequest input,CancellationToken token)=>Run(()=>service.CompleteRefund(id,input,Actor(),token));
+    private Guid Actor()=>Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private async Task<ActionResult<T>> Run<T>(Func<Task<T>> action){try{return Ok(await action());}catch(SubscriptionBusinessException e){return StatusCode(e.StatusCode,ApiErrorResponse.Create(HttpContext,e.BusinessCode,e.Message));}}
+}

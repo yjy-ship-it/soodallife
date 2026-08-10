@@ -110,6 +110,8 @@ public sealed class SubscriptionContract
     public string RecurrenceSnapshotJson { get; set; } = "{}";
     public decimal? ProviderTrustScoreSnapshot { get; set; }
     public string CurrencyCode { get; set; } = "KRW";
+    public DateTime? NextBillingAt { get; set; }
+    public string? BillingStatusCode { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }

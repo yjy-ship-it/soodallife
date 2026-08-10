@@ -167,6 +167,10 @@
 .detailCard dd { margin: 0; word-break: break-word; }
 .answerRow { display: contents; }
 
+.subscriptionAccounting{display:grid;gap:18px}.subscriptionAccountingHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:22px;border:1px solid #dce5e2;border-radius:16px;background:#fff}.subscriptionAccountingHeader h2{margin:0 0 8px;font-size:22px;color:#173f38}.subscriptionAccountingHeader p{margin:0;color:#64716f}.simulationBadge,.productionBadge{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}.simulationBadge{background:#fff4cf;color:#765b00}.productionBadge{background:#e8f2ef;color:#25594f}.subscriptionAccountingMetrics{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px}.subscriptionAccountingMetrics span{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #dce5e2;border-radius:12px;background:#fff;color:#64716f;font-size:12px}.subscriptionAccountingMetrics strong{font-size:21px;color:#173f38}.subscriptionAccountingTabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:3px}.subscriptionAccountingTabs button{border:1px solid #ccd9d5;border-radius:10px;background:#fff;padding:9px 13px;white-space:nowrap;color:#53635f}.subscriptionAccountingTabs button.isActive{border-color:#176e5d;background:#176e5d;color:#fff;font-weight:700}.subscriptionToolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 16px;border:1px solid #dce5e2;border-radius:12px;background:#f7faf9;color:#53635f}.subscriptionToolbar button,.subscriptionSettlementCandidates button{border:0;border-radius:9px;background:#176e5d;color:#fff;padding:9px 13px;font-weight:700}.subscriptionSettlementCandidates{display:flex;gap:8px;flex-wrap:wrap}
+
+@media (max-width: 1100px) {.subscriptionAccountingMetrics{grid-template-columns:repeat(3,1fr)}}
+
 @media (max-width: 900px) {
   .loginShell { grid-template-columns: 1fr; }
   .loginIntro { display: none; }
@@ -298,6 +302,8 @@
 }
 
 @media (max-width: 620px) {
+  .subscriptionAccountingHeader, .subscriptionToolbar { align-items:stretch; flex-direction:column; }
+  .subscriptionAccountingMetrics { grid-template-columns:repeat(2,1fr); }
   .adminTopBar { min-height: 64px; padding-inline: 14px; }
   .adminIdentity, .adminNotification { display: none; }
   .adminMetricGrid { grid-template-columns: 1fr; }
