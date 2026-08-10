@@ -313,6 +313,77 @@
   .adminMetricCard { min-height: 126px; }
 }
 
+/* 본사 통계·경영 대시보드 */
+.analyticsHeading > span { max-width: 620px; line-height: 1.55; text-align: right; }
+.analyticsFilterBar { display: grid; gap: 14px; padding: 18px; margin-bottom: 18px; border: 1px solid #dce2df; border-radius: 12px; background: #fff; }
+.analyticsRangeButtons { display: flex; flex-wrap: wrap; gap: 7px; }
+.analyticsRangeButtons button { padding: 9px 13px; border: 1px solid #d4ddd9; border-radius: 8px; color: #53615c; background: #fff; cursor: pointer; }
+.analyticsRangeButtons button.active { border-color: #286b50; color: #fff; background: #286b50; font-weight: 800; }
+.analyticsCustomDates, .analyticsSelects { display: flex; flex-wrap: wrap; gap: 12px; }
+.analyticsFilterBar label { display: grid; min-width: 180px; gap: 6px; color: #53605b; font-size: .75rem; font-weight: 800; }
+.analyticsFilterBar input, .analyticsFilterBar select { min-height: 40px; padding: 0 10px; border: 1px solid #cfd8d4; border-radius: 8px; color: #1c2924; background: #fff; }
+.analyticsKpiGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.analyticsKpiCard { display: grid; min-height: 150px; align-content: start; gap: 9px; padding: 20px; border: 1px solid #dce2df; border-radius: 12px; background: #fff; box-shadow: 0 4px 18px rgb(25 42 35 / 4%); }
+.analyticsKpiCard > span { color: #65716c; font-size: .8rem; font-weight: 800; }
+.analyticsKpiCard > strong { color: #174e37; font-size: 1.75rem; letter-spacing: -.035em; }
+.analyticsKpiCard small { color: #78847f; font-size: .72rem; line-height: 1.45; }
+.analyticsChange { width: max-content; padding: 3px 7px; border-radius: 999px; color: #596760; background: #edf1ef; font-size: .66rem; font-weight: 800; }
+.analyticsChange.up { color: #197149; background: #e5f5ec; }
+.analyticsChange.down { color: #a8493f; background: #fff0ee; }
+.analyticsAttentionPanel, .analyticsPanel, .analyticsSectionCard, .analyticsUnavailable { padding: 22px; margin-top: 16px; border: 1px solid #dce2df; border-radius: 12px; background: #fff; }
+.analyticsAttentionPanel { border-color: #d9dfd2; background: #fbfcf6; }
+.analyticsPanelHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.analyticsPanelHeading h2 { margin: 0; font-size: 1.04rem; }
+.analyticsPanelHeading p, .analyticsPanelHeading > span { margin: 5px 0 0; color: #76817c; font-size: .73rem; }
+.analyticsAttentionGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.analyticsAttentionGrid button { display: grid; gap: 5px; padding: 15px; border: 1px solid #dde4df; border-radius: 10px; color: #21302a; background: #fff; text-align: left; cursor: pointer; }
+.analyticsAttentionGrid button:hover { border-color: #5b9a7f; box-shadow: 0 4px 14px rgb(31 84 61 / 9%); }
+.analyticsAttentionGrid button > span { width: max-content; padding: 2px 6px; border-radius: 5px; color: #765b1d; background: #fff3cd; font-size: .62rem; font-weight: 900; }
+.analyticsAttentionGrid button > span.critical { color: #9c3026; background: #ffe9e6; }
+.analyticsAttentionGrid strong { color: #164832; font-size: 1.35rem; }
+.analyticsAttentionGrid b { font-size: .82rem; }
+.analyticsAttentionGrid small { color: #74807b; line-height: 1.45; }
+.analyticsTrendPanel { overflow: hidden; }
+.analyticsLegend { display: flex; gap: 14px; color: #66736e; font-size: .72rem; }
+.analyticsLegend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: #28795a; content: ''; }
+.analyticsLegend .transaction::before { background: #d68a3c; }
+.analyticsTrend { display: block; width: 100%; height: 190px; overflow: visible; }
+.analyticsTrend line { stroke: #e5eae7; stroke-width: 1; }
+.analyticsTrend polyline { fill: none; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.analyticsTrend .requestLine { stroke: #28795a; }
+.analyticsTrend .transactionLine { stroke: #d68a3c; }
+.analyticsTrendDates { display: flex; justify-content: space-between; color: #88918e; font-size: .7rem; }
+.analyticsTwoColumns, .analyticsSectionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.analyticsBars { display: grid; gap: 12px; }
+.analyticsBarRow { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(120px, 2fr) auto; align-items: center; gap: 10px; font-size: .75rem; }
+.analyticsBarRow > div { overflow: hidden; height: 8px; border-radius: 9px; background: #edf1ef; }
+.analyticsBarRow i { display: block; height: 100%; border-radius: inherit; background: #4b9675; }
+.analyticsBarRow strong { color: #34413c; }
+.analyticsSectionGrid { margin-top: 16px; }
+.analyticsSectionCard { margin-top: 0; }
+.analyticsSectionCard dl { margin: 0; }
+.analyticsSectionCard dl > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 11px 0; border-top: 1px solid #edf0ee; }
+.analyticsSectionCard dt { color: #56635e; font-size: .78rem; }
+.analyticsSectionCard dt small { display: block; max-width: 340px; margin-top: 4px; color: #8a938f; font-size: .65rem; line-height: 1.4; }
+.analyticsSectionCard dd { display: grid; justify-items: end; gap: 5px; margin: 0; color: #183f2f; font-size: .86rem; font-weight: 900; white-space: nowrap; }
+.analyticsUnavailable { display: grid; grid-template-columns: 240px 1fr; gap: 24px; background: #f7f8f7; }
+.analyticsUnavailable h2 { margin: 7px 0 0; font-size: 1.05rem; }
+.analyticsUnavailable ul { margin: 0; padding-left: 20px; color: #65716c; font-size: .77rem; line-height: 1.8; }
+.analyticsEmpty, .analyticsLoading { padding: 40px 20px; color: #7b8581; text-align: center; }
+.unavailable { color: #8a7461 !important; font-size: .92rem !important; }
+
+@media (max-width: 1100px) {
+  .analyticsKpiGrid, .analyticsAttentionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .analyticsHeading > span { display: none; }
+  .analyticsKpiGrid, .analyticsAttentionGrid, .analyticsTwoColumns, .analyticsSectionGrid, .analyticsUnavailable { grid-template-columns: 1fr; }
+  .analyticsCustomDates, .analyticsSelects { display: grid; grid-template-columns: 1fr 1fr; }
+  .analyticsFilterBar label { min-width: 0; }
+  .analyticsBarRow { grid-template-columns: minmax(80px, 1fr) minmax(80px, 1.5fr) auto; }
+}
+
 .walletSummaryGrid, .walletBalanceGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
 .walletSummaryGrid article, .walletBalanceGrid article { background: #fff; border: 1px solid #dfe6ec; border-radius: 14px; padding: 18px; box-shadow: 0 6px 18px rgba(25,49,70,.05); }
 .walletSummaryGrid span, .walletBalanceGrid span { display: block; color: #637381; font-size: .82rem; }

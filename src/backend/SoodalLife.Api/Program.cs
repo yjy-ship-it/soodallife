@@ -30,6 +30,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<AdminDashboardService>();
+builder.Services.AddScoped<AdminAnalyticsService>();
 builder.Services.AddScoped<AdminAuditService>();
 builder.Services.AddScoped<AdminServiceCategoryService>();
 builder.Services.AddScoped<AdminRequestFieldService>();

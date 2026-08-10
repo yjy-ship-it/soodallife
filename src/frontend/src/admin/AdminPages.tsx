@@ -1,72 +1,145 @@
 import { useEffect, useState } from 'react'
-import { getAdminDashboardSummary } from './api'
+import { getAdminAnalyticsDashboard } from './api'
 import { AdminLayout } from './AdminLayout'
 import { findAdminMenu } from './menu'
-import type { AdminDashboardSummary, AdminMetric } from './types'
+import type { AdminAnalyticsBreakdown, AdminAnalyticsDashboard, AdminAnalyticsFilters, AdminAnalyticsMetric } from './types'
 
-const dashboardCards: Array<{ key: keyof AdminDashboardSummary; label: string; description: string; unit: string }> = [
-  { key: 'totalCustomers', label: '전체 고객', description: '등록된 고객 프로필', unit: '명' },
-  { key: 'totalProviders', label: '전체 공급자', description: '등록된 공급자 프로필', unit: '곳' },
-  { key: 'pendingProviders', label: '승인 대기 공급자', description: '심사 대기 상태', unit: '곳' },
-  { key: 'activeRequests', label: '진행 중 요청', description: '서비스 요청 현황', unit: '건' },
-  { key: 'activeTransactions', label: '진행 중 거래', description: '거래 및 작업 현황', unit: '건' },
-  { key: 'unresolvedAfterServiceCases', label: '미처리 A/S·분쟁', description: '접수 후 처리 대기 현황', unit: '건' },
-]
+const rangeOptions = [
+  ['TODAY', '오늘'],
+  ['LAST_7_DAYS', '최근 7일'],
+  ['LAST_30_DAYS', '최근 30일'],
+  ['THIS_MONTH', '이번 달'],
+  ['LAST_MONTH', '지난 달'],
+  ['CUSTOM', '사용자 지정'],
+] as const
 
-function MetricValue({ metric, unit }: { metric: AdminMetric; unit: string }) {
-  if (metric.value === null) {
-    return <span className="adminMetricPending">{metric.unavailableReason ?? '집계 보류'}</span>
-  }
-  return <strong className="adminMetricValue">{metric.value.toLocaleString('ko-KR')}<small>{unit}</small></strong>
+const numberFormatter = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 })
+const currencyFormatter = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 })
+const dateFormatter = new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' })
+
+function formatMetric(metric: AdminAnalyticsMetric) {
+  if (metric.value === null) return '집계 불가'
+  const formatted = metric.unit === '원' ? currencyFormatter.format(metric.value) : numberFormatter.format(metric.value)
+  return `${formatted}${metric.unit}`
+}
+
+function ChangeBadge({ metric }: { metric: AdminAnalyticsMetric }) {
+  if (metric.changeRate === null) return null
+  const direction = metric.changeRate > 0 ? 'up' : metric.changeRate < 0 ? 'down' : 'flat'
+  return <span className={`analyticsChange ${direction}`}>이전 기간 대비 {metric.changeRate > 0 ? '+' : ''}{metric.changeRate}%</span>
+}
+
+function MetricCard({ metric }: { metric: AdminAnalyticsMetric }) {
+  return (
+    <article className="analyticsKpiCard">
+      <span>{metric.label}</span>
+      <strong className={metric.value === null ? 'unavailable' : ''}>{formatMetric(metric)}</strong>
+      <ChangeBadge metric={metric} />
+      {metric.note && <small>{metric.note}</small>}
+    </article>
+  )
+}
+
+function BreakdownList({ title, items }: { title: string; items: AdminAnalyticsBreakdown[] }) {
+  const maximum = Math.max(1, ...items.map((item) => item.value))
+  return (
+    <section className="analyticsPanel">
+      <div className="analyticsPanelHeading"><h2>{title}</h2><span>상위 {Math.min(20, items.length)}개</span></div>
+      {items.length === 0 ? <p className="analyticsEmpty">선택한 조건의 데이터가 없습니다.</p> : (
+        <div className="analyticsBars">
+          {items.map((item) => (
+            <div className="analyticsBarRow" key={item.code}>
+              <span>{item.label}</span><div><i style={{ width: `${Math.max(3, item.value / maximum * 100)}%` }} /></div><strong>{numberFormatter.format(item.value)}{item.unit}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function TrendChart({ dashboard }: { dashboard: AdminAnalyticsDashboard }) {
+  const points = dashboard.trend
+  const maximum = Math.max(1, ...points.flatMap((point) => [point.requests, point.transactions]))
+  const width = 900
+  const height = 190
+  const line = (key: 'requests' | 'transactions') => points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : index / (points.length - 1) * width
+    const y = height - point[key] / maximum * (height - 24) - 8
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <section className="analyticsPanel analyticsTrendPanel">
+      <div className="analyticsPanelHeading"><div><h2>기간별 운영 추이</h2><p>서버 집계 기준 일별 요청·거래</p></div><div className="analyticsLegend"><span className="request">요청</span><span className="transaction">거래</span></div></div>
+      {points.length === 0 ? <p className="analyticsEmpty">표시할 추이가 없습니다.</p> : <>
+        <svg className="analyticsTrend" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="일별 요청과 거래 추이">
+          <line x1="0" y1={height - 8} x2={width} y2={height - 8} />
+          <polyline className="requestLine" points={line('requests')} />
+          <polyline className="transactionLine" points={line('transactions')} />
+        </svg>
+        <div className="analyticsTrendDates"><span>{dateFormatter.format(new Date(`${points[0].date}T00:00:00+09:00`))}</span><span>{dateFormatter.format(new Date(`${points[points.length - 1].date}T00:00:00+09:00`))}</span></div>
+      </>}
+    </section>
+  )
 }
 
 export function AdminDashboardPage({ pathname }: { pathname: string }) {
-  const [summary, setSummary] = useState<AdminDashboardSummary | null>(null)
+  const [filters, setFilters] = useState<AdminAnalyticsFilters>({ range: 'LAST_30_DAYS' })
+  const [dashboard, setDashboard] = useState<AdminAnalyticsDashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
-
+  const [loading, setLoading] = useState(true)
   useEffect(() => {
     let active = true
-    getAdminDashboardSummary()
-      .then((result) => active && setSummary(result))
-      .catch((requestError: unknown) => active && setError(requestError instanceof Error ? requestError.message : '현황을 불러오지 못했습니다.'))
+    setLoading(true)
+    setError(null)
+    getAdminAnalyticsDashboard(filters)
+      .then((result) => { if (active) setDashboard(result) })
+      .catch((requestError: unknown) => { if (active) setError(requestError instanceof Error ? requestError.message : '현황을 불러오지 못했습니다.') })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [])
+  }, [filters])
+
+  const updateFilter = (name: keyof AdminAnalyticsFilters, value: string) => setFilters((current) => ({ ...current, [name]: value || undefined }))
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
 
   return (
     <AdminLayout pathname={pathname}>
-      <section className="adminPageHeading">
-        <div><p>운영 현황</p><h1>대시보드</h1></div>
-        <span>오늘의 주요 운영 지표를 확인합니다.</span>
+      <section className="adminPageHeading analyticsHeading">
+        <div><p>본사 경영 현황</p><h1>통계·경영 대시보드</h1></div>
+        <span>{dashboard ? `${dashboard.appliedFilter.from} ~ ${dashboard.appliedFilter.to} · ${new Date(dashboard.generatedAt).toLocaleString('ko-KR')} 기준` : '실제 업무 DB를 읽기 전용으로 집계합니다.'}</span>
       </section>
+
+      <section className="analyticsFilterBar" aria-label="대시보드 필터">
+        <div className="analyticsRangeButtons">
+          {rangeOptions.map(([value, label]) => <button className={filters.range === value ? 'active' : ''} key={value} type="button" onClick={() => updateFilter('range', value)}>{label}</button>)}
+        </div>
+        {filters.range === 'CUSTOM' && <div className="analyticsCustomDates"><label>시작일<input type="date" value={filters.from ?? ''} onChange={(event) => updateFilter('from', event.target.value)} /></label><label>종료일<input type="date" value={filters.to ?? ''} onChange={(event) => updateFilter('to', event.target.value)} /></label></div>}
+        <div className="analyticsSelects">
+          <label>서비스<select value={filters.categoryId ?? ''} onChange={(event) => updateFilter('categoryId', event.target.value)}><option value="">전체 서비스</option>{dashboard?.categories.map((item) => <option key={item.id} value={item.id}>{item.parentLabel ? `${item.parentLabel} › ` : ''}{item.label}</option>)}</select></label>
+          <label>지역<select value={filters.areaId ?? ''} onChange={(event) => updateFilter('areaId', event.target.value)}><option value="">전체 지역</option>{dashboard?.regions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        </div>
+      </section>
+
       {error && <div className="adminError" role="alert">{error}</div>}
-      <section className="adminMetricGrid" aria-label="운영 요약">
-        {dashboardCards.map((card) => (
-          <article className="adminMetricCard" key={card.key}>
-            <div><span>{card.label}</span><small>{card.description}</small></div>
-            {summary ? <MetricValue metric={summary[card.key]} unit={card.unit} /> : <span className="adminMetricLoading">불러오는 중…</span>}
-          </article>
-        ))}
-      </section>
-      <section className="adminGuidePanel">
-        <div><span className="adminSectionLabel">업무 안내</span><h2>관리자 공통 기반이 준비되었습니다.</h2></div>
-        <p>좌측 메뉴에서 본사 업무 영역을 확인할 수 있습니다. 세부 관리 기능은 단계별로 연결됩니다.</p>
-      </section>
+      {loading && !dashboard ? <section className="analyticsLoading">실제 운영 데이터를 집계하고 있습니다…</section> : dashboard && <>
+        <section className="analyticsKpiGrid" aria-label="핵심 KPI">{dashboard.kpis.map((metric) => <MetricCard key={metric.code} metric={metric} />)}</section>
+        <section className="analyticsAttentionPanel">
+          <div className="analyticsPanelHeading"><div><span className="adminSectionLabel">ACTION REQUIRED</span><h2>지금 처리해야 할 일</h2></div><p>발생 건수는 귀책 또는 매출로 해석하지 않습니다.</p></div>
+          <div className="analyticsAttentionGrid">{dashboard.attention.map((item) => <button key={item.code} type="button" onClick={() => navigate(item.path)}><span className={item.severity.toLowerCase()}>{item.severity === 'CRITICAL' ? '긴급' : '확인'}</span><strong>{item.count.toLocaleString('ko-KR')}건</strong><b>{item.label}</b><small>{item.description}</small></button>)}</div>
+        </section>
+        <TrendChart dashboard={dashboard} />
+        <div className="analyticsTwoColumns"><BreakdownList title="서비스별 신규 요청" items={dashboard.requestsByCategory} /><BreakdownList title="지역별 신규 요청" items={dashboard.requestsByRegion} /></div>
+        <section className="analyticsSectionGrid">{dashboard.sections.map((section) => <article className="analyticsSectionCard" key={section.code}><div className="analyticsPanelHeading"><h2>{section.title}</h2><span>{section.metrics.length}개 지표</span></div><dl>{section.metrics.map((metric) => <div key={metric.code}><dt>{metric.label}{metric.note && <small>{metric.note}</small>}</dt><dd className={metric.value === null ? 'unavailable' : ''}>{formatMetric(metric)}<ChangeBadge metric={metric} /></dd></div>)}</dl></article>)}</section>
+        <section className="analyticsUnavailable"><div><span className="adminSectionLabel">DATA LIMITATIONS</span><h2>현재 계산하지 않는 지표</h2></div><ul>{dashboard.unavailableMetrics.map((item) => <li key={item}>{item}</li>)}</ul></section>
+      </>}
     </AdminLayout>
   )
 }
 
 export function AdminPlaceholderPage({ pathname }: { pathname: string }) {
   const menu = findAdminMenu(pathname)
-  return (
-    <AdminLayout pathname={pathname}>
-      <section className="adminPageHeading">
-        <div><p>본사 업무</p><h1>{menu?.label ?? '관리자 업무'}</h1></div>
-      </section>
-      <section className="adminComingSoon">
-        <span aria-hidden="true">준비</span>
-        <h2>준비 중인 기능입니다.</h2>
-        <p>업무 정책과 관리 기준을 확정한 뒤 순차적으로 제공하겠습니다.</p>
-      </section>
-    </AdminLayout>
-  )
+  return <AdminLayout pathname={pathname}><section className="adminPageHeading"><div><p>본사 업무</p><h1>{menu?.label ?? '관리자 업무'}</h1></div></section><section className="adminComingSoon"><span aria-hidden="true">준비</span><h2>준비 중인 기능입니다.</h2><p>업무 정책과 관리 기준을 확정한 뒤 순차적으로 제공하겠습니다.</p></section></AdminLayout>
 }

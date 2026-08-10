@@ -87,7 +87,7 @@ function ApplicationRoutes() {
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
-    if (pathname === '/admin') return <AdminDashboardPage pathname={pathname} />
+    if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
     if (pathname === '/admin/customers') return <AdminCustomersPage pathname={pathname} />
