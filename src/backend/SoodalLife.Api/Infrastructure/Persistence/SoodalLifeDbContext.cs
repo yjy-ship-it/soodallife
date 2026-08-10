@@ -13,6 +13,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ProviderApprovalEvent> ProviderApprovalEvents => Set<ProviderApprovalEvent>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
     public DbSet<CategoryPolicy> CategoryPolicies => Set<CategoryPolicy>();
+    public DbSet<CategoryPricePolicy> CategoryPricePolicies => Set<CategoryPricePolicy>();
+    public DbSet<CategoryFeePolicy> CategoryFeePolicies => Set<CategoryFeePolicy>();
+    public DbSet<CategoryOperationPolicy> CategoryOperationPolicies => Set<CategoryOperationPolicy>();
+    public DbSet<CategoryPricePolicyOption> CategoryPricePolicyOptions => Set<CategoryPricePolicyOption>();
+    public DbSet<CategoryPricePolicySurcharge> CategoryPricePolicySurcharges => Set<CategoryPricePolicySurcharge>();
     public DbSet<CompletionPhotoRole> CompletionPhotoRoles => Set<CompletionPhotoRole>();
     public DbSet<CategoryCompletionPhotoRequirement> CategoryCompletionPhotoRequirements => Set<CategoryCompletionPhotoRequirement>();
     public DbSet<CategoryFieldDefinition> CategoryFieldDefinitions => Set<CategoryFieldDefinition>();

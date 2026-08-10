@@ -98,6 +98,176 @@ internal sealed class CategoryPolicyConfiguration() : EntityConfiguration<Catego
     }
 }
 
+internal sealed class CategoryPricePolicyConfiguration() : EntityConfiguration<CategoryPricePolicy>("category_price_policies")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryPricePolicy> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryPricePolicy.CategoryId), "category_id");
+        Mapping.NullableLong(b, nameof(CategoryPricePolicy.LegacyCategoryPolicyId), "legacy_category_policy_id");
+        Mapping.String(b, nameof(CategoryPricePolicy.PolicyVersion), "policy_version", 30, unicode: false);
+        Mapping.String(b, nameof(CategoryPricePolicy.LegacyPriceMethodText), "legacy_price_method_text", 30);
+        Mapping.String(b, nameof(CategoryPricePolicy.PriceTypeCode), "price_type_code", 30, nullable: true, unicode: false);
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.BaseAmount), "base_amount");
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.MinimumBudgetAmount), "minimum_budget_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.RecommendedMinAmount), "recommended_min_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.RecommendedMaxAmount), "recommended_max_amount", nullable: true);
+        Mapping.String(b, nameof(CategoryPricePolicy.UnitText), "unit_text", 100, nullable: true);
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.UnitPriceAmount), "unit_price_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryPricePolicy.MinimumChargeAmount), "minimum_charge_amount", nullable: true);
+        Mapping.String(b, nameof(CategoryPricePolicy.CurrencyCode), "currency_code", 3, unicode: false, fixedLength: true, defaultValue: "KRW");
+        Mapping.String(b, nameof(CategoryPricePolicy.LegacyVatDisplayRuleText), "legacy_vat_display_rule_text", 100);
+        Mapping.String(b, nameof(CategoryPricePolicy.VatPolicyCode), "vat_policy_code", 20, nullable: true, unicode: false);
+        Mapping.Date(b, nameof(CategoryPricePolicy.EffectiveFrom), "effective_from");
+        Mapping.Date(b, nameof(CategoryPricePolicy.EffectiveTo), "effective_to", nullable: true);
+        Mapping.Bool(b, nameof(CategoryPricePolicy.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryPricePolicy, ServiceCategory>(b, nameof(CategoryPricePolicy.CategoryId));
+        Mapping.Fk<CategoryPricePolicy, CategoryPolicy>(b, nameof(CategoryPricePolicy.LegacyCategoryPolicyId));
+        b.HasIndex(x => x.PublicId).IsUnique();
+        b.HasIndex(x => x.LegacyCategoryPolicyId).IsUnique().HasFilter("[legacy_category_policy_id] IS NOT NULL");
+        b.HasIndex(x => new { x.CategoryId, x.PolicyVersion }).IsUnique();
+        b.HasIndex(x => new { x.CategoryId, x.IsActive, x.EffectiveFrom, x.EffectiveTo });
+        b.ToTable("category_price_policies", t =>
+        {
+            t.HasCheckConstraint("CK_category_price_policies_amounts", "[base_amount] >= 0 AND ([minimum_budget_amount] IS NULL OR [minimum_budget_amount] >= 0) AND ([recommended_min_amount] IS NULL OR [recommended_min_amount] >= 0) AND ([recommended_max_amount] IS NULL OR [recommended_max_amount] >= 0) AND ([unit_price_amount] IS NULL OR [unit_price_amount] >= 0) AND ([minimum_charge_amount] IS NULL OR [minimum_charge_amount] >= 0)");
+            t.HasCheckConstraint("CK_category_price_policies_range", "[recommended_min_amount] IS NULL OR [recommended_max_amount] IS NULL OR [recommended_min_amount] <= [recommended_max_amount]");
+            t.HasCheckConstraint("CK_category_price_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
+        });
+    }
+}
+
+internal sealed class CategoryFeePolicyConfiguration() : EntityConfiguration<CategoryFeePolicy>("category_fee_policies")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryFeePolicy> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryFeePolicy.CategoryId), "category_id");
+        Mapping.NullableLong(b, nameof(CategoryFeePolicy.LegacyCategoryPolicyId), "legacy_category_policy_id");
+        Mapping.NullableLong(b, nameof(CategoryFeePolicy.SourceFeePolicyId), "source_fee_policy_id");
+        Mapping.String(b, nameof(CategoryFeePolicy.PolicyVersion), "policy_version", 30, unicode: false);
+        Mapping.String(b, nameof(CategoryFeePolicy.PolicyKindCode), "policy_kind_code", 20, unicode: false);
+        Mapping.String(b, nameof(CategoryFeePolicy.TransactionTypeCode), "transaction_type_code", 20, unicode: false);
+        Mapping.String(b, nameof(CategoryFeePolicy.CalculationMethodText), "calculation_method_text", 100, nullable: true);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.FeeAmount), "fee_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.MinBaseAmount), "min_base_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.MaxBaseAmount), "max_base_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.Rate), "rate", nullable: true, precision: 9, scale: 6);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.MonthlyAmount), "monthly_amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryFeePolicy.PerVisitAmount), "per_visit_amount", nullable: true);
+        Mapping.String(b, nameof(CategoryFeePolicy.CurrencyCode), "currency_code", 3, unicode: false, fixedLength: true, defaultValue: "KRW");
+        Mapping.String(b, nameof(CategoryFeePolicy.ChargeTimingText), "charge_timing_text", 300);
+        Mapping.String(b, nameof(CategoryFeePolicy.RestoreRuleText), "restore_rule_text", 1000, nullable: true);
+        Mapping.Date(b, nameof(CategoryFeePolicy.EffectiveFrom), "effective_from");
+        Mapping.Date(b, nameof(CategoryFeePolicy.EffectiveTo), "effective_to", nullable: true);
+        Mapping.Bool(b, nameof(CategoryFeePolicy.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryFeePolicy, ServiceCategory>(b, nameof(CategoryFeePolicy.CategoryId));
+        Mapping.Fk<CategoryFeePolicy, CategoryPolicy>(b, nameof(CategoryFeePolicy.LegacyCategoryPolicyId));
+        Mapping.Fk<CategoryFeePolicy, FeePolicy>(b, nameof(CategoryFeePolicy.SourceFeePolicyId));
+        b.HasIndex(x => x.PublicId).IsUnique();
+        b.HasIndex(x => x.LegacyCategoryPolicyId).IsUnique().HasFilter("[legacy_category_policy_id] IS NOT NULL");
+        b.HasIndex(x => new { x.CategoryId, x.PolicyVersion }).IsUnique();
+        b.HasIndex(x => new { x.CategoryId, x.IsActive, x.EffectiveFrom, x.EffectiveTo });
+        b.ToTable("category_fee_policies", t =>
+        {
+            t.HasCheckConstraint("CK_category_fee_policies_amounts", "([fee_amount] IS NULL OR [fee_amount] >= 0) AND ([min_base_amount] IS NULL OR [min_base_amount] >= 0) AND ([max_base_amount] IS NULL OR [max_base_amount] >= 0) AND ([monthly_amount] IS NULL OR [monthly_amount] >= 0) AND ([per_visit_amount] IS NULL OR [per_visit_amount] >= 0)");
+            t.HasCheckConstraint("CK_category_fee_policies_rate", "[rate] IS NULL OR ([rate] >= 0 AND [rate] <= 1)");
+            t.HasCheckConstraint("CK_category_fee_policies_base_range", "[min_base_amount] IS NULL OR [max_base_amount] IS NULL OR [min_base_amount] <= [max_base_amount]");
+            t.HasCheckConstraint("CK_category_fee_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
+        });
+    }
+}
+
+internal sealed class CategoryOperationPolicyConfiguration() : EntityConfiguration<CategoryOperationPolicy>("category_operation_policies")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryOperationPolicy> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryOperationPolicy.CategoryId), "category_id");
+        Mapping.NullableLong(b, nameof(CategoryOperationPolicy.LegacyCategoryPolicyId), "legacy_category_policy_id");
+        Mapping.String(b, nameof(CategoryOperationPolicy.PolicyVersion), "policy_version", 30, unicode: false);
+        Mapping.String(b, nameof(CategoryOperationPolicy.RequestMethodText), "request_method_text", 300);
+        Mapping.String(b, nameof(CategoryOperationPolicy.OnsiteRequirementText), "onsite_requirement_text", 30);
+        Mapping.Bool(b, nameof(CategoryOperationPolicy.IsEmergencyAllowed), "is_emergency_allowed", false);
+        Mapping.String(b, nameof(CategoryOperationPolicy.SubscriptionOptionText), "subscription_option_text", 30);
+        Mapping.Short(b, nameof(CategoryOperationPolicy.MaxQuoteCount), "max_quote_count");
+        Mapping.Int(b, nameof(CategoryOperationPolicy.QuoteValidityMinutes), "quote_validity_minutes");
+        Mapping.String(b, nameof(CategoryOperationPolicy.MatchingAreaRuleText), "matching_area_rule_text", 200);
+        Mapping.String(b, nameof(CategoryOperationPolicy.NotificationTargetRuleText), "notification_target_rule_text", 300);
+        Mapping.Int(b, nameof(CategoryOperationPolicy.ProviderResponseDeadlineMinutes), "provider_response_deadline_minutes");
+        Mapping.String(b, nameof(CategoryOperationPolicy.RequestFieldSummaryText), "request_field_summary_text", 1000);
+        Mapping.Short(b, nameof(CategoryOperationPolicy.RequiredCompletionPhotoCount), "required_completion_photo_count", 0);
+        Mapping.String(b, nameof(CategoryOperationPolicy.RequiredQualificationSummaryText), "required_qualification_summary_text", 1000);
+        Mapping.String(b, nameof(CategoryOperationPolicy.InsuranceRequirementText), "insurance_requirement_text", 100);
+        Mapping.String(b, nameof(CategoryOperationPolicy.SafetyGradeCode), "safety_grade_code", 20, unicode: false);
+        Mapping.String(b, nameof(CategoryOperationPolicy.CompletionEvidenceRuleText), "completion_evidence_rule_text", 1000);
+        Mapping.Short(b, nameof(CategoryOperationPolicy.DefaultWarrantyDays), "default_warranty_days", 0);
+        Mapping.String(b, nameof(CategoryOperationPolicy.TrustScoreDisplayText), "trust_score_display_text", 100);
+        Mapping.String(b, nameof(CategoryOperationPolicy.DefaultSortCode), "default_sort_code", 30, unicode: false);
+        Mapping.String(b, nameof(CategoryOperationPolicy.ServiceAreaLevelCode), "service_area_level_code", 20, unicode: false);
+        Mapping.String(b, nameof(CategoryOperationPolicy.ReferenceUrl), "reference_url", 2048);
+        Mapping.String(b, nameof(CategoryOperationPolicy.AdminNote), "admin_note", 2000);
+        Mapping.Date(b, nameof(CategoryOperationPolicy.EffectiveFrom), "effective_from");
+        Mapping.Date(b, nameof(CategoryOperationPolicy.EffectiveTo), "effective_to", nullable: true);
+        Mapping.Bool(b, nameof(CategoryOperationPolicy.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryOperationPolicy, ServiceCategory>(b, nameof(CategoryOperationPolicy.CategoryId));
+        Mapping.Fk<CategoryOperationPolicy, CategoryPolicy>(b, nameof(CategoryOperationPolicy.LegacyCategoryPolicyId));
+        b.HasIndex(x => x.PublicId).IsUnique();
+        b.HasIndex(x => x.LegacyCategoryPolicyId).IsUnique().HasFilter("[legacy_category_policy_id] IS NOT NULL");
+        b.HasIndex(x => new { x.CategoryId, x.PolicyVersion }).IsUnique();
+        b.HasIndex(x => new { x.CategoryId, x.IsActive, x.EffectiveFrom, x.EffectiveTo });
+        b.ToTable("category_operation_policies", t =>
+        {
+            t.HasCheckConstraint("CK_category_operation_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
+            t.HasCheckConstraint("CK_category_operation_policies_counts", "[max_quote_count] > 0 AND [quote_validity_minutes] > 0 AND [provider_response_deadline_minutes] > 0 AND [required_completion_photo_count] >= 0 AND [default_warranty_days] >= 0");
+        });
+    }
+}
+
+internal sealed class CategoryPricePolicyOptionConfiguration() : EntityConfiguration<CategoryPricePolicyOption>("category_price_policy_options")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryPricePolicyOption> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryPricePolicyOption.PricePolicyId), "price_policy_id");
+        Mapping.String(b, nameof(CategoryPricePolicyOption.OptionName), "option_name", 200);
+        Mapping.Decimal(b, nameof(CategoryPricePolicyOption.AdditionalAmount), "additional_amount", defaultValue: 0m);
+        Mapping.Int(b, nameof(CategoryPricePolicyOption.DisplayOrder), "display_order", 0);
+        Mapping.Bool(b, nameof(CategoryPricePolicyOption.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryPricePolicyOption, CategoryPricePolicy>(b, nameof(CategoryPricePolicyOption.PricePolicyId));
+        b.HasIndex(x => x.PublicId).IsUnique();
+        b.HasIndex(x => new { x.PricePolicyId, x.IsActive, x.DisplayOrder });
+        b.ToTable("category_price_policy_options", t => t.HasCheckConstraint("CK_category_price_policy_options_order", "[display_order] >= 0"));
+    }
+}
+
+internal sealed class CategoryPricePolicySurchargeConfiguration() : EntityConfiguration<CategoryPricePolicySurcharge>("category_price_policy_surcharges")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<CategoryPricePolicySurcharge> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(CategoryPricePolicySurcharge.PricePolicyId), "price_policy_id");
+        Mapping.String(b, nameof(CategoryPricePolicySurcharge.SurchargeName), "surcharge_name", 200);
+        Mapping.String(b, nameof(CategoryPricePolicySurcharge.CalculationTypeCode), "calculation_type_code", 20, unicode: false);
+        Mapping.Decimal(b, nameof(CategoryPricePolicySurcharge.Amount), "amount", nullable: true);
+        Mapping.Decimal(b, nameof(CategoryPricePolicySurcharge.Rate), "rate", nullable: true, precision: 9, scale: 6);
+        Mapping.Int(b, nameof(CategoryPricePolicySurcharge.DisplayOrder), "display_order", 0);
+        Mapping.Bool(b, nameof(CategoryPricePolicySurcharge.IsActive), "is_active", true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<CategoryPricePolicySurcharge, CategoryPricePolicy>(b, nameof(CategoryPricePolicySurcharge.PricePolicyId));
+        b.HasIndex(x => x.PublicId).IsUnique();
+        b.HasIndex(x => new { x.PricePolicyId, x.IsActive, x.DisplayOrder });
+        b.ToTable("category_price_policy_surcharges", t =>
+        {
+            t.HasCheckConstraint("CK_category_price_policy_surcharges_value", "(([amount] IS NOT NULL AND [amount] >= 0 AND [rate] IS NULL) OR ([amount] IS NULL AND [rate] IS NOT NULL AND [rate] >= 0 AND [rate] <= 1))");
+            t.HasCheckConstraint("CK_category_price_policy_surcharges_order", "[display_order] >= 0");
+        });
+    }
+}
+
 internal sealed class CompletionPhotoRoleConfiguration() : EntityConfiguration<CompletionPhotoRole>("completion_photo_roles")
 {
     protected override void ConfigureEntity(EntityTypeBuilder<CompletionPhotoRole> b)

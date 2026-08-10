@@ -147,7 +147,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             LevelCode = "SERVICE",
             ExternalCode = "TEST-002",
             SourceRecordId = "TEST-002",
-            Name = "Other Test Service",
+            Name = "다른 테스트 서비스",
             StatusCode = "ACTIVE",
             SortOrder = 2,
         };
@@ -173,7 +173,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             SourceSystemCode = "TEST",
             AreaCode = "TEST-OTHER-SIGUNGU",
-            AreaName = "Other Test SIGUNGU",
+            AreaName = "다른 테스트 시군구",
             AreaLevelCode = "SIGUNGU",
             EffectiveFrom = new DateOnly(2026, 1, 1),
             IsActive = true,
@@ -189,9 +189,11 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             OnsiteRequirementText = "필수",
             SubscriptionOptionText = "선택",
             StandardWorkUnitText = "1회",
+            BasePriceAmount = 120000m,
             CurrencyCode = "KRW",
             PriceMethodText = "견적형",
-            VatDisplayRuleText = "표시",
+            VatDisplayRuleText = "포함/별도 필수표시",
+            MinimumBudgetAmount = 70000m,
             MaxQuoteCount = 5,
             QuoteValidityMinutes = 120,
             FeePolicyId = fee.Id,
@@ -216,6 +218,45 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         };
         dbContext.CategoryPolicies.Add(completionPolicy);
         dbContext.CategoryPolicies.Add(CreateTestPolicy(otherService.Id, fee.Id));
+        dbContext.SaveChanges();
+        foreach (var legacyPolicy in dbContext.CategoryPolicies.ToList())
+        {
+            var sourceFee = dbContext.FeePolicies.Single(item => item.Id == legacyPolicy.FeePolicyId);
+            dbContext.CategoryPricePolicies.Add(new CategoryPricePolicy
+            {
+                CategoryId = legacyPolicy.CategoryId, LegacyCategoryPolicyId = legacyPolicy.Id, PolicyVersion = legacyPolicy.PolicyVersion,
+                LegacyPriceMethodText = legacyPolicy.PriceMethodText, BaseAmount = legacyPolicy.BasePriceAmount,
+                MinimumBudgetAmount = legacyPolicy.MinimumBudgetAmount, UnitText = legacyPolicy.StandardWorkUnitText,
+                CurrencyCode = legacyPolicy.CurrencyCode, LegacyVatDisplayRuleText = legacyPolicy.VatDisplayRuleText,
+                EffectiveFrom = legacyPolicy.EffectiveFrom, EffectiveTo = legacyPolicy.EffectiveTo, IsActive = true,
+            });
+            dbContext.CategoryFeePolicies.Add(new CategoryFeePolicy
+            {
+                CategoryId = legacyPolicy.CategoryId, LegacyCategoryPolicyId = legacyPolicy.Id, SourceFeePolicyId = sourceFee.Id,
+                PolicyVersion = legacyPolicy.PolicyVersion, PolicyKindCode = sourceFee.PolicyKindCode,
+                TransactionTypeCode = sourceFee.TransactionTypeCode, CalculationMethodText = sourceFee.CalculationMethodText,
+                FeeAmount = legacyPolicy.EstimatedQuoteFeeAmount, MinBaseAmount = sourceFee.MinBaseAmount, MaxBaseAmount = sourceFee.MaxBaseAmount,
+                Rate = sourceFee.Rate, MonthlyAmount = sourceFee.MonthlyAmount, PerVisitAmount = sourceFee.PerVisitAmount,
+                CurrencyCode = sourceFee.CurrencyCode, ChargeTimingText = legacyPolicy.FeeChargeTimingText,
+                RestoreRuleText = legacyPolicy.FeeRestoreConditionText, EffectiveFrom = legacyPolicy.EffectiveFrom,
+                EffectiveTo = legacyPolicy.EffectiveTo, IsActive = sourceFee.IsActive,
+            });
+            dbContext.CategoryOperationPolicies.Add(new CategoryOperationPolicy
+            {
+                CategoryId = legacyPolicy.CategoryId, LegacyCategoryPolicyId = legacyPolicy.Id, PolicyVersion = legacyPolicy.PolicyVersion,
+                RequestMethodText = legacyPolicy.RequestMethodText, OnsiteRequirementText = legacyPolicy.OnsiteRequirementText,
+                IsEmergencyAllowed = legacyPolicy.IsEmergencyAllowed, SubscriptionOptionText = legacyPolicy.SubscriptionOptionText,
+                MaxQuoteCount = legacyPolicy.MaxQuoteCount, QuoteValidityMinutes = legacyPolicy.QuoteValidityMinutes,
+                MatchingAreaRuleText = legacyPolicy.MatchingAreaRuleText, NotificationTargetRuleText = legacyPolicy.NotificationTargetRuleText,
+                ProviderResponseDeadlineMinutes = legacyPolicy.ProviderResponseDeadlineMinutes, RequestFieldSummaryText = legacyPolicy.RequestFieldSummaryText,
+                RequiredCompletionPhotoCount = legacyPolicy.RequiredCompletionPhotoCount, RequiredQualificationSummaryText = legacyPolicy.RequiredQualificationSummaryText,
+                InsuranceRequirementText = legacyPolicy.InsuranceRequirementText, SafetyGradeCode = legacyPolicy.SafetyGradeCode,
+                CompletionEvidenceRuleText = legacyPolicy.CompletionEvidenceRuleText, DefaultWarrantyDays = legacyPolicy.DefaultWarrantyDays,
+                TrustScoreDisplayText = legacyPolicy.TrustScoreDisplayText, DefaultSortCode = legacyPolicy.DefaultSortCode,
+                ServiceAreaLevelCode = legacyPolicy.ServiceAreaLevelCode, ReferenceUrl = legacyPolicy.ReferenceUrl, AdminNote = legacyPolicy.AdminNote,
+                EffectiveFrom = legacyPolicy.EffectiveFrom, EffectiveTo = legacyPolicy.EffectiveTo, IsActive = true,
+            });
+        }
         dbContext.SaveChanges();
         var before = new CompletionPhotoRole { Code = "BEFORE", Name = "작업 전", Description = "작업 전 사진", IsActive = true };
         var after = new CompletionPhotoRole { Code = "AFTER", Name = "작업 후", Description = "작업 후 사진", IsActive = true };
@@ -339,31 +380,33 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         CategoryId = categoryId,
         PolicyVersion = "test-v1",
         TransactionTypeCode = "ONE_TIME",
-        RequestMethodText = "Test",
-        OnsiteRequirementText = "Required",
-        SubscriptionOptionText = "Optional",
-        StandardWorkUnitText = "1",
+        RequestMethodText = "요청서 접수",
+        OnsiteRequirementText = "필수",
+        SubscriptionOptionText = "선택",
+        StandardWorkUnitText = "1회",
+        BasePriceAmount = 90000m,
         CurrencyCode = "KRW",
-        PriceMethodText = "Quote",
-        VatDisplayRuleText = "Display",
+        PriceMethodText = "예약가",
+        VatDisplayRuleText = "포함/별도 필수표시",
+        MinimumBudgetAmount = 50000m,
         MaxQuoteCount = 5,
         QuoteValidityMinutes = 120,
         FeePolicyId = feePolicyId,
-        FeeChargeTimingText = "Test",
-        FeeRestoreConditionText = "Test",
-        MatchingAreaRuleText = "SIGUNGU",
-        NotificationTargetRuleText = "Test",
+        FeeChargeTimingText = "채택 시",
+        FeeRestoreConditionText = "운영 취소 시",
+        MatchingAreaRuleText = "시군구",
+        NotificationTargetRuleText = "대상 공급자",
         ProviderResponseDeadlineMinutes = 30,
-        RequestFieldSummaryText = "Test",
-        RequiredQualificationSummaryText = "Test",
-        InsuranceRequirementText = "Test",
+        RequestFieldSummaryText = "요청 필수항목",
+        RequiredQualificationSummaryText = "필수 자격 확인",
+        InsuranceRequirementText = "보험 확인",
         SafetyGradeCode = "NORMAL",
-        CompletionEvidenceRuleText = "Test",
-        TrustScoreDisplayText = "Test",
+        CompletionEvidenceRuleText = "완료 증빙",
+        TrustScoreDisplayText = "신뢰점수 표시",
         DefaultSortCode = "CREDIT_DESC",
         ServiceAreaLevelCode = "SIGUNGU",
         ReferenceUrl = "https://example.test",
-        AdminNote = "Test",
+        AdminNote = "테스트 정책",
         EffectiveFrom = new DateOnly(2026, 1, 1),
     };
 

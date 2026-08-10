@@ -466,12 +466,59 @@
 .requestFieldEmpty { display: grid; min-height: 480px; place-items: center; align-content: center; text-align: center; }
 .requestFieldEmpty strong { font-size: .9rem; }
 .requestFieldEmpty p { margin: 8px 0 0; color: #7c8782; font-size: .72rem; }
+.pricePolicyLoading { display: grid; min-height: 360px; place-items: center; color: #66736d; }
+.pricePolicyManager { padding: 18px; background: #f5f7f6; }
+.pricePolicyOverview { display: flex; justify-content: space-between; gap: 18px; padding: 17px 18px; border: 1px solid #cfded6; border-radius: 11px; background: #fff; }
+.pricePolicyOverview span { display: block; color: #75817b; font-size: .68rem; }
+.pricePolicyOverview strong { display: block; margin-top: 4px; color: #20372d; font-size: 1rem; }
+.pricePolicyOverview p { margin: 5px 0 0; color: #56645e; font-size: .72rem; }
+.pricePolicyOverview button { align-self: center; min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; color: #fff; background: #286f52; font-weight: 800; cursor: pointer; }
+.pricePolicyWorkspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+.pricePolicyHistory, .pricePolicyForm { border: 1px solid #dce3df; border-radius: 10px; background: #fff; }
+.pricePolicyHistory { padding: 12px; }
+.pricePolicyHistory h3 { margin: 0 0 10px; color: #34443d; font-size: .78rem; }
+.pricePolicyHistory h3 small { color: #7b8982; }
+.pricePolicyHistory > button { display: grid; width: 100%; gap: 5px; margin-top: 7px; padding: 10px; border: 1px solid #e0e6e3; border-radius: 8px; color: #35423c; background: #fff; text-align: left; cursor: pointer; }
+.pricePolicyHistory > button.selected { border-color: #4d8c70; background: #eef7f2; }
+.pricePolicyHistory > button span { display: flex; justify-content: space-between; gap: 8px; }
+.pricePolicyHistory > button small { color: #7b8781; font-size: .62rem; }
+.pricePolicyHistory em { width: fit-content; padding: 3px 6px; border-radius: 5px; font-size: .58rem; font-style: normal; font-weight: 800; }
+.pricePolicyHistory em.current { color: #246247; background: #e5f4ec; }
+.pricePolicyHistory em.scheduled { color: #5c5681; background: #efedf8; }
+.pricePolicyHistory em.ended { color: #777; background: #eee; }
+.pricePolicyForm { padding: 16px; }
+.pricePolicyForm > header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #e2e7e4; }
+.pricePolicyForm > header span { color: #738078; font-size: .65rem; }
+.pricePolicyForm > header h3 { margin: 3px 0 0; font-size: .92rem; }
+.pricePolicyForm > header em { color: #856433; font-size: .64rem; font-style: normal; }
+.pricePolicyProtection, .pricePolicyQuoteNotice { margin: 14px 0; padding: 11px 12px; border-radius: 8px; color: #705d35; background: #f8f1df; font-size: .68rem; line-height: 1.5; }
+.pricePolicyGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 15px; }
+.pricePolicyGrid > label { display: grid; gap: 7px; color: #4d5a55; font-size: .7rem; font-weight: 800; }
+.pricePolicyGrid input, .pricePolicyGrid select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #cfd8d4; border-radius: 8px; color: #1c2924; background: #fff; }
+.pricePolicyGrid input:disabled, .pricePolicyGrid select:disabled { color: #66726c; background: #f2f4f3; }
+.pricePolicyGrid label small { color: #87918d; font-size: .62rem; font-weight: 500; }
+.wonInput { position: relative; }
+.wonInput input { padding-right: 32px; text-align: right; }
+.wonInput span { position: absolute; top: 12px; right: 11px; color: #6f7a75; font-size: .7rem; }
+.pricePolicyForm > .categorySaveButton { margin-top: 15px; }
+.pricePolicyLimitations { display: grid; gap: 5px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e1e6e3; }
+.pricePolicyLimitations p { margin: 0; color: #77827d; font-size: .63rem; line-height: 1.5; }
+.pricePolicyLimitations strong { color: #56635d; }
+.pricePolicyExtras { display: grid; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e1e6e3; }
+.pricePolicyExtras h4 { margin: 0; color: #394a42; font-size: .76rem; }
+.pricePolicyExtras > p { margin: 0; padding: 12px; border-radius: 7px; color: #77827d; background: #f5f7f6; font-size: .68rem; }
+.pricePolicyExtras > div:not(.pricePolicyExtraForm) { display: flex; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid #e0e6e3; border-radius: 7px; font-size: .67rem; }
+.pricePolicyExtras > div span { color: #6b7872; }
+.pricePolicyExtraForm { display: grid; grid-template-columns: 1fr 120px auto; gap: 7px; }
+.pricePolicyExtraForm input, .pricePolicyExtraForm select { min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #cfd8d4; border-radius: 7px; }
+.pricePolicyExtraForm button { border: 1px solid #b9cec3; border-radius: 7px; color: #315b49; background: #fff; font-weight: 800; }
 
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
   .requestFieldListPane { border-right: 0; border-bottom: 1px solid #e0e5e2; }
   .requestFieldList { height: 340px; }
   .requestFieldOptionRow { grid-template-columns: 1fr 1fr; }
+  .pricePolicyWorkspace { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -480,4 +527,7 @@
   .requestFieldTwoColumns { grid-template-columns: 1fr; }
   .sharedDefinitionNotice { align-items: flex-start; flex-direction: column; }
   .sharedDefinitionNotice span { text-align: left; }
+  .pricePolicyOverview { align-items: stretch; flex-direction: column; }
+  .pricePolicyGrid { grid-template-columns: 1fr; }
+  .pricePolicyExtraForm { grid-template-columns: 1fr; }
 }

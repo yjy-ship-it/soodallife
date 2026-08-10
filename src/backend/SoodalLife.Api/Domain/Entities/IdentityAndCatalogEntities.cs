@@ -152,6 +152,137 @@ public sealed class CategoryPolicy
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class CategoryPricePolicy
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CategoryId { get; set; }
+    public long? LegacyCategoryPolicyId { get; set; }
+    public string PolicyVersion { get; set; } = string.Empty;
+    public string LegacyPriceMethodText { get; set; } = string.Empty;
+    public string? PriceTypeCode { get; set; }
+    public decimal BaseAmount { get; set; }
+    public decimal? MinimumBudgetAmount { get; set; }
+    public decimal? RecommendedMinAmount { get; set; }
+    public decimal? RecommendedMaxAmount { get; set; }
+    public string? UnitText { get; set; }
+    public decimal? UnitPriceAmount { get; set; }
+    public decimal? MinimumChargeAmount { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string LegacyVatDisplayRuleText { get; set; } = string.Empty;
+    public string? VatPolicyCode { get; set; }
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryFeePolicy
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CategoryId { get; set; }
+    public long? LegacyCategoryPolicyId { get; set; }
+    public long? SourceFeePolicyId { get; set; }
+    public string PolicyVersion { get; set; } = string.Empty;
+    public string PolicyKindCode { get; set; } = string.Empty;
+    public string TransactionTypeCode { get; set; } = string.Empty;
+    public string? CalculationMethodText { get; set; }
+    public decimal? FeeAmount { get; set; }
+    public decimal? MinBaseAmount { get; set; }
+    public decimal? MaxBaseAmount { get; set; }
+    public decimal? Rate { get; set; }
+    public decimal? MonthlyAmount { get; set; }
+    public decimal? PerVisitAmount { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string ChargeTimingText { get; set; } = string.Empty;
+    public string? RestoreRuleText { get; set; }
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryOperationPolicy
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CategoryId { get; set; }
+    public long? LegacyCategoryPolicyId { get; set; }
+    public string PolicyVersion { get; set; } = string.Empty;
+    public string RequestMethodText { get; set; } = string.Empty;
+    public string OnsiteRequirementText { get; set; } = string.Empty;
+    public bool IsEmergencyAllowed { get; set; }
+    public string SubscriptionOptionText { get; set; } = string.Empty;
+    public short MaxQuoteCount { get; set; }
+    public int QuoteValidityMinutes { get; set; }
+    public string MatchingAreaRuleText { get; set; } = string.Empty;
+    public string NotificationTargetRuleText { get; set; } = string.Empty;
+    public int ProviderResponseDeadlineMinutes { get; set; }
+    public string RequestFieldSummaryText { get; set; } = string.Empty;
+    public short RequiredCompletionPhotoCount { get; set; }
+    public string RequiredQualificationSummaryText { get; set; } = string.Empty;
+    public string InsuranceRequirementText { get; set; } = string.Empty;
+    public string SafetyGradeCode { get; set; } = string.Empty;
+    public string CompletionEvidenceRuleText { get; set; } = string.Empty;
+    public short DefaultWarrantyDays { get; set; }
+    public string TrustScoreDisplayText { get; set; } = string.Empty;
+    public string DefaultSortCode { get; set; } = string.Empty;
+    public string ServiceAreaLevelCode { get; set; } = string.Empty;
+    public string ReferenceUrl { get; set; } = string.Empty;
+    public string AdminNote { get; set; } = string.Empty;
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryPricePolicyOption
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long PricePolicyId { get; set; }
+    public string OptionName { get; set; } = string.Empty;
+    public decimal AdditionalAmount { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class CategoryPricePolicySurcharge
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long PricePolicyId { get; set; }
+    public string SurchargeName { get; set; } = string.Empty;
+    public string CalculationTypeCode { get; set; } = string.Empty;
+    public decimal? Amount { get; set; }
+    public decimal? Rate { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class CompletionPhotoRole
 {
     public long Id { get; set; }
