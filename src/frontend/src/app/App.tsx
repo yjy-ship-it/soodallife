@@ -14,6 +14,7 @@ import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
 import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderRequirementStandardsPage'
 import { AdminCustomersPage } from '../admin/AdminCustomersPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
+import { AdminWalletsPage } from '../admin/AdminWalletsPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -66,6 +67,7 @@ function ApplicationRoutes() {
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
+  const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
@@ -76,6 +78,8 @@ function ApplicationRoutes() {
     if (adminCustomerMatch) return <AdminCustomersPage pathname={pathname} customerId={adminCustomerMatch[1]} />
     if (pathname === '/admin/providers') return <AdminProvidersPage pathname={pathname} />
     if (adminProviderMatch) return <AdminProvidersPage pathname={pathname} providerId={adminProviderMatch[1]} />
+    if (pathname === '/admin/credits') return <AdminWalletsPage pathname={pathname} />
+    if (adminWalletMatch) return <AdminWalletsPage pathname={pathname} providerId={adminWalletMatch[1]} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

@@ -38,6 +38,12 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<StoredFile> Files => Set<StoredFile>();
     public DbSet<ProviderDocument> ProviderDocuments => Set<ProviderDocument>();
     public DbSet<ProviderServiceRequirementVerification> ProviderServiceRequirementVerifications => Set<ProviderServiceRequirementVerification>();
+    public DbSet<ProviderWallet> ProviderWallets => Set<ProviderWallet>();
+    public DbSet<WalletLedgerEntry> WalletLedgerEntries => Set<WalletLedgerEntry>();
+    public DbSet<WalletChargeRequest> WalletChargeRequests => Set<WalletChargeRequest>();
+    public DbSet<FeeCharge> FeeCharges => Set<FeeCharge>();
+    public DbSet<FeeRestore> FeeRestores => Set<FeeRestore>();
+    public DbSet<WalletRefundRequest> WalletRefundRequests => Set<WalletRefundRequest>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<RequestAnswer> RequestAnswers => Set<RequestAnswer>();
     public DbSet<RequestAnswerFile> RequestAnswerFiles => Set<RequestAnswerFile>();
@@ -66,5 +72,23 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SoodalLifeDbContext).Assembly);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        EnsureWalletLedgerIsAppendOnly();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        EnsureWalletLedgerIsAppendOnly();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void EnsureWalletLedgerIsAppendOnly()
+    {
+        if (ChangeTracker.Entries<WalletLedgerEntry>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Wallet 원장은 수정하거나 삭제할 수 없습니다. 반대 방향의 새 원장 항목을 생성해 주세요.");
     }
 }
