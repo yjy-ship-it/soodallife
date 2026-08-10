@@ -477,6 +477,7 @@ public sealed class QuoteService(
             AvailableStartAt = input.AvailableStartAt?.ToUniversalTime(),
             ValidUntil = input.ValidUntil.ToUniversalTime(),
             RevisionReason = NullIfEmpty(input.RevisionReason),
+            RevisionPurposeCode = NullIfEmpty(input.RevisionPurposeCode),
             SubmittedAt = now,
             SubmittedByUserId = identity.UserId,
             IdempotencyKey = input.IdempotencyKey.Trim(),
@@ -497,6 +498,11 @@ public sealed class QuoteService(
                 UnitPriceAmount = item.UnitPriceAmount,
                 LineTotalAmount = RoundMoney(item.Quantity * item.UnitPriceAmount),
                 CurrencyCode = "KRW",
+                WorkTradeText = NullIfEmpty(item.WorkTradeText),
+                SpaceText = NullIfEmpty(item.SpaceText),
+                ItemCategoryCode = NullIfEmpty(item.ItemCategoryCode),
+                MaterialSpecText = NullIfEmpty(item.MaterialSpecText),
+                LaborNoteText = NullIfEmpty(item.LaborNoteText),
             });
         }
     }
@@ -508,6 +514,8 @@ public sealed class QuoteService(
         if (input.Terms?.Length > 20_000) throw Invalid("QUOTE_INVALID", "견적 조건이 너무 깁니다.", "terms");
         if (input.EstimatedDurationText?.Length > 200) throw Invalid("QUOTE_INVALID", "예상 작업기간은 200자 이하로 입력해 주세요.", "estimatedDurationText");
         if (input.RevisionReason?.Length > 1000) throw Invalid("QUOTE_INVALID", "수정 사유는 1000자 이하로 입력해 주세요.", "revisionReason");
+        if (input.RevisionPurposeCode is not null && input.RevisionPurposeCode is not ("PRELIMINARY" or "POST_SITE_VISIT" or "CONTRACT_ESTIMATE" or "FINAL_SETTLEMENT"))
+            throw Invalid("QUOTE_REVISION_PURPOSE_INVALID", "견적 작성 목적을 확인해 주세요.", "revisionPurposeCode");
         if (string.IsNullOrWhiteSpace(input.IdempotencyKey) || input.IdempotencyKey.Length > 100)
             throw Invalid("QUOTE_INVALID", "유효한 중복 방지 키가 필요합니다.", "idempotencyKey");
         if (input.Items is null || input.Items.Count == 0) throw Invalid("QUOTE_ITEMS_REQUIRED", "견적 항목을 한 개 이상 입력해 주세요.", "items");
@@ -525,6 +533,9 @@ public sealed class QuoteService(
                 throw Invalid("QUOTE_ITEM_INVALID", "견적 항목명을 입력해 주세요.", $"items.{index}.itemName");
             if (item.Description?.Length > 1000 || item.UnitText?.Length > 50)
                 throw Invalid("QUOTE_ITEM_INVALID", "견적 항목 설명 또는 단위 길이를 확인해 주세요.", $"items.{index}");
+            if (item.WorkTradeText?.Length > 200 || item.SpaceText?.Length > 200 || item.ItemCategoryCode?.Length > 100 ||
+                item.MaterialSpecText?.Length > 2000 || item.LaborNoteText?.Length > 2000)
+                throw Invalid("QUOTE_ITEM_INVALID", "인테리어 상세 견적 항목의 길이를 확인해 주세요.", $"items.{index}");
             if (item.Quantity <= 0 || item.Quantity > MaximumAmount || item.UnitPriceAmount < 0 || item.UnitPriceAmount > MaximumAmount)
                 throw Invalid("QUOTE_AMOUNT_INVALID", "수량과 단가를 확인해 주세요.", $"items.{index}");
             if (decimal.Round(item.Quantity, 4) != item.Quantity || decimal.Round(item.UnitPriceAmount, 4) != item.UnitPriceAmount)
@@ -603,7 +614,8 @@ public sealed class QuoteService(
         var items = await dbContext.QuoteItems.AsNoTracking().Where(item => item.QuoteRevisionId == revision.Id)
             .OrderBy(item => item.LineNo)
             .Select(item => new QuoteItemResponse(item.LineNo, item.ItemName, item.Description, item.Quantity, item.UnitText,
-                item.UnitPriceAmount, item.LineTotalAmount, item.CurrencyCode))
+                item.UnitPriceAmount, item.LineTotalAmount, item.CurrencyCode, item.WorkTradeText, item.SpaceText,
+                item.ItemCategoryCode, item.MaterialSpecText, item.LaborNoteText))
             .ToListAsync(cancellationToken);
         var transactionId = await dbContext.Transactions.AsNoTracking().Where(item => item.AcceptedQuoteRevisionId == revision.Id)
             .Select(item => (Guid?)item.PublicId).SingleOrDefaultAsync(cancellationToken);
@@ -620,7 +632,7 @@ public sealed class QuoteService(
             new QuoteRevisionResponse(revision.PublicId, revision.RevisionNo, revision.Summary, revision.Terms,
                 revision.SubtotalAmount, revision.VatAmount, revision.TotalAmount, revision.CurrencyCode,
                 revision.EstimatedDurationText, revision.AvailableStartAt, revision.ValidUntil,
-                revision.RevisionReason, revision.SubmittedAt, items),
+                revision.RevisionReason, revision.SubmittedAt, items, revision.RevisionPurposeCode),
             transactionId);
     }
 

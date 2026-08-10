@@ -7,6 +7,9 @@ public sealed class DisputeCase
     public long? TransactionId { get; set; }
     public long? SubscriptionVisitScheduleId { get; set; }
     public long? AfterServiceCaseId { get; set; }
+    public long? InteriorProjectId { get; set; }
+    public long? InteriorContractChangeId { get; set; }
+    public long? InteriorWorkStageId { get; set; }
     public long ApplicantUserId { get; set; }
     public long CounterpartyUserId { get; set; }
     public long? AssignedAdminUserId { get; set; }

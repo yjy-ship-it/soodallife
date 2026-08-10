@@ -5,7 +5,12 @@ public sealed record QuoteItemInput(
     string? Description,
     decimal Quantity,
     string? UnitText,
-    decimal UnitPriceAmount);
+    decimal UnitPriceAmount,
+    string? WorkTradeText = null,
+    string? SpaceText = null,
+    string? ItemCategoryCode = null,
+    string? MaterialSpecText = null,
+    string? LaborNoteText = null);
 
 public sealed record SaveQuoteRevisionInput(
     string Summary,
@@ -16,7 +21,8 @@ public sealed record SaveQuoteRevisionInput(
     DateTime ValidUntil,
     string? RevisionReason,
     string IdempotencyKey,
-    IReadOnlyList<QuoteItemInput> Items);
+    IReadOnlyList<QuoteItemInput> Items,
+    string? RevisionPurposeCode = null);
 
 public sealed record QuoteItemResponse(
     int LineNo,
@@ -26,7 +32,12 @@ public sealed record QuoteItemResponse(
     string? UnitText,
     decimal UnitPriceAmount,
     decimal LineTotalAmount,
-    string CurrencyCode);
+    string CurrencyCode,
+    string? WorkTradeText,
+    string? SpaceText,
+    string? ItemCategoryCode,
+    string? MaterialSpecText,
+    string? LaborNoteText);
 
 public sealed record QuoteRevisionResponse(
     Guid Id,
@@ -42,7 +53,8 @@ public sealed record QuoteRevisionResponse(
     DateTime ValidUntil,
     string? RevisionReason,
     DateTime RecordedAt,
-    IReadOnlyList<QuoteItemResponse> Items);
+    IReadOnlyList<QuoteItemResponse> Items,
+    string? RevisionPurposeCode);
 
 public sealed record QuoteDetailResponse(
     Guid Id,

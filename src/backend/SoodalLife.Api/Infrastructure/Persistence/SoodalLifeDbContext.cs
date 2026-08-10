@@ -122,6 +122,23 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<SubscriptionPayout> SubscriptionPayouts => Set<SubscriptionPayout>();
     public DbSet<SubscriptionPayoutEvent> SubscriptionPayoutEvents => Set<SubscriptionPayoutEvent>();
     public DbSet<SubscriptionRefundAdjustment> SubscriptionRefundAdjustments => Set<SubscriptionRefundAdjustment>();
+    public DbSet<InteriorProject> InteriorProjects => Set<InteriorProject>();
+    public DbSet<InteriorSiteVisit> InteriorSiteVisits => Set<InteriorSiteVisit>();
+    public DbSet<InteriorSiteVisitMeasurement> InteriorSiteVisitMeasurements => Set<InteriorSiteVisitMeasurement>();
+    public DbSet<InteriorSiteVisitFile> InteriorSiteVisitFiles => Set<InteriorSiteVisitFile>();
+    public DbSet<InteriorDesignVersion> InteriorDesignVersions => Set<InteriorDesignVersion>();
+    public DbSet<InteriorDesignFile> InteriorDesignFiles => Set<InteriorDesignFile>();
+    public DbSet<InteriorContract> InteriorContracts => Set<InteriorContract>();
+    public DbSet<InteriorContractVersion> InteriorContractVersions => Set<InteriorContractVersion>();
+    public DbSet<InteriorPaymentPlan> InteriorPaymentPlans => Set<InteriorPaymentPlan>();
+    public DbSet<InteriorPaymentConfirmation> InteriorPaymentConfirmations => Set<InteriorPaymentConfirmation>();
+    public DbSet<InteriorWorkStage> InteriorWorkStages => Set<InteriorWorkStage>();
+    public DbSet<InteriorWorkUpdate> InteriorWorkUpdates => Set<InteriorWorkUpdate>();
+    public DbSet<InteriorWorkUpdateFile> InteriorWorkUpdateFiles => Set<InteriorWorkUpdateFile>();
+    public DbSet<InteriorStageInspection> InteriorStageInspections => Set<InteriorStageInspection>();
+    public DbSet<InteriorContractChange> InteriorContractChanges => Set<InteriorContractChange>();
+    public DbSet<InteriorDefect> InteriorDefects => Set<InteriorDefect>();
+    public DbSet<InteriorProjectEvent> InteriorProjectEvents => Set<InteriorProjectEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -135,6 +152,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSanctionEventsAreAppendOnly();
         EnsureSubscriptionEventsAreAppendOnly();
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
+        EnsureInteriorProjectEventsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -145,6 +163,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSanctionEventsAreAppendOnly();
         EnsureSubscriptionEventsAreAppendOnly();
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
+        EnsureInteriorProjectEventsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -178,5 +197,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
             throw new InvalidOperationException("구독 결제 원장은 수정하거나 삭제할 수 없습니다. 반대 방향의 원장 항목을 추가해 주세요.");
         if (ChangeTracker.Entries<SubscriptionPayoutEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("구독 지급 이력은 수정하거나 삭제할 수 없습니다. 새로운 이벤트를 추가해 주세요.");
+    }
+
+    private void EnsureInteriorProjectEventsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<InteriorProjectEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("인테리어 프로젝트 이벤트는 수정하거나 삭제할 수 없습니다. 정정이 필요하면 새 이벤트를 추가해 주세요.");
     }
 }

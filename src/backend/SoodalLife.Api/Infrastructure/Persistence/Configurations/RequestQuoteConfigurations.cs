@@ -264,6 +264,7 @@ internal sealed class QuoteRevisionConfiguration() : EntityConfiguration<QuoteRe
         Mapping.DateTime(b, nameof(QuoteRevision.SubmittedAt), "submitted_at", utcDefault: true);
         Mapping.Long(b, nameof(QuoteRevision.SubmittedByUserId), "submitted_by_user_id");
         Mapping.String(b, nameof(QuoteRevision.IdempotencyKey), "idempotency_key", 100, unicode: false);
+        Mapping.String(b, nameof(QuoteRevision.RevisionPurposeCode), "revision_purpose_code", 30, nullable: true, unicode: false);
         Mapping.Fk<QuoteRevision, Quote>(b, nameof(QuoteRevision.QuoteId));
         Mapping.Fk<QuoteRevision, User>(b, nameof(QuoteRevision.SubmittedByUserId));
         b.HasIndex(x => x.QuoteId);
@@ -290,6 +291,11 @@ internal sealed class QuoteItemConfiguration() : EntityConfiguration<QuoteItem>(
         Mapping.Decimal(b, nameof(QuoteItem.UnitPriceAmount), "unit_price_amount");
         Mapping.Decimal(b, nameof(QuoteItem.LineTotalAmount), "line_total_amount");
         Mapping.String(b, nameof(QuoteItem.CurrencyCode), "currency_code", 3, unicode: false, fixedLength: true, defaultValue: "KRW");
+        Mapping.String(b, nameof(QuoteItem.WorkTradeText), "work_trade_text", 200, nullable: true);
+        Mapping.String(b, nameof(QuoteItem.SpaceText), "space_text", 200, nullable: true);
+        Mapping.String(b, nameof(QuoteItem.ItemCategoryCode), "item_category_code", 30, nullable: true, unicode: false);
+        Mapping.String(b, nameof(QuoteItem.MaterialSpecText), "material_spec_text", 2000, nullable: true);
+        Mapping.String(b, nameof(QuoteItem.LaborNoteText), "labor_note_text", 2000, nullable: true);
         Mapping.Fk<QuoteItem, QuoteRevision>(b, nameof(QuoteItem.QuoteRevisionId));
         b.HasIndex(x => x.QuoteRevisionId);
         b.HasIndex(x => new { x.QuoteRevisionId, x.LineNo }).IsUnique();

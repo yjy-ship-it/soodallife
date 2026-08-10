@@ -159,6 +159,7 @@ public sealed class QuoteRevision
     public DateTime SubmittedAt { get; set; }
     public long SubmittedByUserId { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
+    public string? RevisionPurposeCode { get; set; }
 }
 
 public sealed class QuoteItem
@@ -173,6 +174,11 @@ public sealed class QuoteItem
     public decimal UnitPriceAmount { get; set; }
     public decimal LineTotalAmount { get; set; }
     public string CurrencyCode { get; set; } = "KRW";
+    public string? WorkTradeText { get; set; }
+    public string? SpaceText { get; set; }
+    public string? ItemCategoryCode { get; set; }
+    public string? MaterialSpecText { get; set; }
+    public string? LaborNoteText { get; set; }
 }
 
 public sealed class TransactionRecord
@@ -220,6 +226,7 @@ public sealed class WorkCompletion
     public long Id { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public long TransactionId { get; set; }
+    public long? InteriorProjectId { get; set; }
     public string StatusCode { get; set; } = "DRAFT";
     public int LatestRevisionNo { get; set; }
     public DateTime? FirstSubmittedAt { get; set; }
@@ -279,6 +286,7 @@ public sealed class ServiceHistoryEntry
     public long CustomerProfileId { get; set; }
     public long? TransactionId { get; set; }
     public long? SubscriptionVisitScheduleId { get; set; }
+    public long? InteriorProjectId { get; set; }
     public long? SourceCompletionRevisionId { get; set; }
     public long? AfterServiceCaseId { get; set; }
     public string EventTypeCode { get; set; } = string.Empty;

@@ -77,12 +77,14 @@ internal sealed class WorkCompletionConfiguration() : EntityConfiguration<WorkCo
     {
         Mapping.PublicId(b);
         Mapping.Long(b, nameof(WorkCompletion.TransactionId), "transaction_id");
+        Mapping.NullableLong(b, nameof(WorkCompletion.InteriorProjectId), "interior_project_id");
         Mapping.String(b, nameof(WorkCompletion.StatusCode), "status_code", 30, unicode: false, defaultValue: "DRAFT");
         Mapping.Int(b, nameof(WorkCompletion.LatestRevisionNo), "latest_revision_no", 0);
         Mapping.DateTime(b, nameof(WorkCompletion.FirstSubmittedAt), "first_submitted_at", nullable: true);
         Mapping.DateTime(b, nameof(WorkCompletion.ConfirmedAt), "confirmed_at", nullable: true);
         Mapping.FullAudit(b);
         Mapping.Fk<WorkCompletion, TransactionRecord>(b, nameof(WorkCompletion.TransactionId));
+        Mapping.Fk<WorkCompletion, InteriorProject>(b, nameof(WorkCompletion.InteriorProjectId));
         b.HasIndex(x => x.TransactionId).IsUnique();
         b.HasIndex(x => x.StatusCode);
         b.HasIndex(x => x.ConfirmedAt);
@@ -178,6 +180,7 @@ internal sealed class ServiceHistoryEntryConfiguration() : EntityConfiguration<S
         Mapping.Long(b, nameof(ServiceHistoryEntry.CustomerProfileId), "customer_profile_id");
         Mapping.NullableLong(b, nameof(ServiceHistoryEntry.TransactionId), "transaction_id");
         Mapping.NullableLong(b, nameof(ServiceHistoryEntry.SubscriptionVisitScheduleId), "subscription_visit_schedule_id");
+        Mapping.NullableLong(b, nameof(ServiceHistoryEntry.InteriorProjectId), "interior_project_id");
         Mapping.NullableLong(b, nameof(ServiceHistoryEntry.SourceCompletionRevisionId), "source_completion_revision_id");
         Mapping.NullableLong(b, nameof(ServiceHistoryEntry.AfterServiceCaseId), "after_service_case_id");
         Mapping.String(b, nameof(ServiceHistoryEntry.EventTypeCode), "event_type_code", 40, unicode: false);
@@ -197,11 +200,13 @@ internal sealed class ServiceHistoryEntryConfiguration() : EntityConfiguration<S
         Mapping.Fk<ServiceHistoryEntry, CustomerProfile>(b, nameof(ServiceHistoryEntry.CustomerProfileId));
         Mapping.Fk<ServiceHistoryEntry, TransactionRecord>(b, nameof(ServiceHistoryEntry.TransactionId));
         Mapping.Fk<ServiceHistoryEntry, SubscriptionVisitSchedule>(b, nameof(ServiceHistoryEntry.SubscriptionVisitScheduleId));
+        Mapping.Fk<ServiceHistoryEntry, InteriorProject>(b, nameof(ServiceHistoryEntry.InteriorProjectId));
         Mapping.Fk<ServiceHistoryEntry, WorkCompletionRevision>(b, nameof(ServiceHistoryEntry.SourceCompletionRevisionId));
         Mapping.Fk<ServiceHistoryEntry, AfterServiceCase>(b, nameof(ServiceHistoryEntry.AfterServiceCaseId));
         b.HasIndex(x => x.CustomerProfileId);
         b.HasIndex(x => x.TransactionId);
         b.HasIndex(x => x.SubscriptionVisitScheduleId).IsUnique().HasFilter("[subscription_visit_schedule_id] IS NOT NULL");
+        b.HasIndex(x => x.InteriorProjectId);
         b.HasIndex(x => x.SourceCompletionRevisionId);
         b.HasIndex(x => x.AfterServiceCaseId);
         b.HasIndex(x => x.EventTypeCode);

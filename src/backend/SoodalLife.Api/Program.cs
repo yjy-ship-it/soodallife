@@ -13,6 +13,7 @@ using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Quotes;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Features.Subscriptions;
+using SoodalLife.Api.Features.Interior;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
@@ -64,6 +65,7 @@ builder.Services.AddScoped<WorkService>();
 builder.Services.AddScoped<CareSubscriptionService>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();
+builder.Services.AddScoped<InteriorProjectService>();
 
 builder.Services
     .AddAuthentication(AuthenticationConstants.Scheme)
