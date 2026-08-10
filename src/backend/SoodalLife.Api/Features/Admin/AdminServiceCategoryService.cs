@@ -64,6 +64,10 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
         Guid? majorPublicId,
         Guid? middlePublicId,
         string? statusCode,
+        decimal? feeAmount,
+        string? feeStatus,
+        DateOnly? feeEffectiveFrom,
+        DateOnly? feeEffectiveTo,
         CancellationToken cancellationToken)
     {
         var query =
@@ -99,6 +103,32 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
                 (row.Service.ExternalCode != null && row.Service.ExternalCode.Contains(term)) ||
                 (row.Middle.ExternalCode != null && row.Middle.ExternalCode.Contains(term)) ||
                 (row.Major.ExternalCode != null && row.Major.ExternalCode.Contains(term)));
+        }
+
+        if (feeAmount.HasValue || !string.IsNullOrWhiteSpace(feeStatus) || feeEffectiveFrom.HasValue || feeEffectiveTo.HasValue)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var feePolicies = dbContext.CategoryFeePolicies.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(feeStatus))
+            {
+                feePolicies = feeStatus.Trim().ToUpperInvariant() switch
+                {
+                    "CURRENT" => feePolicies.Where(policy => policy.IsActive && policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)),
+                    "SCHEDULED" => feePolicies.Where(policy => policy.IsActive && policy.EffectiveFrom > today),
+                    "ENDED" => feePolicies.Where(policy => policy.IsActive && policy.EffectiveTo != null && policy.EffectiveTo <= today),
+                    "INACTIVE" => feePolicies.Where(policy => !policy.IsActive),
+                    _ => throw new AdminServiceCategoryException("ADMIN_FEE_POLICY_STATUS_INVALID", "수수료 정책상태를 확인해 주세요."),
+                };
+            }
+            else if (feeAmount.HasValue)
+            {
+                feePolicies = feePolicies.Where(policy => policy.IsActive && policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today));
+            }
+
+            if (feeAmount.HasValue) feePolicies = feePolicies.Where(policy => policy.FeeAmount == feeAmount.Value);
+            if (feeEffectiveFrom.HasValue) feePolicies = feePolicies.Where(policy => policy.EffectiveTo == null || policy.EffectiveTo > feeEffectiveFrom.Value);
+            if (feeEffectiveTo.HasValue) feePolicies = feePolicies.Where(policy => policy.EffectiveFrom <= feeEffectiveTo.Value);
+            query = query.Where(row => feePolicies.Select(policy => policy.CategoryId).Contains(row.Service.Id));
         }
 
         var items = await query

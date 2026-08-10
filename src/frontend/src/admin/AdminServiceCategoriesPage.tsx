@@ -18,6 +18,7 @@ import type {
 } from './serviceCategoryTypes'
 import { AdminRequestFieldsPanel } from './AdminRequestFieldsPanel'
 import { AdminPricePoliciesPanel } from './AdminPricePoliciesPanel'
+import { AdminFeePoliciesPanel } from './AdminFeePoliciesPanel'
 
 const statusLabels: Record<ServiceCategoryStatus, string> = {
   ACTIVE: '운영중',
@@ -38,6 +39,11 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
   const [majorId, setMajorId] = useState('')
   const [middleId, setMiddleId] = useState('')
   const [status, setStatus] = useState('')
+  const [feeAmountInput, setFeeAmountInput] = useState('')
+  const [feeAmount, setFeeAmount] = useState('')
+  const [feeStatus, setFeeStatus] = useState('')
+  const [feeEffectiveFrom, setFeeEffectiveFrom] = useState('')
+  const [feeEffectiveTo, setFeeEffectiveTo] = useState('')
   const [selected, setSelected] = useState<AdminServiceCategoryDetail | null>(null)
   const [name, setName] = useState('')
   const [editStatus, setEditStatus] = useState<ServiceCategoryStatus>('ACTIVE')
@@ -71,14 +77,14 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
   useEffect(() => {
     setLoading(true)
     setError(null)
-    searchServiceCategories({ search, majorId, middleId, status })
+    searchServiceCategories({ search, majorId, middleId, status, feeAmount, feeStatus, feeEffectiveFrom, feeEffectiveTo })
       .then((result) => {
         setServices(result.items)
         setResultCount(result.totalCount)
       })
       .catch((requestError: unknown) => setError(requestError instanceof Error ? requestError.message : '서비스 목록을 불러오지 못했습니다.'))
       .finally(() => setLoading(false))
-  }, [search, majorId, middleId, status])
+  }, [search, majorId, middleId, status, feeAmount, feeStatus, feeEffectiveFrom, feeEffectiveTo])
 
   const selectedMajor = useMemo(() => majors.find((major) => major.id === majorId), [majorId, majors])
   const selectedMiddle = useMemo(() => middles.find((middle) => middle.id === middleId), [middleId, middles])
@@ -101,6 +107,7 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
   const applySearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSearch(searchInput.trim())
+    setFeeAmount(feeAmountInput.replace(/[^0-9.]/g, ''))
   }
 
   const resetFilters = () => {
@@ -109,6 +116,11 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
     setMajorId('')
     setMiddleId('')
     setStatus('')
+    setFeeAmountInput('')
+    setFeeAmount('')
+    setFeeStatus('')
+    setFeeEffectiveFrom('')
+    setFeeEffectiveTo('')
   }
 
   const saveService = async (event: FormEvent<HTMLFormElement>) => {
@@ -166,6 +178,10 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
         <label>대분류<select value={majorId} onChange={(event) => { setMajorId(event.target.value); setMiddleId('') }}><option value="">전체 대분류</option>{majors.map((major) => <option key={major.id} value={major.id}>{major.name}</option>)}</select></label>
         <label>중분류<select value={middleId} disabled={!majorId} onChange={(event) => setMiddleId(event.target.value)}><option value="">{majorId ? '전체 중분류' : '대분류를 먼저 선택'}</option>{middles.map((middle) => <option key={middle.id} value={middle.id}>{middle.name}</option>)}</select></label>
         <label>운영상태<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option><option value="ACTIVE">운영중</option><option value="PAUSED">일시중지</option><option value="REVIEW">검토중</option></select></label>
+        <label>현재 수수료<input inputMode="numeric" value={feeAmountInput} onChange={(event) => setFeeAmountInput(event.target.value.replace(/[^0-9.]/g, ''))} placeholder="금액으로 찾기" /></label>
+        <label>수수료 정책상태<select value={feeStatus} onChange={(event) => setFeeStatus(event.target.value)}><option value="">전체 정책상태</option><option value="CURRENT">현재 적용</option><option value="SCHEDULED">적용 예정</option><option value="ENDED">적용 종료</option><option value="INACTIVE">비활성</option></select></label>
+        <label>정책기간 시작<input type="date" value={feeEffectiveFrom} onChange={(event) => setFeeEffectiveFrom(event.target.value)} /></label>
+        <label>정책기간 종료<input type="date" value={feeEffectiveTo} onChange={(event) => setFeeEffectiveTo(event.target.value)} /></label>
         <button className="categoryReset" type="button" onClick={resetFilters}>검색조건 초기화</button>
       </form>
 
@@ -208,13 +224,13 @@ export function AdminServiceCategoriesPage({ pathname }: { pathname: string }) {
           </div>
         </div>
 
-        <aside className={`categoryDetail ${activeTab === '고객 요청항목' || activeTab === '가격정책' ? 'requestFieldsOpen' : ''}`} aria-label="서비스 상세정보">
+        <aside className={`categoryDetail ${activeTab === '고객 요청항목' || activeTab === '가격정책' || activeTab === '수수료' ? 'requestFieldsOpen' : ''}`} aria-label="서비스 상세정보">
           {!selected ? <div className="categoryDetailEmpty"><span>서비스 선택</span><h2>관리할 서비스를 선택해 주세요.</h2><p>왼쪽 계층 목록에서 하위 서비스를 선택하면 기본정보가 표시됩니다.</p></div> : <>
             <header><div><span>{selected.majorName} › {selected.middleName}</span><h2>{selected.name}</h2></div><em className={`categoryStatus ${selected.statusCode.toLowerCase()}`}>{statusLabels[selected.statusCode]}</em></header>
             <div className="categoryTabs" role="tablist" aria-label="서비스 관리 항목">
               {detailTabs.map((tab) => <button className={activeTab === tab ? 'active' : ''} key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}
             </div>
-            {activeTab === '고객 요청항목' ? <AdminRequestFieldsPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab === '가격정책' ? <AdminPricePoliciesPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab !== '기본정보' ? <div className="categoryFutureTab"><strong>{activeTab}</strong><p>다음 개발 단계에서 제공됩니다.</p></div> : (
+            {activeTab === '고객 요청항목' ? <AdminRequestFieldsPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab === '가격정책' ? <AdminPricePoliciesPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab === '수수료' ? <AdminFeePoliciesPanel key={selected.id} serviceId={selected.id} serviceName={selected.name} /> : activeTab !== '기본정보' ? <div className="categoryFutureTab"><strong>{activeTab}</strong><p>다음 개발 단계에서 제공됩니다.</p></div> : (
               <form className="categoryEditForm" onSubmit={saveService}>
                 <div className="categoryReadOnlyRow"><span>대분류</span><strong>{selected.majorName}</strong></div>
                 <div className="categoryReadOnlyRow"><span>중분류</span><strong>{selected.middleName}</strong></div>

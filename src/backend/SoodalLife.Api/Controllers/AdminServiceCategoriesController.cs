@@ -34,11 +34,15 @@ public sealed class AdminServiceCategoriesController(AdminServiceCategoryService
         [FromQuery] Guid? majorId,
         [FromQuery] Guid? middleId,
         [FromQuery] string? status,
+        [FromQuery] decimal? feeAmount,
+        [FromQuery] string? feeStatus,
+        [FromQuery] DateOnly? feeEffectiveFrom,
+        [FromQuery] DateOnly? feeEffectiveTo,
         CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await service.SearchServicesAsync(search, majorId, middleId, status, cancellationToken));
+            return Ok(await service.SearchServicesAsync(search, majorId, middleId, status, feeAmount, feeStatus, feeEffectiveFrom, feeEffectiveTo, cancellationToken));
         }
         catch (AdminServiceCategoryException exception)
         {

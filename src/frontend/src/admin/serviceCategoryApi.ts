@@ -41,12 +41,20 @@ export function searchServiceCategories(filters: {
   majorId: string
   middleId: string
   status: string
+  feeAmount: string
+  feeStatus: string
+  feeEffectiveFrom: string
+  feeEffectiveTo: string
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.majorId) query.set('majorId', filters.majorId)
   if (filters.middleId) query.set('middleId', filters.middleId)
   if (filters.status) query.set('status', filters.status)
+  if (filters.feeAmount) query.set('feeAmount', filters.feeAmount)
+  if (filters.feeStatus) query.set('feeStatus', filters.feeStatus)
+  if (filters.feeEffectiveFrom) query.set('feeEffectiveFrom', filters.feeEffectiveFrom)
+  if (filters.feeEffectiveTo) query.set('feeEffectiveTo', filters.feeEffectiveTo)
   return adminRequest<AdminServiceCategoryList>(`/api/v1/admin/service-categories/services?${query}`)
 }
 
