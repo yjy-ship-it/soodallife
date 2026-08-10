@@ -1,5 +1,12 @@
 namespace SoodalLife.Api.Domain.Entities;
 
+public static class TrustPolicyDraftDefaults
+{
+    public static readonly Guid PublicId=new("f84f8728-8e1e-4ef8-a7ee-4bea94548ff0");
+    public const string Version="v1.0-draft";
+    public const string RulesJson="""{"minimumCompletedTransactions":3,"minimumVerifiedReviews":3,"components":[{"code":"EVIDENCE","weight":15,"ruleType":"EVIDENCE_COMPLETENESS","settings":{"approvalRatio":0.25,"serviceApprovalRatio":0.25,"requiredVerificationRatio":0.4,"notExpiredRatio":0.1}},{"code":"TRANSACTION","weight":30,"ruleType":"TRANSACTION_COMPLETION_RATE","settings":{"completionRateRatio":0.8,"completionEvidenceRatio":0.2}},{"code":"REVIEW","weight":30,"ruleType":"VERIFIED_PUBLIC_RATING_AVERAGE","settings":{}},{"code":"AFTER_SERVICE","weight":10,"ruleType":"FINALIZED_AFTER_SERVICE_OUTCOME","settings":{"resolvedValue":1.0,"unresolvedValue":0.0,"recurrencePenalty":0.25,"disputeConversionPenalty":0.25}},{"code":"DISPUTE","weight":10,"ruleType":"STRUCTURED_LIABILITY_MAPPING","settings":{"liabilityScores":{}}},{"code":"SANCTION","weight":5,"ruleType":"DECIDED_SANCTION_MAPPING","settings":{"sanctionScores":{}}}]}""";
+}
+
 public sealed class TrustPolicy
 {
     public long Id { get; set; }
@@ -60,5 +67,46 @@ public sealed class TrustScoreEvent
     public DateTime OccurredAt { get; set; }
     public DateTime? ProcessedAt { get; set; }
     public long? ProcessedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class ProviderTrustCalculationResult
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderProfileId { get; set; }
+    public long TrustPolicyId { get; set; }
+    public string CalculationModeCode { get; set; } = "SIMULATION";
+    public string ResultStatusCode { get; set; } = "INSUFFICIENT_DATA";
+    public decimal? Score { get; set; }
+    public string? GradeCode { get; set; }
+    public string EvaluationStatusCode { get; set; } = "NEW_OR_EVALUATING";
+    public string? InsufficiencyReason { get; set; }
+    public int CompletedTransactionCount { get; set; }
+    public int VerifiedReviewCount { get; set; }
+    public string PolicySnapshotJson { get; set; } = "{}";
+    public string SourceSnapshotJson { get; set; } = "{}";
+    public DateTime CalculatedAt { get; set; }
+    public long? RequestedByUserId { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public long? AppliedTrustScoreEventId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class ProviderTrustScoreComponent
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CalculationResultId { get; set; }
+    public string ComponentCode { get; set; } = string.Empty;
+    public decimal Weight { get; set; }
+    public string RawValueJson { get; set; } = "{}";
+    public decimal? NormalizedScore { get; set; }
+    public decimal? WeightedScore { get; set; }
+    public int SampleCount { get; set; }
+    public bool IsCalculable { get; set; }
+    public string? UnavailableReason { get; set; }
+    public string SourceSnapshotJson { get; set; } = "{}";
+    public DateTime CalculatedAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }

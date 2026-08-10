@@ -137,13 +137,14 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
             "LEGACY_UNKNOWN_POLICY" => "기존 점수 / 산정정책 확인필요",
             _ => policyVersion is null ? "산정정책 확인필요" : "적용 정책에 따라 산정된 점수입니다."
         };
+        TrustCalculationResponse? latest=null;var latestRow=await dbContext.ProviderTrustCalculationResults.AsNoTracking().Where(x=>x.ProviderProfileId==identity.Provider.Id).OrderByDescending(x=>x.CalculatedAt).FirstOrDefaultAsync(cancellationToken);if(latestRow is not null){var policy=await dbContext.TrustPolicies.AsNoTracking().SingleAsync(x=>x.Id==latestRow.TrustPolicyId,cancellationToken);var parts=await dbContext.ProviderTrustScoreComponents.AsNoTracking().Where(x=>x.CalculationResultId==latestRow.Id).OrderBy(x=>x.Id).ToListAsync(cancellationToken);latest=new(latestRow.PublicId,identity.Provider.PublicId,policy.PublicId,policy.PolicyVersion,policy.StatusCode,latestRow.CalculationModeCode,latestRow.ResultStatusCode,latestRow.Score,GradeLabel(latestRow.Score),latestRow.EvaluationStatusCode,latestRow.InsufficiencyReason,latestRow.CompletedTransactionCount,latestRow.VerifiedReviewCount,latestRow.CalculatedAt,parts.Select(x=>new TrustComponentResultResponse(x.ComponentCode,ComponentName(x.ComponentCode),x.Weight,x.RawValueJson,x.NormalizedScore,x.WeightedScore,x.SampleCount,x.IsCalculable,x.UnavailableReason,x.SourceSnapshotJson,EvidenceLink(x.ComponentCode,identity.Provider.PublicId))).ToArray());}
         return new(
             new(identity.Provider.PublicId, identity.Provider.BusinessName, identity.User.Phone, identity.User.Email,
                 identity.Provider.BusinessRegistrationNo, identity.User.StatusCode, identity.Provider.ApprovalStatusCode, identity.Provider.ActivityStatusCode),
             new(score, GradeLabel(score), evaluationStatus, notice, policyVersion, current?.CalculatedAt),
             new(submittedQuoteCount, acceptedQuoteCount, transactionCount, completedTransactionCount, cancelledTransactionCount),
             documents, afterServices, disputes, events, new(reviewCount,publicReviewCount,ratingAverages),
-            reviewCount==0?"등록된 고객 리뷰가 없습니다.":"리뷰 통계는 신뢰도 점수와 별개의 읽기 전용 근거정보입니다.");
+            reviewCount==0?"등록된 고객 리뷰가 없습니다.":"리뷰 통계는 신뢰도 점수와 별개의 읽기 전용 근거정보입니다.",latest);
     }
 
     public static string GradeLabel(decimal? score) => score switch
@@ -161,4 +162,6 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
     private static string? MaskPhone(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Length >= 7 ? $"{value[..3]}-****-{value[^4..]}" : "***";
     private static string? MaskEmail(string? value) { if (string.IsNullOrWhiteSpace(value)) return null; var at = value.IndexOf('@'); return at <= 0 ? "***" : $"{value[0]}***{value[at..]}"; }
     private static string? MaskBusinessNo(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Length >= 5 ? $"{value[..3]}-**-*****" : "***";
+    private static string ComponentName(string code)=>code switch{"EVIDENCE"=>"인증·증빙","TRANSACTION"=>"거래이행","REVIEW"=>"고객평가","AFTER_SERVICE"=>"A/S","DISPUTE"=>"분쟁","SANCTION"=>"제재",_=>code};
+    private static string EvidenceLink(string code,Guid providerId)=>code switch{"EVIDENCE"=>$"/admin/providers/{providerId}","TRANSACTION"=>"/admin/transactions","REVIEW"=>"/admin/reviews","AFTER_SERVICE" or "DISPUTE"=>"/admin/disputes","SANCTION"=>"/admin/sanctions",_=>"/admin/trust"};
 }

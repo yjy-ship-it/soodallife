@@ -10,7 +10,8 @@ public sealed record AdminTrustListItemResponse(Guid ProviderId, string Provider
 public sealed record AdminTrustDetailResponse(AdminTrustProviderResponse Provider, AdminTrustSummaryResponse Trust,
     AdminTrustPerformanceResponse Performance, IReadOnlyList<AdminTrustDocumentResponse> Documents,
     IReadOnlyList<AdminTrustAfterServiceResponse> AfterServices, IReadOnlyList<AdminTrustDisputeResponse> Disputes,
-    IReadOnlyList<AdminTrustEventResponse> Events, AdminTrustReviewStatisticsResponse Reviews, string ReviewNotice);
+    IReadOnlyList<AdminTrustEventResponse> Events, AdminTrustReviewStatisticsResponse Reviews, string ReviewNotice,
+    TrustCalculationResponse? LatestCalculation);
 public sealed record AdminTrustProviderResponse(Guid Id, string ProviderName, string? Phone, string? Email, string? BusinessRegistrationNo,
     string AccountStatusCode, string ApprovalStatusCode, string ActivityStatusCode);
 public sealed record AdminTrustSummaryResponse(decimal? Score, string GradeLabel, string EvaluationStatusCode,

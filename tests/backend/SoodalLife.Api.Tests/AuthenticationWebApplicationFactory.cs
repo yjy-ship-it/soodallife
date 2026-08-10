@@ -131,6 +131,27 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         SeedAdvertisingPlacements(dbContext);
         SeedMatchingProviderScopes(dbContext);
         SeedTradingPrerequisites(dbContext);
+        SeedTrustPolicyDraft(dbContext);
+    }
+
+    private static void SeedTrustPolicyDraft(SoodalLifeDbContext dbContext)
+    {
+        if (dbContext.TrustPolicies.Any(item => item.PublicId == TrustPolicyDraftDefaults.PublicId)) return;
+
+        var now = DateTime.UtcNow;
+        dbContext.TrustPolicies.Add(new TrustPolicy
+        {
+            PublicId = TrustPolicyDraftDefaults.PublicId,
+            PolicyVersion = TrustPolicyDraftDefaults.Version,
+            PolicyName = "공급자 신뢰도 자동산정 정책 초안",
+            TargetTypeCode = "PROVIDER",
+            ScopeTypeCode = "GLOBAL",
+            StatusCode = "DRAFT",
+            RulesJson = TrustPolicyDraftDefaults.RulesJson,
+            CreatedAt = now,
+            UpdatedAt = now,
+        });
+        dbContext.SaveChanges();
     }
 
     private static void SeedAdvertisingPlacements(SoodalLifeDbContext dbContext)

@@ -27,7 +27,34 @@ internal sealed class TrustPolicyConfiguration() : EntityConfiguration<TrustPoli
         {
             t.HasCheckConstraint("CK_trust_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
             t.HasCheckConstraint("CK_trust_policies_rules_json", "ISJSON([rules_json]) = 1");
+            t.HasCheckConstraint("CK_trust_policies_status", "[status_code] IN ('DRAFT','APPROVED','ACTIVE','RETIRED')");
         });
+        b.HasData(new TrustPolicy{Id=1,PublicId=TrustPolicyDraftDefaults.PublicId,PolicyVersion=TrustPolicyDraftDefaults.Version,PolicyName="TrustScore v1.0 정책 초안",TargetTypeCode="PROVIDER",ScopeTypeCode="GLOBAL",StatusCode="DRAFT",RulesJson=TrustPolicyDraftDefaults.RulesJson,EffectiveFrom=new DateTime(2026,8,10,0,0,0,DateTimeKind.Utc),CreatedAt=new DateTime(2026,8,10,0,0,0,DateTimeKind.Utc),UpdatedAt=new DateTime(2026,8,10,0,0,0,DateTimeKind.Utc),RowVersion=[]});
+    }
+}
+
+internal sealed class ProviderTrustCalculationResultConfiguration() : EntityConfiguration<ProviderTrustCalculationResult>("provider_trust_calculation_results")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderTrustCalculationResult> b)
+    {
+        Mapping.PublicId(b); Mapping.Long(b,nameof(ProviderTrustCalculationResult.ProviderProfileId),"provider_profile_id"); Mapping.Long(b,nameof(ProviderTrustCalculationResult.TrustPolicyId),"trust_policy_id");
+        Mapping.String(b,nameof(ProviderTrustCalculationResult.CalculationModeCode),"calculation_mode_code",20,unicode:false); Mapping.String(b,nameof(ProviderTrustCalculationResult.ResultStatusCode),"result_status_code",30,unicode:false);
+        Mapping.Decimal(b,nameof(ProviderTrustCalculationResult.Score),"score",nullable:true,precision:9,scale:4); Mapping.String(b,nameof(ProviderTrustCalculationResult.GradeCode),"grade_code",30,nullable:true,unicode:false); Mapping.String(b,nameof(ProviderTrustCalculationResult.EvaluationStatusCode),"evaluation_status_code",30,unicode:false);
+        Mapping.String(b,nameof(ProviderTrustCalculationResult.InsufficiencyReason),"insufficiency_reason",2000,nullable:true); Mapping.Int(b,nameof(ProviderTrustCalculationResult.CompletedTransactionCount),"completed_transaction_count",0); Mapping.Int(b,nameof(ProviderTrustCalculationResult.VerifiedReviewCount),"verified_review_count",0);
+        Mapping.String(b,nameof(ProviderTrustCalculationResult.PolicySnapshotJson),"policy_snapshot_json",null); Mapping.String(b,nameof(ProviderTrustCalculationResult.SourceSnapshotJson),"source_snapshot_json",null); Mapping.DateTime(b,nameof(ProviderTrustCalculationResult.CalculatedAt),"calculated_at",utcDefault:true); Mapping.NullableLong(b,nameof(ProviderTrustCalculationResult.RequestedByUserId),"requested_by_user_id"); Mapping.String(b,nameof(ProviderTrustCalculationResult.IdempotencyKey),"idempotency_key",150,unicode:false); Mapping.NullableLong(b,nameof(ProviderTrustCalculationResult.AppliedTrustScoreEventId),"applied_trust_score_event_id"); Mapping.DateTime(b,nameof(ProviderTrustCalculationResult.CreatedAt),"created_at",utcDefault:true);
+        Mapping.Fk<ProviderTrustCalculationResult,ProviderProfile>(b,nameof(ProviderTrustCalculationResult.ProviderProfileId)); Mapping.Fk<ProviderTrustCalculationResult,TrustPolicy>(b,nameof(ProviderTrustCalculationResult.TrustPolicyId)); Mapping.Fk<ProviderTrustCalculationResult,User>(b,nameof(ProviderTrustCalculationResult.RequestedByUserId)); Mapping.Fk<ProviderTrustCalculationResult,TrustScoreEvent>(b,nameof(ProviderTrustCalculationResult.AppliedTrustScoreEventId));
+        b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.ProviderProfileId,x.CalculatedAt}).IsDescending(false,true); b.HasIndex(x=>new{x.TrustPolicyId,x.CalculationModeCode,x.CalculatedAt});
+        b.ToTable("provider_trust_calculation_results",t=>{t.HasCheckConstraint("CK_trust_results_mode","[calculation_mode_code] IN ('SIMULATION','ACTUAL')");t.HasCheckConstraint("CK_trust_results_status","[result_status_code] IN ('CALCULATED','INSUFFICIENT_DATA','FAILED')");t.HasCheckConstraint("CK_trust_results_score","[score] IS NULL OR ([score] >= 0 AND [score] <= 100)");t.HasCheckConstraint("CK_trust_results_policy_json","ISJSON([policy_snapshot_json]) = 1");t.HasCheckConstraint("CK_trust_results_source_json","ISJSON([source_snapshot_json]) = 1");});
+    }
+}
+
+internal sealed class ProviderTrustScoreComponentConfiguration() : EntityConfiguration<ProviderTrustScoreComponent>("provider_trust_score_components")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderTrustScoreComponent> b)
+    {
+        Mapping.PublicId(b); Mapping.Long(b,nameof(ProviderTrustScoreComponent.CalculationResultId),"calculation_result_id"); Mapping.String(b,nameof(ProviderTrustScoreComponent.ComponentCode),"component_code",30,unicode:false); Mapping.Decimal(b,nameof(ProviderTrustScoreComponent.Weight),"weight",precision:9,scale:4); Mapping.String(b,nameof(ProviderTrustScoreComponent.RawValueJson),"raw_value_json",null); Mapping.Decimal(b,nameof(ProviderTrustScoreComponent.NormalizedScore),"normalized_score",nullable:true,precision:9,scale:4); Mapping.Decimal(b,nameof(ProviderTrustScoreComponent.WeightedScore),"weighted_score",nullable:true,precision:9,scale:4); Mapping.Int(b,nameof(ProviderTrustScoreComponent.SampleCount),"sample_count",0); Mapping.Bool(b,nameof(ProviderTrustScoreComponent.IsCalculable),"is_calculable",false); Mapping.String(b,nameof(ProviderTrustScoreComponent.UnavailableReason),"unavailable_reason",1000,nullable:true); Mapping.String(b,nameof(ProviderTrustScoreComponent.SourceSnapshotJson),"source_snapshot_json",null); Mapping.DateTime(b,nameof(ProviderTrustScoreComponent.CalculatedAt),"calculated_at",utcDefault:true); Mapping.DateTime(b,nameof(ProviderTrustScoreComponent.CreatedAt),"created_at",utcDefault:true);
+        Mapping.Fk<ProviderTrustScoreComponent,ProviderTrustCalculationResult>(b,nameof(ProviderTrustScoreComponent.CalculationResultId)); b.HasIndex(x=>new{x.CalculationResultId,x.ComponentCode}).IsUnique();
+        b.ToTable("provider_trust_score_components",t=>{t.HasCheckConstraint("CK_trust_components_score","([normalized_score] IS NULL OR ([normalized_score] >= 0 AND [normalized_score] <= 100)) AND ([weighted_score] IS NULL OR ([weighted_score] >= 0 AND [weighted_score] <= [weight]))");t.HasCheckConstraint("CK_trust_components_raw_json","ISJSON([raw_value_json]) = 1");t.HasCheckConstraint("CK_trust_components_source_json","ISJSON([source_snapshot_json]) = 1");});
     }
 }
 

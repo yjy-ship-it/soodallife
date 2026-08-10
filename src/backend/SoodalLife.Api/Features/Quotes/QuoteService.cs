@@ -285,6 +285,9 @@ public sealed class QuoteService(
             if (requirements.Sum(item => item.MinimumCount) != policy.RequiredCompletionPhotoCount)
                 throw Conflict("COMPLETION_POLICY_INCOMPLETE", "카테고리 완료사진 정책이 완전하지 않아 거래를 생성할 수 없습니다.");
 
+            var activeTrustScore = await dbContext.ProviderTrustScoreCurrent.AsNoTracking()
+                .Where(value => value.ProviderProfileId == provider.Id && value.EvaluationStatusCode == "CALCULATED")
+                .Select(value => value.Score).SingleOrDefaultAsync(cancellationToken);
             var transactionRecord = new TransactionRecord
             {
                 ServiceRequestId = request.Id,
@@ -346,7 +349,7 @@ public sealed class QuoteService(
                 FeeChargeTimingSnapshot = feePolicy.ChargeTimingText,
                 FeeRestoreRuleSnapshot = feePolicy.RestoreRuleText,
                 WarrantyDaysSnapshot = policy.DefaultWarrantyDays,
-                ProviderTrustScoreSnapshot = provider.TrustScore,
+                ProviderTrustScoreSnapshot = activeTrustScore,
                 CreatedAt = now,
                 CreatedByUserId = customer.UserId,
                 UpdatedAt = now,
