@@ -20,6 +20,7 @@ import { AdminAdvertisingContentPage } from '../admin/AdminAdvertisingContentPag
 import { AdminAfterServiceDisputePage } from '../admin/AdminAfterServiceDisputePage'
 import { AdminTrustPage } from '../admin/AdminTrustPage'
 import { AdminReviewsPage } from '../admin/AdminReviewsPage'
+import { AdminCaseManagementPage } from '../admin/AdminCaseManagementPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -77,6 +78,8 @@ function ApplicationRoutes() {
   const adminTransactionMatch = pathname.match(/^\/admin\/transactions\/([0-9a-f-]+)$/i)
   const adminTrustMatch = pathname.match(/^\/admin\/trust\/([0-9a-f-]+)$/i)
   const adminReviewMatch = pathname.match(/^\/admin\/reviews\/([0-9a-f-]+)$/i)
+  const adminReportMatch = pathname.match(/^\/admin\/reports\/([0-9a-f-]+)$/i)
+  const adminSanctionMatch = pathname.match(/^\/admin\/sanctions\/([0-9a-f-]+)$/i)
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
@@ -99,6 +102,11 @@ function ApplicationRoutes() {
     if (adminTrustMatch) return <AdminTrustPage pathname={pathname} providerId={adminTrustMatch[1]} />
     if (pathname === '/admin/reviews') return <AdminReviewsPage pathname={pathname} />
     if (adminReviewMatch) return <AdminReviewsPage pathname={pathname} reviewId={adminReviewMatch[1]} />
+    if (pathname === '/admin/reports') return <AdminCaseManagementPage pathname={pathname} mode="reports" />
+    if (adminReportMatch) return <AdminCaseManagementPage pathname={pathname} mode="reports" id={adminReportMatch[1]} />
+    if (pathname === '/admin/sanctions') return <AdminCaseManagementPage pathname={pathname} mode="sanctions" />
+    if (adminSanctionMatch) return <AdminCaseManagementPage pathname={pathname} mode="sanctions" id={adminSanctionMatch[1]} />
+    if (pathname === '/admin/case-policies') return <AdminCaseManagementPage pathname={pathname} mode="policies" />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

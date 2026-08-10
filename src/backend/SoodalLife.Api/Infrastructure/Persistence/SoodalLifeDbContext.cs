@@ -91,6 +91,18 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ReviewRating> ReviewRatings => Set<ReviewRating>();
     public DbSet<ReviewFile> ReviewFiles => Set<ReviewFile>();
     public DbSet<ReviewProviderReply> ReviewProviderReplies => Set<ReviewProviderReply>();
+    public DbSet<ReportType> ReportTypes => Set<ReportType>();
+    public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportEvidence> ReportEvidence => Set<ReportEvidence>();
+    public DbSet<ReportAction> ReportActions => Set<ReportAction>();
+    public DbSet<SanctionType> SanctionTypes => Set<SanctionType>();
+    public DbSet<Sanction> Sanctions => Set<Sanction>();
+    public DbSet<SanctionSource> SanctionSources => Set<SanctionSource>();
+    public DbSet<SanctionEvent> SanctionEvents => Set<SanctionEvent>();
+    public DbSet<SanctionAppeal> SanctionAppeals => Set<SanctionAppeal>();
+    public DbSet<SanctionAppealEvidence> SanctionAppealEvidence => Set<SanctionAppealEvidence>();
+    public DbSet<SanctionAppealAction> SanctionAppealActions => Set<SanctionAppealAction>();
+    public DbSet<DisputeLiabilityType> DisputeLiabilityTypes => Set<DisputeLiabilityType>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +113,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
+        EnsureSanctionEventsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -108,6 +121,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
+        EnsureSanctionEventsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -121,5 +135,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<TrustScoreEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("신뢰도 변경이력은 수정하거나 삭제할 수 없습니다. 정정이 필요하면 별도의 변경이력을 추가해 주세요.");
+    }
+
+    private void EnsureSanctionEventsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<SanctionEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("제재 변경이력은 수정하거나 삭제할 수 없습니다. 정정이 필요하면 별도의 변경이력을 추가해 주세요.");
     }
 }

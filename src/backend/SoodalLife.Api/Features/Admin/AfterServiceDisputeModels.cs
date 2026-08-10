@@ -49,7 +49,7 @@ public sealed record ChangeDisputeStatusRequest([param:Required,StringLength(30)
 public sealed record AssignDisputeRequest(Guid? AdminUserId,[param:Required,StringLength(1000)] string Reason,[param:Required,StringLength(100)] string IdempotencyKey);
 public sealed record AddDisputeEvidenceRequest(Guid? FileId,[param:Required,StringLength(40)] string SourceTypeCode,Guid? SourcePublicId,
     [param:StringLength(1000)] string? Description,[param:Required,StringLength(100)] string IdempotencyKey);
-public sealed record ResolveDisputeRequest([param:Required,StringLength(1000)] string ResultSummary,[param:Required] string DecisionDetails,
+public sealed record ResolveDisputeRequest(Guid? LiabilityTypeId,[param:Required,StringLength(1000)] string ResultSummary,[param:Required] string DecisionDetails,
     [param:Required,StringLength(2000)] string BasisText,[param:StringLength(2000)] string? FollowUpAction,
     [param:Required,StringLength(100)] string IdempotencyKey);
 public sealed record LinkFeeRestoreRequest(Guid FeeRestoreId,[param:Required,StringLength(1000)] string Reason,[param:Required,StringLength(100)] string IdempotencyKey);
@@ -66,8 +66,8 @@ public sealed record AdminDisputeDetail(Guid Id,string CaseNumber,string StatusC
 public sealed record AdminDisputeOriginalEvidence(string SourceTypeCode,Guid SourceId,string Label);
 public sealed record AdminDisputeActionItem(Guid Id,string ActionTypeCode,string? FromStatusCode,string? ToStatusCode,string? Note,
     string? Reason,string? RelatedReferenceType,Guid? RelatedReferenceId,DateTime OccurredAt);
-public sealed record AdminDisputeResolutionItem(Guid Id,int VersionNo,string ResultSummary,string DecisionDetails,string BasisText,
-    string? FollowUpAction,DateTime DecidedAt,bool IsCurrent);
+public sealed record AdminDisputeResolutionItem(Guid Id,int VersionNo,Guid? LiabilityTypeId,string? LiabilityTypeName,string ResultSummary,string DecisionDetails,string BasisText,
+    string? FollowUpAction,DateTime DecidedAt,string DecidedBy,bool IsCurrent);
 public sealed record AdminDisputeFinancials(Guid? FeeChargeId,decimal? FeeAmount,string? RestoreStatusCode,Guid? FeeRestoreId,
     DateTime? RestoredAt,bool PaymentHoldSupported,string Message);
 

@@ -65,6 +65,7 @@ public sealed class DisputeResolution
     public long Id { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public long DisputeCaseId { get; set; }
+    public long? LiabilityTypeId { get; set; }
     public int VersionNo { get; set; }
     public string ResultSummary { get; set; } = string.Empty;
     public string DecisionDetails { get; set; } = string.Empty;
