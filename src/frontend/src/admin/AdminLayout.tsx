@@ -35,7 +35,7 @@ export function AdminLayout({ pathname, children }: AdminLayoutProps) {
             .filter((item) => item.allowedRoles.some((role) => user?.roles.includes(role)))
             .map((item) => (
               <button
-                className={item.path === pathname ? 'active' : ''}
+                className={item.path === currentMenu?.path ? 'active' : ''}
                 key={item.path}
                 type="button"
                 onClick={() => goTo(item.path)}

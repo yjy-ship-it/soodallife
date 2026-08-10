@@ -31,4 +31,5 @@ export const adminMenuItems: readonly AdminMenuItem[] = [
 
 export function findAdminMenu(pathname: string): AdminMenuItem | undefined {
   return adminMenuItems.find((item) => item.path === pathname)
+    ?? adminMenuItems.filter((item) => pathname.startsWith(`${item.path}/`)).sort((left, right) => right.path.length - left.path.length)[0]
 }

@@ -591,12 +591,82 @@
 .requirementStandardList article p { margin: 5px 0 0; color: #67736d; font-size: .64rem; }
 .requirementStandardList article button { padding: 7px 9px; border: 1px solid #c6d6ce; border-radius: 6px; color: #35634e; background: #fff; font-size: .62rem; font-weight: 800; }
 
+.customerFilters { display: grid; grid-template-columns: minmax(260px, 1.7fr) repeat(3, minmax(120px, .7fr)) repeat(2, minmax(135px, .8fr)) auto; gap: 10px; align-items: end; padding: 16px; margin-bottom: 14px; border: 1px solid #dbe3df; border-radius: 11px; background: #fff; }
+.customerFilters label { display: grid; gap: 6px; color: #536159; font-size: .65rem; font-weight: 800; }
+.customerFilters input, .customerFilters select { min-width: 0; min-height: 39px; padding: 7px 9px; border: 1px solid #cdd7d2; border-radius: 7px; color: #34423b; background: #fff; font: inherit; }
+.customerFilterActions { display: flex; gap: 6px; }
+.customerFilterActions button, .customerTableWrap td > button, .customerBack { min-height: 38px; padding: 0 12px; border: 1px solid #bdd0c6; border-radius: 7px; color: #286047; background: #f8fbf9; font-size: .68rem; font-weight: 850; }
+.customerFilterActions button:first-child { border-color: #286f52; color: #fff; background: #286f52; }
+.customerListCard { overflow: hidden; border: 1px solid #dbe3df; border-radius: 11px; background: #fff; }
+.customerListCard > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid #e2e7e4; }
+.customerListCard > header div { display: flex; align-items: baseline; gap: 9px; }
+.customerListCard > header h2 { margin: 0; color: #304139; font-size: .88rem; }
+.customerListCard > header span, .customerListCard > header small { color: #748079; font-size: .64rem; }
+.customerTableWrap { overflow-x: auto; }
+.customerTableWrap table { width: 100%; border-collapse: collapse; color: #3e4c45; font-size: .7rem; white-space: nowrap; }
+.customerTableWrap th { padding: 11px 13px; color: #66736c; background: #f3f6f4; font-size: .62rem; text-align: left; }
+.customerTableWrap td { padding: 13px; border-top: 1px solid #e7ebe9; vertical-align: middle; }
+.customerTableWrap td strong, .customerTableWrap td small { display: block; }
+.customerTableWrap td small { margin-top: 4px; color: #7b8781; font-size: .61rem; }
+.customerStatus { display: inline-flex; padding: 5px 8px; border-radius: 999px; color: #276249; background: #e8f3ed; font-size: .62rem; font-weight: 850; }
+.customerStatus.status-suspended { color: #915c18; background: #fbefd9; }
+.customerStatus.status-withdrawn { color: #6b7270; background: #eceeed; }
+.customerRoles { display: flex; flex-wrap: wrap; gap: 5px; }
+.customerRoles span { padding: 4px 7px; border: 1px solid #cbdad2; border-radius: 5px; color: #426654; background: #f8faf9; font-size: .59rem; font-weight: 800; }
+.customerPagination { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 13px; border-top: 1px solid #e3e8e5; }
+.customerPagination button { min-width: 62px; min-height: 32px; border: 1px solid #cbd7d1; border-radius: 6px; color: #42614f; background: #fff; font-size: .64rem; font-weight: 800; }
+.customerPagination button:disabled { opacity: .4; }
+.customerPagination span { color: #69766f; font-size: .65rem; font-weight: 800; }
+.customerEmpty { padding: 32px 18px; border-radius: 8px; color: #758179; background: #f4f6f5; font-size: .72rem; line-height: 1.7; text-align: center; }
+.customerBack { margin-bottom: 12px; }
+.customerDetailHero { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px; border-radius: 12px; color: #fff; background: linear-gradient(120deg, #244d3b, #327255); }
+.customerDetailHero p { margin: 0 0 5px; color: #b9d7c8; font-size: .66rem; font-weight: 800; }
+.customerDetailHero h1 { margin: 0 0 10px; font-size: 1.32rem; }
+.customerDetailHero .customerRoles span { border-color: #75a68d; color: #eaf7f0; background: #ffffff13; }
+.customerDetailHero dl { display: flex; gap: 30px; margin: 0; }
+.customerDetailHero dl div { display: grid; gap: 5px; }
+.customerDetailHero dt { color: #b9d3c6; font-size: .61rem; }
+.customerDetailHero dd { margin: 0; font-size: .76rem; font-weight: 800; }
+.customerUsageCards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+.customerUsageCards article { display: flex; align-items: center; justify-content: space-between; padding: 15px 17px; border: 1px solid #dce4e0; border-radius: 9px; background: #fff; }
+.customerUsageCards span { color: #68756e; font-size: .67rem; font-weight: 750; }
+.customerUsageCards strong { color: #28674c; font-size: 1.05rem; }
+.customerTabs { display: flex; overflow-x: auto; gap: 4px; padding: 5px; border: 1px solid #dbe3df; border-radius: 9px; background: #fff; }
+.customerTabs button { flex: 1 0 auto; min-height: 38px; padding: 0 12px; border: 0; border-radius: 6px; color: #6b7771; background: transparent; font-size: .68rem; font-weight: 800; }
+.customerTabs button.active { color: #245f46; background: #e9f3ee; }
+.customerTabPanel { min-height: 270px; padding: 17px; margin-top: 10px; border: 1px solid #dbe3df; border-radius: 10px; background: #fff; }
+.customerInfoGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; overflow: hidden; border: 1px solid #e0e6e3; border-radius: 8px; background: #e0e6e3; }
+.customerInfoGrid div { display: grid; gap: 6px; padding: 15px; background: #fff; }
+.customerInfoGrid span { color: #76827c; font-size: .62rem; }
+.customerInfoGrid strong { color: #35453d; font-size: .75rem; }
+.customerSplit { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.customerSplit > section { min-width: 0; padding: 15px; border: 1px solid #e1e6e3; border-radius: 9px; }
+.customerSplit h2 { margin: 0 0 12px; color: #35463e; font-size: .82rem; }
+.customerHistoryList { display: grid; gap: 10px; }
+.customerHistoryCard { padding: 14px; border: 1px solid #dfe6e2; border-radius: 8px; background: #fbfcfb; }
+.customerHistoryCard strong, .customerHistoryCard span { display: block; }
+.customerHistoryCard strong { color: #35463e; font-size: .75rem; }
+.customerHistoryCard span { margin-top: 4px; color: #748079; font-size: .61rem; }
+.customerHistoryCard p { margin: 10px 0; color: #55635c; font-size: .68rem; line-height: 1.6; }
+.customerHistoryCard dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; }
+.customerHistoryCard dl div { display: grid; gap: 4px; }
+.customerHistoryCard dt { color: #7c8782; font-size: .58rem; }
+.customerHistoryCard dd { margin: 0; color: #435148; font-size: .64rem; font-weight: 750; }
+.customerRoleHistory { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e6ebe8; }
+.customerRoleHistory strong { color: #3b4c43; font-size: .71rem; }
+.customerRoleHistory span { color: #76827c; font-size: .62rem; }
+.customerNotice, .customerWarning { padding: 11px; border-radius: 7px; color: #526159; background: #f2f6f4; font-size: .67rem; line-height: 1.6; }
+.customerWarning { color: #785e30; background: #fbf4e6; }
+
 @media (max-width: 900px) {
   .requestFieldManager { grid-template-columns: 1fr; }
   .requestFieldListPane { border-right: 0; border-bottom: 1px solid #e0e5e2; }
   .requestFieldList { height: 340px; }
   .requestFieldOptionRow { grid-template-columns: 1fr 1fr; }
   .pricePolicyWorkspace { grid-template-columns: 1fr; }
+  .customerFilters { grid-template-columns: repeat(2, 1fr); }
+  .customerSearch, .customerFilterActions { grid-column: 1 / -1; }
+  .customerUsageCards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 620px) {
@@ -612,4 +682,7 @@
   .providerRequirementGrid { grid-template-columns: 1fr; }
   .requirementStandardWorkspace { grid-template-columns: 1fr; }
   .structuredRequirementControls, .structuredRequirementAdd { grid-template-columns: 1fr; align-items: stretch; }
+  .customerDetailHero, .customerDetailHero dl { align-items: flex-start; flex-direction: column; }
+  .customerUsageCards, .customerInfoGrid, .customerSplit { grid-template-columns: 1fr; }
+  .customerHistoryCard dl { grid-template-columns: repeat(2, 1fr); }
 }
