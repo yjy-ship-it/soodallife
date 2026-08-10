@@ -19,6 +19,7 @@ import { AdminRequestsPage, AdminTransactionsPage } from '../admin/AdminOperatio
 import { AdminAdvertisingContentPage } from '../admin/AdminAdvertisingContentPage'
 import { AdminAfterServiceDisputePage } from '../admin/AdminAfterServiceDisputePage'
 import { AdminTrustPage } from '../admin/AdminTrustPage'
+import { AdminReviewsPage } from '../admin/AdminReviewsPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -75,6 +76,7 @@ function ApplicationRoutes() {
   const adminRequestMatch = pathname.match(/^\/admin\/requests\/([0-9a-f-]+)$/i)
   const adminTransactionMatch = pathname.match(/^\/admin\/transactions\/([0-9a-f-]+)$/i)
   const adminTrustMatch = pathname.match(/^\/admin\/trust\/([0-9a-f-]+)$/i)
+  const adminReviewMatch = pathname.match(/^\/admin\/reviews\/([0-9a-f-]+)$/i)
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
@@ -95,6 +97,8 @@ function ApplicationRoutes() {
     if (pathname === '/admin/disputes') return <AdminAfterServiceDisputePage pathname={pathname} />
     if (pathname === '/admin/trust') return <AdminTrustPage pathname={pathname} />
     if (adminTrustMatch) return <AdminTrustPage pathname={pathname} providerId={adminTrustMatch[1]} />
+    if (pathname === '/admin/reviews') return <AdminReviewsPage pathname={pathname} />
+    if (adminReviewMatch) return <AdminReviewsPage pathname={pathname} reviewId={adminReviewMatch[1]} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

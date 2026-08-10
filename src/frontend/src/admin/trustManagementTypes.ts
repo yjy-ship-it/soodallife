@@ -15,5 +15,6 @@ export interface AdminTrustDetail {
   afterServices:Array<{id:string;subject:string;statusCode:string;receivedAt:string;completedAt:string|null;resolutionSummary:string|null;unresolvedReason:string|null;recurrenceOccurred:boolean|null;convertedToDispute:boolean}>
   disputes:Array<{id:string;subject:string;statusCode:string;receivedAt:string;resolvedAt:string|null;closedAt:string|null;responsibilityNotice:string}>
   events:Array<{id:string;occurredAt:string;eventTypeCode:string;sourceTypeCode:string;sourcePublicId:string|null;scoreBefore:number|null;scoreDelta:number|null;scoreAfter:number|null;gradeBefore:string|null;gradeAfter:string|null;reasonText:string|null;policyVersion:string|null;processedAt:string|null}>
+  reviews:{reviewCount:number;publicReviewCount:number;ratingItemAverages:Array<{itemId:string;itemName:string;averageValue:number;ratingCount:number;minValue:number;maxValue:number}>}
   reviewNotice:string
 }

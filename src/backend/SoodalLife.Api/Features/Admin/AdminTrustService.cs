@@ -127,6 +127,9 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
                             select new AdminTrustEventResponse(item.PublicId, item.OccurredAt, item.EventTypeCode, item.SourceTypeCode,
                                 item.SourcePublicId, item.ScoreBefore, item.ScoreDelta, item.ScoreAfter, item.GradeBefore,
                                 item.GradeAfter, item.ReasonText, policy != null ? policy.PolicyVersion : null, item.ProcessedAt)).ToListAsync(cancellationToken);
+        var reviewCount=await dbContext.Reviews.CountAsync(value=>value.ProviderProfileId==identity.Provider.Id,cancellationToken);
+        var publicReviewCount=await dbContext.Reviews.CountAsync(value=>value.ProviderProfileId==identity.Provider.Id&&value.VisibilityStatusCode=="PUBLIC"&&value.VerificationStatusCode=="VERIFIED_TRANSACTION",cancellationToken);
+        var ratingAverages=await(from rating in dbContext.ReviewRatings.AsNoTracking() join review in dbContext.Reviews.AsNoTracking() on rating.ReviewId equals review.Id join item in dbContext.ReviewRatingItems.AsNoTracking() on rating.RatingItemId equals item.Id where review.ProviderProfileId==identity.Provider.Id&&review.VisibilityStatusCode=="PUBLIC"&&review.VerificationStatusCode=="VERIFIED_TRANSACTION" group rating by new{item.PublicId,item.Name,item.MinValue,item.MaxValue,item.DisplayOrder} into values orderby values.Key.DisplayOrder select new AdminTrustRatingAverageResponse(values.Key.PublicId,values.Key.Name,values.Average(x=>x.RatingValue),values.Count(),values.Key.MinValue,values.Key.MaxValue)).ToListAsync(cancellationToken);
 
         var notice = evaluationStatus switch
         {
@@ -139,7 +142,8 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
                 identity.Provider.BusinessRegistrationNo, identity.User.StatusCode, identity.Provider.ApprovalStatusCode, identity.Provider.ActivityStatusCode),
             new(score, GradeLabel(score), evaluationStatus, notice, policyVersion, current?.CalculatedAt),
             new(submittedQuoteCount, acceptedQuoteCount, transactionCount, completedTransactionCount, cancelledTransactionCount),
-            documents, afterServices, disputes, events, "고객평가 기능은 후속 구현 예정입니다.");
+            documents, afterServices, disputes, events, new(reviewCount,publicReviewCount,ratingAverages),
+            reviewCount==0?"등록된 고객 리뷰가 없습니다.":"리뷰 통계는 신뢰도 점수와 별개의 읽기 전용 근거정보입니다.");
     }
 
     public static string GradeLabel(decimal? score) => score switch

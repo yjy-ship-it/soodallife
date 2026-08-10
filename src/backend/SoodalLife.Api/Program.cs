@@ -43,6 +43,8 @@ builder.Services.AddScoped<AdminRequestTransactionService>();
 builder.Services.AddScoped<AdvertisingContentService>();
 builder.Services.AddScoped<AfterServiceDisputeService>();
 builder.Services.AddScoped<AdminTrustService>();
+builder.Services.AddScoped<SoodalLife.Api.Features.Reviews.ReviewService>();
+builder.Services.AddScoped<AdminReviewService>();
 builder.Services.AddScoped<ActiveUserCookieEvents>();
 builder.Services.AddScoped<DevelopmentAccountInitializer>();
 builder.Services.AddSingleton<CatalogWorkbookReader>();

@@ -20,6 +20,7 @@ export const adminMenuItems: readonly AdminMenuItem[] = [
   { label: '거래·작업 관리', path: '/admin/transactions', shortLabel: '거래', allowedRoles: adminOnly },
   { label: 'A/S·분쟁', path: '/admin/disputes', shortLabel: '분쟁', allowedRoles: adminOnly },
   { label: '신뢰도 관리', path: '/admin/trust', shortLabel: '신뢰도', allowedRoles: adminOnly },
+  { label: '리뷰·평점 관리', path: '/admin/reviews', shortLabel: '리뷰', allowedRoles: adminOnly },
   { label: '광고·프로모션·콘텐츠', path: '/admin/content', shortLabel: '광고', allowedRoles: adminOnly },
   { label: '정기구독', path: '/admin/subscriptions', shortLabel: '구독', allowedRoles: adminOnly },
   { label: '인테리어', path: '/admin/interior', shortLabel: '인테리어', allowedRoles: adminOnly },

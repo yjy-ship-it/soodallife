@@ -86,6 +86,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<TrustPolicy> TrustPolicies => Set<TrustPolicy>();
     public DbSet<ProviderTrustScoreCurrent> ProviderTrustScoreCurrent => Set<ProviderTrustScoreCurrent>();
     public DbSet<TrustScoreEvent> TrustScoreEvents => Set<TrustScoreEvent>();
+    public DbSet<ReviewRatingItem> ReviewRatingItems => Set<ReviewRatingItem>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ReviewRating> ReviewRatings => Set<ReviewRating>();
+    public DbSet<ReviewFile> ReviewFiles => Set<ReviewFile>();
+    public DbSet<ReviewProviderReply> ReviewProviderReplies => Set<ReviewProviderReply>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

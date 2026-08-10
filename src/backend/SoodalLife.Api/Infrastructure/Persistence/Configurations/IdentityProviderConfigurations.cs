@@ -256,7 +256,7 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         b.ToTable("files", t =>
         {
             t.HasCheckConstraint("CK_files_size_bytes", "[size_bytes] >= 0");
-            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE')");
+            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','REVIEW')");
             t.HasCheckConstraint("CK_files_status", "[status_code] IN ('PENDING','ACTIVE','QUARANTINED','DELETED')");
         });
     }
