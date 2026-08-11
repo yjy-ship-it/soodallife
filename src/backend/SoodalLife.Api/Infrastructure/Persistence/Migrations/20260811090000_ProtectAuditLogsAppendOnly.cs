@@ -13,14 +13,14 @@ public partial class ProtectAuditLogsAppendOnly : Migration
     {
         migrationBuilder.Sql(
             """
-            CREATE TRIGGER [TR_audit_logs_append_only]
+            EXEC(N'CREATE TRIGGER [TR_audit_logs_append_only]
             ON [audit_logs]
             INSTEAD OF UPDATE, DELETE
             AS
             BEGIN
                 SET NOCOUNT ON;
-                THROW 51000, N'감사로그는 수정하거나 삭제할 수 없습니다.', 1;
-            END;
+                THROW 51000, N''감사로그는 수정하거나 삭제할 수 없습니다.'', 1;
+            END;')
             """);
     }
 

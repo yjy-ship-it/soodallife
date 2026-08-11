@@ -701,25 +701,25 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                 column: "updated_by_user_id");
 
             migrationBuilder.Sql("""
-                CREATE TRIGGER [TR_subscription_payment_ledger_append_only]
+                EXEC(N'CREATE TRIGGER [TR_subscription_payment_ledger_append_only]
                 ON [subscription_payment_ledger]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51000, N'구독 결제 원장은 수정하거나 삭제할 수 없습니다.', 1;
-                END
+                    THROW 51000, N''구독 결제 원장은 수정하거나 삭제할 수 없습니다.'', 1;
+                END')
                 """);
 
             migrationBuilder.Sql("""
-                CREATE TRIGGER [TR_subscription_payout_events_append_only]
+                EXEC(N'CREATE TRIGGER [TR_subscription_payout_events_append_only]
                 ON [subscription_payout_events]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51001, N'구독 지급 이력은 수정하거나 삭제할 수 없습니다.', 1;
-                END
+                    THROW 51001, N''구독 지급 이력은 수정하거나 삭제할 수 없습니다.'', 1;
+                END')
                 """);
         }
 

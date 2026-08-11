@@ -709,26 +709,26 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
             migrationBuilder.Sql(
                 """
-                CREATE TRIGGER [TR_notification_events_append_only]
+                EXEC(N'CREATE TRIGGER [TR_notification_events_append_only]
                 ON [notification_events]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51000, 'notification_events is append-only.', 1;
-                END;
+                    THROW 51000, ''notification_events is append-only.'', 1;
+                END;')
                 """);
 
             migrationBuilder.Sql(
                 """
-                CREATE TRIGGER [TR_notification_delivery_attempts_append_only]
+                EXEC(N'CREATE TRIGGER [TR_notification_delivery_attempts_append_only]
                 ON [notification_delivery_attempts]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51000, 'notification_delivery_attempts is append-only.', 1;
-                END;
+                    THROW 51000, ''notification_delivery_attempts is append-only.'', 1;
+                END;')
                 """);
         }
 

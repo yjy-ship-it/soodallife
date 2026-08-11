@@ -1272,14 +1272,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
             migrationBuilder.Sql(
                 """
-                CREATE TRIGGER [dbo].[TR_interior_project_events_append_only]
+                EXEC(N'CREATE TRIGGER [dbo].[TR_interior_project_events_append_only]
                 ON [dbo].[interior_project_events]
                 AFTER UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51000, 'interior_project_events is append-only.', 1;
-                END
+                    THROW 51000, ''interior_project_events is append-only.'', 1;
+                END')
                 """);
         }
 

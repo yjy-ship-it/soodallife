@@ -525,19 +525,9 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         principalColumn: "id");
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "IX_service_history_entries_subscription_visit_schedule_id",
-                table: "service_history_entries",
-                column: "subscription_visit_schedule_id",
-                unique: true,
-                filter: "[subscription_visit_schedule_id] IS NOT NULL");
+            migrationBuilder.Sql("EXEC(N'CREATE UNIQUE INDEX [IX_service_history_entries_subscription_visit_schedule_id] ON [dbo].[service_history_entries] ([subscription_visit_schedule_id]) WHERE [subscription_visit_schedule_id] IS NOT NULL')");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_reviews_subscription_visit_schedule_id",
-                table: "reviews",
-                column: "subscription_visit_schedule_id",
-                unique: true,
-                filter: "[subscription_visit_schedule_id] IS NOT NULL");
+            migrationBuilder.Sql("EXEC(N'CREATE UNIQUE INDEX [IX_reviews_subscription_visit_schedule_id] ON [dbo].[reviews] ([subscription_visit_schedule_id]) WHERE [subscription_visit_schedule_id] IS NOT NULL')");
 
             migrationBuilder.CreateIndex(
                 name: "IX_reviews_transaction_id",
@@ -546,35 +536,20 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                 unique: true,
                 filter: "[transaction_id] IS NOT NULL");
 
-            migrationBuilder.AddCheckConstraint(
-                name: "CK_reviews_source",
-                table: "reviews",
-                sql: "([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL)");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[reviews] ADD CONSTRAINT [CK_reviews_source] CHECK (([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL))')");
 
             migrationBuilder.AddCheckConstraint(
                 name: "CK_reviews_verification",
                 table: "reviews",
                 sql: "[verification_status_code] IN ('VERIFIED_TRANSACTION','VERIFIED_SUBSCRIPTION_VISIT')");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_dispute_cases_subscription_visit_schedule_id",
-                table: "dispute_cases",
-                column: "subscription_visit_schedule_id");
+            migrationBuilder.Sql("EXEC(N'CREATE INDEX [IX_dispute_cases_subscription_visit_schedule_id] ON [dbo].[dispute_cases] ([subscription_visit_schedule_id])')");
 
-            migrationBuilder.AddCheckConstraint(
-                name: "CK_dispute_cases_source",
-                table: "dispute_cases",
-                sql: "([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL)");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[dispute_cases] ADD CONSTRAINT [CK_dispute_cases_source] CHECK (([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL))')");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_after_service_cases_subscription_visit_schedule_id",
-                table: "after_service_cases",
-                column: "subscription_visit_schedule_id");
+            migrationBuilder.Sql("EXEC(N'CREATE INDEX [IX_after_service_cases_subscription_visit_schedule_id] ON [dbo].[after_service_cases] ([subscription_visit_schedule_id])')");
 
-            migrationBuilder.AddCheckConstraint(
-                name: "CK_after_service_cases_source",
-                table: "after_service_cases",
-                sql: "([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL)");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[after_service_cases] ADD CONSTRAINT [CK_after_service_cases_source] CHECK (([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL))')");
 
             migrationBuilder.CreateIndex(
                 name: "IX_care_products_created_by_user_id",
@@ -861,33 +836,13 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                 table: "subscription_visit_schedules",
                 column: "updated_by_user_id");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_after_service_cases_subscription_visit_schedules_subscription_visit_schedule_id",
-                table: "after_service_cases",
-                column: "subscription_visit_schedule_id",
-                principalTable: "subscription_visit_schedules",
-                principalColumn: "id");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[after_service_cases] ADD CONSTRAINT [FK_after_service_cases_subscription_visit_schedules_subscription_visit_schedule_id] FOREIGN KEY ([subscription_visit_schedule_id]) REFERENCES [dbo].[subscription_visit_schedules] ([id])')");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_dispute_cases_subscription_visit_schedules_subscription_visit_schedule_id",
-                table: "dispute_cases",
-                column: "subscription_visit_schedule_id",
-                principalTable: "subscription_visit_schedules",
-                principalColumn: "id");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[dispute_cases] ADD CONSTRAINT [FK_dispute_cases_subscription_visit_schedules_subscription_visit_schedule_id] FOREIGN KEY ([subscription_visit_schedule_id]) REFERENCES [dbo].[subscription_visit_schedules] ([id])')");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_reviews_subscription_visit_schedules_subscription_visit_schedule_id",
-                table: "reviews",
-                column: "subscription_visit_schedule_id",
-                principalTable: "subscription_visit_schedules",
-                principalColumn: "id");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[reviews] ADD CONSTRAINT [FK_reviews_subscription_visit_schedules_subscription_visit_schedule_id] FOREIGN KEY ([subscription_visit_schedule_id]) REFERENCES [dbo].[subscription_visit_schedules] ([id])')");
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_service_history_entries_subscription_visit_schedules_subscription_visit_schedule_id",
-                table: "service_history_entries",
-                column: "subscription_visit_schedule_id",
-                principalTable: "subscription_visit_schedules",
-                principalColumn: "id");
+            migrationBuilder.Sql("EXEC(N'ALTER TABLE [dbo].[service_history_entries] ADD CONSTRAINT [FK_service_history_entries_subscription_visit_schedules_subscription_visit_schedule_id] FOREIGN KEY ([subscription_visit_schedule_id]) REFERENCES [dbo].[subscription_visit_schedules] ([id])')");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_subscription_applications_subscription_requests_subscription_request_id",
@@ -897,14 +852,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                 principalColumn: "id");
 
             migrationBuilder.Sql("""
-                CREATE OR ALTER TRIGGER [dbo].[TR_subscription_events_append_only]
+                EXEC(N'CREATE OR ALTER TRIGGER [dbo].[TR_subscription_events_append_only]
                 ON [dbo].[subscription_events]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51003, N'구독 변경이력은 수정하거나 삭제할 수 없습니다.', 1;
-                END;
+                    THROW 51003, N''구독 변경이력은 수정하거나 삭제할 수 없습니다.'', 1;
+                END;')
                 """);
         }
 

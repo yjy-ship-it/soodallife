@@ -1064,14 +1064,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                 principalColumn: "id");
 
             migrationBuilder.Sql("""
-                CREATE TRIGGER [TR_sanction_events_append_only]
+                EXEC(N'CREATE TRIGGER [TR_sanction_events_append_only]
                 ON [sanction_events]
                 INSTEAD OF UPDATE, DELETE
                 AS
                 BEGIN
                     SET NOCOUNT ON;
-                    THROW 51000, 'sanction_events is append-only.', 1;
-                END
+                    THROW 51000, ''sanction_events is append-only.'', 1;
+                END')
                 """);
         }
 
