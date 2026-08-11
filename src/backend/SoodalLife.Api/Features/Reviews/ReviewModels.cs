@@ -13,6 +13,8 @@ public sealed record ReviewReplyResponse(Guid Id, string ProviderName, string Bo
 public sealed record PublicReviewListResponse(int TotalCount, int Page, int PageSize, IReadOnlyList<ReviewResponse> Items);
 public sealed record ProviderReviewStatisticsResponse(Guid ProviderId, int ReviewCount, int PublicReviewCount, IReadOnlyList<RatingItemAverageResponse> RatingItemAverages);
 public sealed record RatingItemAverageResponse(Guid ItemId, string ItemCode, string ItemName, decimal AverageValue, int RatingCount, decimal MinValue, decimal MaxValue);
+public sealed record ReviewRatingItemOption(Guid Id, string Code, string Name, string? Description, decimal MinValue, decimal MaxValue, bool IsRequired, int DisplayOrder);
+public sealed record ReviewUploadResponse(Guid FileId, string FileName, string ContentType, long SizeBytes, string ScanStatus);
 
 public sealed class ReviewBusinessException(int statusCode,string businessCode,string message,string? field=null):Exception(message)
 {

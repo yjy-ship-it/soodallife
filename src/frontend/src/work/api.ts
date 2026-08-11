@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { CompletionConfirmation, CompletionEvidence, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
+import type { AppointmentChange, CompletionConfirmation, CompletionEvidence, CustomerDispute, RatingItem, ReviewResponse, TransactionAppointment, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
 
 async function read<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -9,6 +9,15 @@ async function read<T>(response: Response): Promise<T> {
   }
   return await response.json() as T
 }
+export const getAppointment = (id: string) => fetch(`/api/v1/transactions/${id}/appointment`, { credentials: 'include' }).then(read<TransactionAppointment | null>)
+export const createAppointment = (id:string,scheduledStartAt:string,scheduledEndAt:string|null,estimatedDurationMinutes:number|null,customerMemo:string|null)=>json('POST',`/api/v1/customers/me/transactions/${id}/appointment`,{scheduledStartAt,scheduledEndAt,estimatedDurationMinutes,customerMemo}).then(read<TransactionAppointment>)
+export const requestAppointmentChange=(id:string,requestedStartAt:string,requestedEndAt:string|null,reason:string)=>json('POST',`/api/v1/customers/me/transactions/${id}/appointment-change-requests`,{requestedStartAt,requestedEndAt,reason,idempotencyKey:crypto.randomUUID()}).then(read<AppointmentChange>)
+export const getRatingItems=()=>fetch('/api/v1/customers/me/review-rating-items',{credentials:'include'}).then(read<RatingItem[]>)
+export const createReview=(id:string,bodyText:string,ratings:Array<{ratingItemId:string;ratingValue:number}>,fileIds:string[])=>json('POST',`/api/v1/customers/me/transactions/${id}/review`,{bodyText,ratings,fileIds,idempotencyKey:crypto.randomUUID()}).then(read<ReviewResponse>)
+export async function uploadReviewFile(file:File){const form=new FormData();form.append('file',file);return fetch('/api/v1/customers/me/review-files',{method:'POST',credentials:'include',body:form}).then(read<{fileId:string}>)}
+export const getMyReviews=()=>fetch('/api/v1/customers/me/reviews',{credentials:'include'}).then(read<ReviewResponse[]>)
+export const getDisputes=()=>fetch('/api/v1/customers/me/disputes',{credentials:'include'}).then(read<CustomerDispute[]>)
+export const getDispute=(id:string)=>fetch(`/api/v1/customers/me/disputes/${id}`,{credentials:'include'}).then(read<CustomerDispute>)
 const json = (method: string, path: string, body?: unknown) => fetch(path, { method, credentials: 'include', headers: body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
 export const getProviderTransactions = () => fetch('/api/v1/providers/me/transactions', { credentials: 'include' }).then(read<WorkTransactionListItem[]>)
 export const getProviderTransaction = (id: string) => fetch(`/api/v1/providers/me/transactions/${id}`, { credentials: 'include' }).then(read<WorkTransactionDetail>)

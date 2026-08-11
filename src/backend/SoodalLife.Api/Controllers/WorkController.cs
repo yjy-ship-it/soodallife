@@ -7,7 +7,7 @@ namespace SoodalLife.Api.Controllers;
 
 [ApiController]
 [Route("api/v1")]
-public sealed class WorkController(WorkService workService) : ControllerBase
+public sealed class WorkController(WorkService workService, TransactionAppointmentService appointmentService) : ControllerBase
 {
     [Authorize(Roles = RoleCodes.Provider)]
     [HttpGet("providers/me/transactions")]
@@ -28,6 +28,23 @@ public sealed class WorkController(WorkService workService) : ControllerBase
     [HttpGet("customers/me/transactions/{transactionId:guid}")]
     public Task<ActionResult<WorkTransactionDetail>> CustomerDetail(Guid transactionId, CancellationToken token) =>
         Execute(() => workService.GetCustomerDetailAsync(User, transactionId, token));
+
+    [Authorize(Roles = $"{RoleCodes.Customer},{RoleCodes.Provider}")]
+    [HttpGet("transactions/{transactionId:guid}/appointment")]
+    public Task<ActionResult<TransactionAppointmentResponse?>> Appointment(Guid transactionId, CancellationToken token) =>
+        Execute(() => appointmentService.GetAsync(User, transactionId, token));
+
+    [Authorize(Roles = RoleCodes.Customer)]
+    [HttpPost("customers/me/transactions/{transactionId:guid}/appointment")]
+    public Task<ActionResult<TransactionAppointmentResponse>> CreateAppointment(
+        Guid transactionId, CreateTransactionAppointmentInput input, CancellationToken token) =>
+        Execute(() => appointmentService.CreateAsync(User, transactionId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer)]
+    [HttpPost("customers/me/transactions/{transactionId:guid}/appointment-change-requests")]
+    public Task<ActionResult<AppointmentChangeResponse>> RequestAppointmentChange(
+        Guid transactionId, RequestAppointmentChangeInput input, CancellationToken token) =>
+        Execute(() => appointmentService.RequestChangeAsync(User, transactionId, input, token));
 
     [Authorize(Roles = RoleCodes.Provider)]
     [HttpPost("transactions/{transactionId:guid}/start")]

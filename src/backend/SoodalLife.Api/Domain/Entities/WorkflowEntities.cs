@@ -263,6 +263,44 @@ public sealed class TransactionRecord
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class TransactionAppointment
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long TransactionId { get; set; }
+    public DateTime ScheduledStartAt { get; set; }
+    public DateTime? ScheduledEndAt { get; set; }
+    public int? EstimatedDurationMinutes { get; set; }
+    public string? CustomerMemo { get; set; }
+    public string? ProviderMemo { get; set; }
+    public string StatusCode { get; set; } = "PROPOSED";
+    public DateTime? ConfirmedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class TransactionAppointmentChangeRequest
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long TransactionAppointmentId { get; set; }
+    public long RequestedByUserId { get; set; }
+    public DateTime RequestedStartAt { get; set; }
+    public DateTime? RequestedEndAt { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string StatusCode { get; set; } = "REQUESTED";
+    public DateTime RequestedAt { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+    public long? ProcessedByUserId { get; set; }
+    public string? ProcessingNote { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
 public sealed class WorkCompletion
 {
     public long Id { get; set; }

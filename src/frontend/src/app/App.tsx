@@ -8,6 +8,7 @@ import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/Role
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
+import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AdminDashboardPage, AdminPlaceholderPage } from '../admin/AdminPages'
 import { findAdminMenu } from '../admin/menu'
 import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
@@ -107,6 +108,7 @@ function ApplicationRoutes() {
   const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
+  const customerDisputeMatch = pathname.match(/^\/customer\/disputes\/([0-9a-f-]+)$/i)
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
   const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
@@ -162,6 +164,9 @@ function ApplicationRoutes() {
     if (customerRequestMatch) return <CustomerRequestDetailPage requestId={customerRequestMatch[1]} />
     if (pathname === '/customer/transactions') return <WorkTransactionListPage audience="customer" />
     if (customerTransactionMatch) return <CustomerWorkDetailPage transactionId={customerTransactionMatch[1]} />
+    if (pathname === '/customer/reviews') return <MyReviewsPage />
+    if (pathname === '/customer/disputes') return <CustomerDisputesPage />
+    if (customerDisputeMatch) return <CustomerDisputesPage id={customerDisputeMatch[1]} />
     if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
     if (pathname === '/provider/matched-requests') return <ProviderMatchedRequestListPage />

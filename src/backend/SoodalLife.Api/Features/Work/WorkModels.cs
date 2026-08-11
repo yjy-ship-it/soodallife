@@ -8,7 +8,9 @@ public sealed record WorkTransactionListItem(
     decimal AgreedAmount,
     string CurrencyCode,
     string Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string DisplayStatus,
+    string StatusGroup);
 
 public sealed record WorkQuoteItem(
     int LineNo,
@@ -84,7 +86,16 @@ public sealed record WorkTransactionDetail(
     IReadOnlyList<WorkRequestAnswer> RequestAnswers,
     CompletionPolicyStatus CompletionPolicy,
     IReadOnlyList<PhotoRoleOption> AvailablePhotoRoles,
-    WorkCompletionRevisionResponse? Completion);
+    WorkCompletionRevisionResponse? Completion,
+    IReadOnlyList<WorkCompletionRevisionResponse> CompletionRevisions,
+    IReadOnlyList<WorkTimelineItem> Timeline,
+    WorkRelatedCase? AfterService,
+    WorkRelatedCase? Dispute,
+    WorkReviewState Review);
+
+public sealed record WorkTimelineItem(string Code, string Label, DateTime OccurredAt, bool IsCurrent);
+public sealed record WorkRelatedCase(Guid Id, string Status, string DisplayStatus, DateTime CreatedAt);
+public sealed record WorkReviewState(Guid? Id, bool CanCreate, bool Exists, string? Status);
 
 public sealed record SaveCompletionDraftInput(
     string WorkSummary,

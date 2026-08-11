@@ -292,6 +292,21 @@ public sealed class WorkService(
                 transaction.StatusCode = result;
                 completion.StatusCode = result;
                 revision.StatusCode = result;
+                if (result == "DISPUTED" && !await db.DisputeCases.AnyAsync(x => x.TransactionId == transaction.Id, cancellationToken))
+                {
+                    var providerUserId = await db.ProviderProfiles.Where(x => x.Id == transaction.ProviderProfileId).Select(x => x.UserId).SingleAsync(cancellationToken);
+                    var dispute = new DisputeCase
+                    {
+                        TransactionId = transaction.Id, ApplicantUserId = identity.UserId, CounterpartyUserId = providerUserId,
+                        Subject = "작업완료 이의 제기", Description = confirmation.Comment!, StatusCode = "OPEN", ReceivedAt = now,
+                        LastActionAt = now, CreatedAt = now, CreatedByUserId = identity.UserId, UpdatedAt = now, UpdatedByUserId = identity.UserId
+                    };
+                    db.DisputeCases.Add(dispute);
+                    await db.SaveChangesAsync(cancellationToken);
+                    db.DisputeActions.Add(new DisputeAction { DisputeCaseId = dispute.Id, ActionTypeCode = "CREATED", ToStatusCode = "OPEN",
+                        ActionNote = "고객이 작업완료 확인에서 분쟁을 접수했습니다.", Reason = confirmation.Comment,
+                        OccurredAt = now, ActorUserId = identity.UserId, IdempotencyKey = $"completion-dispute:{transaction.PublicId:N}:{revision.PublicId:N}" });
+                }
             }
             transaction.UpdatedAt = now;
             transaction.UpdatedByUserId = identity.UserId;
@@ -341,10 +356,12 @@ public sealed class WorkService(
                           where (!providerId.HasValue || transaction.ProviderProfileId == providerId) &&
                                 (!customerId.HasValue || transaction.CustomerProfileId == customerId)
                           orderby transaction.CreatedAt descending
-                          select new WorkTransactionListItem(transaction.PublicId, major.Name + " > " + middle.Name + " > " + category.Name,
-                              area.AreaName, request.Title, transaction.AgreedAmount, transaction.CurrencyCode, transaction.StatusCode, transaction.CreatedAt))
+                          select new { transaction.PublicId, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name,
+                              area.AreaName, RequestSummary = request.Title, transaction.AgreedAmount, transaction.CurrencyCode,
+                              Status = transaction.StatusCode, transaction.CreatedAt })
             .ToListAsync(cancellationToken);
-        return rows;
+        return rows.Select(x => new WorkTransactionListItem(x.PublicId, x.CategoryPath, x.AreaName, x.RequestSummary,
+            x.AgreedAmount, x.CurrencyCode, x.Status, x.CreatedAt, DisplayStatus(x.Status), StatusGroup(x.Status))).ToArray();
     }
 
     private async Task<WorkTransactionDetail> BuildDetailAsync(TransactionRecord transaction, bool providerView, CancellationToken cancellationToken)
@@ -376,20 +393,35 @@ public sealed class WorkService(
         var roleCodes = Array.Empty<string>();
         var completion = await db.WorkCompletions.AsNoTracking().SingleOrDefaultAsync(item => item.TransactionId == transaction.Id, cancellationToken);
         WorkCompletionRevisionResponse? revisionResponse = null;
+        var revisionResponses = new List<WorkCompletionRevisionResponse>();
         if (completion is not null && completion.LatestRevisionNo > 0)
         {
-            var revision = await db.WorkCompletionRevisions.AsNoTracking().SingleAsync(
-                item => item.WorkCompletionId == completion.Id && item.RevisionNo == completion.LatestRevisionNo, cancellationToken);
-            revisionResponse = await BuildRevisionAsync(transaction, revision, cancellationToken);
+            var revisions = await db.WorkCompletionRevisions.AsNoTracking().Where(item => item.WorkCompletionId == completion.Id)
+                .OrderBy(item => item.RevisionNo).ToListAsync(cancellationToken);
+            foreach (var item in revisions) revisionResponses.Add(await BuildRevisionAsync(transaction, item, cancellationToken));
+            revisionResponse = revisionResponses.Last();
             roleCodes = revisionResponse.Evidence.Select(item => item.RoleCode).ToArray();
         }
         var policy = policyEvaluator.Evaluate(transaction.CompletionPolicySnapshotJson, roleCodes);
         var roles = await db.CompletionPhotoRoles.AsNoTracking().Where(item => item.IsActive).OrderBy(item => item.Id)
             .Select(item => new PhotoRoleOption(item.Code, item.Name, item.Description)).ToListAsync(cancellationToken);
+        var confirmations = await db.CustomerConfirmations.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderBy(x => x.ConfirmedAt).ToListAsync(cancellationToken);
+        var timeline = new List<WorkTimelineItem> { new("QUOTE_ACCEPTED", "견적 채택 · 거래 생성", transaction.CreatedAt, transaction.StatusCode == "CREATED") };
+        if (transaction.StartedAt.HasValue) timeline.Add(new("WORK_STARTED", "작업 시작", transaction.StartedAt.Value, transaction.StatusCode == "IN_PROGRESS"));
+        timeline.AddRange(revisionResponses.Where(x => x.Status != "DRAFT").Select(x => new WorkTimelineItem("COMPLETION_SUBMITTED", $"작업완료 자료 {x.RevisionNo}차 제출", x.RecordedAt, transaction.StatusCode == "COMPLETION_SUBMITTED" && x.Id == revisionResponse?.Id)));
+        timeline.AddRange(confirmations.Select(x => new WorkTimelineItem(x.ResultCode, x.ResultCode == "COMPLETED" ? "고객 완료 확인" : x.ResultCode == "REVISION_REQUESTED" ? "고객 보완 요청" : "분쟁 전환", x.ConfirmedAt, false)));
+        var afterService = await db.AfterServiceCases.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderByDescending(x => x.ReceivedAt)
+            .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
+        var dispute = await db.DisputeCases.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderByDescending(x => x.ReceivedAt)
+            .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
+        var review = await db.Reviews.AsNoTracking().Where(x => x.TransactionId == transaction.Id)
+            .Select(x => new { x.PublicId, x.VisibilityStatusCode }).SingleOrDefaultAsync(cancellationToken);
         return new WorkTransactionDetail(transaction.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
             baseData.Request.Title, baseData.Request.Description, baseData.CustomerPhone, baseData.Request.DetailAddress,
             baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
-            transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse);
+            transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse,
+            revisionResponses, timeline.OrderBy(x => x.OccurredAt).ToArray(), afterService, dispute,
+            new WorkReviewState(review?.PublicId, transaction.StatusCode == "COMPLETED" && review is null, review is not null, review?.VisibilityStatusCode));
     }
 
     private async Task<WorkCompletionRevisionResponse> BuildRevisionAsync(
@@ -535,6 +567,18 @@ public sealed class WorkService(
     private static Guid PrincipalId(ClaimsPrincipal principal) =>
         Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : throw new InvalidOperationException("Authenticated user identifier is invalid.");
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string DisplayStatus(string status) => status switch
+    {
+        "CREATED" => "일정 확인 중", "IN_PROGRESS" => "작업 진행 중", "COMPLETION_SUBMITTED" => "완료 확인 필요",
+        "REVISION_REQUESTED" => "보완 요청", "COMPLETED" => "완료", "DISPUTED" => "분쟁 진행 중",
+        "CANCELLED" => "취소", _ => "진행 상태 확인"
+    };
+    private static string StatusGroup(string status) => status switch
+    {
+        "CREATED" or "IN_PROGRESS" => "IN_PROGRESS", "COMPLETION_SUBMITTED" => "WAITING_CONFIRMATION",
+        "REVISION_REQUESTED" => "REVISION_REQUESTED", "COMPLETED" => "COMPLETED", "DISPUTED" => "DISPUTED",
+        "CANCELLED" => "CANCELLED", _ => "IN_PROGRESS"
+    };
     private static WorkBusinessException NotFound(string code = "TRANSACTION_NOT_FOUND") => new(code, "대상을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
     private static WorkBusinessException Forbidden(string code, string message) => new(code, message, StatusCodes.Status403Forbidden);
     private static WorkBusinessException Conflict(string code, string message) => new(code, message);

@@ -67,6 +67,8 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<QuoteRevision> QuoteRevisions => Set<QuoteRevision>();
     public DbSet<QuoteItem> QuoteItems => Set<QuoteItem>();
     public DbSet<TransactionRecord> Transactions => Set<TransactionRecord>();
+    public DbSet<TransactionAppointment> TransactionAppointments => Set<TransactionAppointment>();
+    public DbSet<TransactionAppointmentChangeRequest> TransactionAppointmentChangeRequests => Set<TransactionAppointmentChangeRequest>();
     public DbSet<WorkCompletion> WorkCompletions => Set<WorkCompletion>();
     public DbSet<WorkCompletionRevision> WorkCompletionRevisions => Set<WorkCompletionRevision>();
     public DbSet<CompletionEvidenceFile> CompletionEvidenceFiles => Set<CompletionEvidenceFile>();

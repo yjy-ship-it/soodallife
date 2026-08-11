@@ -70,6 +70,8 @@ builder.Services.AddScoped<QuoteService>();
 builder.Services.AddSingleton<CompletionPolicyEvaluator>();
 builder.Services.AddSingleton<IPrivateFileStorage, DevelopmentPrivateFileStorage>();
 builder.Services.AddScoped<WorkService>();
+builder.Services.AddScoped<TransactionAppointmentService>();
+builder.Services.AddScoped<CustomerDisputeService>();
 builder.Services.AddScoped<CareSubscriptionService>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();

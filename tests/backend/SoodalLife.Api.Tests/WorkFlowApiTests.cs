@@ -86,6 +86,47 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         Assert.Equal(HttpStatusCode.Forbidden, (await provider.GetAsync($"/api/v1/customers/me/transactions/{transactionId}")).StatusCode);
     }
 
+    [Fact]
+    public async Task CustomerAppointment_Create_Read_AndChangeRemainRequested()
+    {
+        using var provider = Client(); using var customer = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var transactionId = await ArrangeTransaction(provider, customer);
+        var start = DateTime.UtcNow.AddDays(3); var end = start.AddHours(2);
+        var created = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment", new
+        { scheduledStartAt = start, scheduledEndAt = end, estimatedDurationMinutes = 120, customerMemo = "Please call before arrival." });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var appointment = (await created.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        Assert.Equal("PROPOSED", appointment.Status); Assert.False(appointment.IsConfirmed);
+        Assert.Equal(HttpStatusCode.OK, (await provider.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
+        var key = $"change-{Guid.NewGuid():N}";
+        var change = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        { requestedStartAt = start.AddDays(1), requestedEndAt = end.AddDays(1), reason = "Customer schedule changed.", idempotencyKey = key });
+        var value = (await change.Content.ReadFromJsonAsync<AppointmentChangeResponse>())!;
+        Assert.Equal("REQUESTED", value.Status);
+        var repeated = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        { requestedStartAt = start.AddDays(1), requestedEndAt = end.AddDays(1), reason = "Customer schedule changed.", idempotencyKey = key });
+        Assert.Equal(value.Id, (await repeated.Content.ReadFromJsonAsync<AppointmentChangeResponse>())!.Id);
+        var refreshed = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        Assert.Equal("PROPOSED", refreshed.Status); Assert.Single(refreshed.Changes); Assert.Equal("REQUESTED", refreshed.Changes[0].Status);
+    }
+
+    [Fact]
+    public async Task Appointment_Access_IsLimitedToCustomerAndSelectedProvider()
+    {
+        using var provider = Client(); using var customer = Client(); using var otherProvider = Client(); using var otherCustomer = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        await Login(otherProvider, factory.AreaMismatchProviderCredential); await Login(otherCustomer, factory.OtherCustomerCredential);
+        var transactionId = await ArrangeTransaction(provider, customer);
+        var create = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment", new
+        { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = (int?)null, customerMemo = (string?)null });
+        Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await provider.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        { requestedStartAt = DateTime.UtcNow.AddDays(4), requestedEndAt = (DateTime?)null, reason = "Not allowed", idempotencyKey = Guid.NewGuid().ToString("N") })).StatusCode);
+    }
+
     private async Task<Guid> ArrangeTransaction(HttpClient provider, HttpClient customer)
     {
         await provider.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });

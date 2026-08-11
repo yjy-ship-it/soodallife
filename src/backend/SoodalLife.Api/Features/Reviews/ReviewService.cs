@@ -1,4 +1,8 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
@@ -6,8 +10,9 @@ using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Reviews;
 
-public sealed class ReviewService(SoodalLifeDbContext db)
+public sealed class ReviewService(SoodalLifeDbContext db, SoodalLife.Api.Features.Work.IPrivateFileStorage fileStorage)
 {
+    private const long MaximumFileSize = 10 * 1024 * 1024;
     public async Task<ReviewResponse> CreateAsync(ClaimsPrincipal principal,Guid transactionId,CreateReviewRequest input,CancellationToken token)
     {
         var identity=await CustomerIdentity(principal,token); var key=Required(input.IdempotencyKey,"idempotencyKey",150);
@@ -35,9 +40,48 @@ public sealed class ReviewService(SoodalLifeDbContext db)
             db.Reviews.Add(review);await db.SaveChangesAsync(token);
             db.ReviewRatings.AddRange(activeItems.Where(x=>ratingMap.ContainsKey(x.PublicId)).Select(x=>new ReviewRating{ReviewId=review.Id,RatingItemId=x.Id,RatingValue=ratingMap[x.PublicId].RatingValue,DisplayOrder=x.DisplayOrder,CreatedAt=now}));
             db.ReviewFiles.AddRange(files.Select((x,index)=>new ReviewFile{ReviewId=review.Id,FileId=x.Id,DisplayOrder=index+1,CreatedAt=now}));
+            db.OutboxEvents.Add(new OutboxEvent{AggregateType="Review",AggregatePublicId=review.PublicId,EventType="REVIEW_CREATED",PayloadJson=JsonSerializer.Serialize(new{reviewId=review.PublicId,transactionId}),StatusCode="PENDING",OccurredAt=now,AvailableAt=now,IdempotencyKey=$"review-created:{review.PublicId:N}",CreatedByUserId=identity.UserId});
             await db.SaveChangesAsync(token);if(databaseTransaction is not null)await databaseTransaction.CommitAsync(token);return await Build(review.Id,identity.ProfileId,false,token);
         }
         catch{if(databaseTransaction is not null)await databaseTransaction.RollbackAsync(token);throw;}finally{if(databaseTransaction is not null)await databaseTransaction.DisposeAsync();}
+    }
+
+    public async Task<IReadOnlyList<ReviewRatingItemOption>> RatingItems(ClaimsPrincipal principal,CancellationToken token)
+    {
+        _=await CustomerIdentity(principal,token);var now=DateTime.UtcNow;
+        return await db.ReviewRatingItems.AsNoTracking().Where(x=>x.IsActive&&(x.EffectiveFrom==null||x.EffectiveFrom<=now)&&(x.EffectiveTo==null||x.EffectiveTo>now))
+            .OrderBy(x=>x.DisplayOrder).Select(x=>new ReviewRatingItemOption(x.PublicId,x.Code,x.Name,x.Description,x.MinValue,x.MaxValue,x.IsRequired,x.DisplayOrder)).ToListAsync(token);
+    }
+
+    public async Task<IReadOnlyList<ReviewResponse>> Mine(ClaimsPrincipal principal,CancellationToken token)
+    {
+        var identity=await CustomerIdentity(principal,token);var ids=await db.Reviews.AsNoTracking().Where(x=>x.CustomerProfileId==identity.ProfileId).OrderByDescending(x=>x.SubmittedAt).Select(x=>x.Id).ToListAsync(token);
+        var result=new List<ReviewResponse>();foreach(var id in ids)result.Add(await Build(id,identity.ProfileId,false,token));return result;
+    }
+
+    public async Task<ReviewResponse> MineDetail(ClaimsPrincipal principal,Guid reviewId,CancellationToken token)
+    {
+        var identity=await CustomerIdentity(principal,token);var id=await db.Reviews.AsNoTracking().Where(x=>x.PublicId==reviewId&&x.CustomerProfileId==identity.ProfileId).Select(x=>x.Id).SingleOrDefaultAsync(token);
+        if(id==0)throw NotFound("REVIEW_NOT_FOUND","리뷰를 찾을 수 없습니다.");return await Build(id,identity.ProfileId,false,token);
+    }
+
+    public async Task<ReviewUploadResponse> Upload(ClaimsPrincipal principal,IFormFile upload,CancellationToken token)
+    {
+        var identity=await CustomerIdentity(principal,token);if(upload.Length<=0||upload.Length>MaximumFileSize)throw Invalid("REVIEW_FILE_SIZE_INVALID","사진은 10MB 이하여야 합니다.","file");
+        var rules=new Dictionary<string,(string Ext,byte[] Signature)>(StringComparer.OrdinalIgnoreCase){{"image/jpeg",(".jpg",[0xff,0xd8,0xff])},{"image/png",(".png",[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])},{"image/webp",(".webp",Encoding.ASCII.GetBytes("RIFF"))}};
+        if(!rules.TryGetValue(upload.ContentType,out var rule))throw Invalid("REVIEW_FILE_TYPE_INVALID","JPEG, PNG, WebP 사진만 첨부할 수 있습니다.","file");
+        var original=Path.GetFileName(upload.FileName);if(string.IsNullOrWhiteSpace(original)||original!=upload.FileName||original.Length>255)throw Invalid("REVIEW_FILE_NAME_INVALID","안전한 파일명을 사용해 주세요.","file");
+        await using var source=upload.OpenReadStream();using var memory=new MemoryStream();await source.CopyToAsync(memory,token);var bytes=memory.ToArray();
+        var valid=bytes.AsSpan().StartsWith(rule.Signature);if(upload.ContentType.Equals("image/webp",StringComparison.OrdinalIgnoreCase))valid&=bytes.Length>=12&&bytes.AsSpan(8,4).SequenceEqual(Encoding.ASCII.GetBytes("WEBP"));
+        if(!valid)throw Invalid("REVIEW_FILE_SIGNATURE_INVALID","파일 내용과 이미지 형식이 일치하지 않습니다.","file");
+        var now=DateTime.UtcNow;var key=$"review/{Guid.NewGuid():N}{rule.Ext}";var file=new StoredFile{PurposeCode="REVIEW",StorageContainer="development-private",StorageKey=key,StorageKeyHash=SHA256.HashData(Encoding.UTF8.GetBytes(key)),OriginalFileName=original,ContentType=upload.ContentType.ToLowerInvariant(),SizeBytes=bytes.Length,Sha256Hex=Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),StatusCode="PENDING",UploadedByUserId=identity.UserId,CreatedAt=now};
+        db.Files.Add(file);await db.SaveChangesAsync(token);try{await using var content=new MemoryStream(bytes);await fileStorage.SaveAsync(key,content,token);file.StatusCode="ACTIVE";file.ActivatedAt=now;file.ScanResultText="NOT_INTEGRATED";await db.SaveChangesAsync(token);return new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,"NOT_INTEGRATED");}catch{await fileStorage.DeleteIfExistsAsync(key,token);throw;}
+    }
+
+    public async Task<(Stream Stream,string ContentType,string FileName)> OpenFile(ClaimsPrincipal principal,Guid fileId,CancellationToken token)
+    {
+        var identity=await CustomerIdentity(principal,token);var file=await db.Files.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==fileId&&x.StatusCode=="ACTIVE"&&x.PurposeCode=="REVIEW"&&x.UploadedByUserId==identity.UserId,token)??throw NotFound("REVIEW_FILE_NOT_FOUND","파일을 찾을 수 없습니다.");
+        return(await fileStorage.OpenReadAsync(file.StorageKey,token),file.ContentType,file.OriginalFileName);
     }
 
     public async Task<PublicReviewListResponse> PublicList(Guid providerId,int page,int pageSize,CancellationToken token)

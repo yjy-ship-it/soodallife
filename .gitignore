@@ -5,6 +5,7 @@ tmp/
 # .NET build output and user state
 **/bin/
 **/obj/
+artifacts/phase4-build/
 *.user
 *.suo
 *.userosscache
