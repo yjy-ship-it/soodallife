@@ -8,7 +8,10 @@ public sealed class User
     public string NormalizedLoginId { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public string? NormalizedEmail { get; set; }
     public string? Phone { get; set; }
+    public string EmailVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
+    public string PhoneVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
     public string StatusCode { get; set; } = "ACTIVE";
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -52,6 +55,105 @@ public sealed class CustomerProfile
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
     public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class LegalDocument
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string Code { get; set; } = string.Empty;
+    public string AudienceCode { get; set; } = "CUSTOMER";
+    public string RequirementCode { get; set; } = "OPTIONAL";
+    public int DisplayOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsPlaceholder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class LegalDocumentVersion
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long LegalDocumentId { get; set; }
+    public int VersionNo { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public DateTime EffectiveFrom { get; set; }
+    public DateTime? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsPlaceholder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class UserConsent
+{
+    public long Id { get; set; }
+    public long UserId { get; set; }
+    public long LegalDocumentVersionId { get; set; }
+    public string ConsentStatusCode { get; set; } = "CONSENTED";
+    public DateTime ConsentedAt { get; set; }
+    public DateTime? WithdrawnAt { get; set; }
+    public string SourceCode { get; set; } = "WEB";
+    public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class CustomerAddress
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CustomerProfileId { get; set; }
+    public string AddressName { get; set; } = string.Empty;
+    public string? RecipientName { get; set; }
+    public string PostalCode { get; set; } = string.Empty;
+    public string RoadAddress { get; set; } = string.Empty;
+    public string DetailAddress { get; set; } = string.Empty;
+    public long? AdministrativeAreaId { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public bool IsDefault { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class PasswordResetRequest
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long? UserId { get; set; }
+    public byte[] RequestedIdentifierHash { get; set; } = [];
+    public string RequestedIdentifierMasked { get; set; } = string.Empty;
+    public byte[] TokenHash { get; set; } = [];
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }
+    public string DeliveryStatusCode { get; set; } = "NOT_INTEGRATED";
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class CustomerWithdrawalRequest
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long UserId { get; set; }
+    public string ScopeCode { get; set; } = "CUSTOMER_ROLE";
+    public string StatusCode { get; set; } = "REQUESTED";
+    public string? Reason { get; set; }
+    public DateTime RequestedAt { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+    public long? ProcessedByUserId { get; set; }
+    public string? DecisionReason { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
 

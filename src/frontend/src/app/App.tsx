@@ -34,6 +34,16 @@ import {
   ServiceDetailPage,
   ServiceSearchPage,
 } from '../customer/CustomerPages'
+import {
+  CustomerAddressesPage,
+  CustomerConsentsPage,
+  CustomerNotificationSettingsPage,
+  CustomerProfilePage,
+  CustomerSecurityPage,
+  CustomerSignupPage,
+  MySoodalPage,
+  PasswordResetRequestPage,
+} from '../customer/CustomerAccountPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -70,6 +80,8 @@ function ApplicationRoutes() {
   if (pathname === '/notices') return <PublicContentPage type="NOTICE" />
   if (pathname === '/faq') return <PublicContentPage type="FAQ" />
   if (pathname === '/support') return <CustomerSupportPage />
+  if (pathname === '/signup') return <CustomerSignupPage />
+  if (pathname === '/password-reset') return <PasswordResetRequestPage />
 
   if (status === 'loading') {
     return <main className="loadingScreen" aria-live="polite">인증 상태를 확인하고 있습니다…</main>
@@ -107,7 +119,12 @@ function ApplicationRoutes() {
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
-    if (pathname === '/customer') return <CustomerHomePage />
+    if (pathname === '/customer') return <MySoodalPage />
+    if (pathname === '/customer/profile') return <CustomerProfilePage />
+    if (pathname === '/customer/addresses') return <CustomerAddressesPage />
+    if (pathname === '/customer/security') return <CustomerSecurityPage />
+    if (pathname === '/customer/consents') return <CustomerConsentsPage />
+    if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />

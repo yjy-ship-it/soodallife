@@ -1,0 +1,7 @@
+export type Availability = { available: boolean; normalizedValue: string }
+export type LegalDocument = { id: string; versionId: string; code: string; requirementCode: 'REQUIRED' | 'OPTIONAL' | 'NOTICE'; title: string; content: string; versionNo: number; isPlaceholder: boolean }
+export type CustomerProfile = { name: string; loginId: string; email: string | null; phone: string | null; emailVerificationStatus: string; phoneVerificationStatus: string; accountStatus: string; createdAt: string; lastLoginAt: string | null }
+export type CustomerAddress = { id: string; addressName: string; recipientName: string | null; postalCode: string; roadAddress: string; detailAddress: string; administrativeAreaId: string | null; administrativeAreaName: string | null; latitude: number | null; longitude: number | null; isDefault: boolean; concurrencyToken: string }
+export type Consent = { legalDocumentVersionId: string; code: string; requirementCode: 'REQUIRED' | 'OPTIONAL' | 'NOTICE'; title: string; versionNo: number; isPlaceholder: boolean; consentStatus: string; consentedAt: string | null; withdrawnAt: string | null }
+export type AdministrativeArea = { id: string; name: string; code: string; parentId: string | null; parentName: string | null }
+export type NotificationPreference = { eventGroupCode: string; webEnabled: boolean; kakaoEnabled: boolean; smsEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; rowVersion: string }

@@ -11,6 +11,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const returnUrl = getSafeReturnUrl()
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -80,6 +81,10 @@ export function LoginPage() {
               {submitting ? '로그인 중…' : '로그인'}
             </button>
           </form>
+          <div className="loginLinks">
+            <button type="button" onClick={() => navigate(`/signup${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`)}>고객 회원가입</button>
+            <button type="button" onClick={() => navigate('/password-reset')}>비밀번호를 잊으셨나요?</button>
+          </div>
           <p className="securityNote">계정 정보는 암호화된 연결을 통해 안전하게 전송됩니다.</p>
         </div>
       </section>

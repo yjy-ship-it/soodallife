@@ -15,6 +15,7 @@ using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Features.Subscriptions;
 using SoodalLife.Api.Features.Interior;
 using SoodalLife.Api.Features.Notifications;
+using SoodalLife.Api.Features.CustomerAccounts;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
@@ -29,6 +30,9 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<CustomerAccountService>();
+builder.Services.AddSingleton<IIdentityVerificationAdapter, NotIntegratedIdentityVerificationAdapter>();
+builder.Services.AddSingleton<IPasswordResetDeliveryAdapter, NotIntegratedPasswordResetDeliveryAdapter>();
 builder.Services.AddScoped<AdminDashboardService>();
 builder.Services.AddScoped<AdminAnalyticsService>();
 builder.Services.AddScoped<AdminAuditService>();

@@ -53,7 +53,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
           <div className="customerHeaderActions">
             <button className="headerLocation" type="button" disabled title="지역 선택 기능 준비 중">지역 선택</button>
             <button className="headerIconButton" type="button" onClick={() => navigate('/services/search')} aria-label="서비스 검색"><Icon name="search" /></button>
-            {isCustomer && <button className="headerIconButton" type="button" disabled title="알림센터는 다음 개발 단계에서 연결됩니다" aria-label="알림센터 준비 중"><Icon name="bell" /></button>}
+            {isCustomer && <button className="headerIconButton" type="button" onClick={() => navigate('/customer/notification-settings')} aria-label="알림 설정"><Icon name="bell" /></button>}
             {status === 'authenticated' ? <div className="customerAccountMenu"><button type="button" onClick={() => navigate(isCustomer ? '/customer' : '/roles')}>{isCustomer ? '마이수달' : '역할 선택'}</button><button type="button" onClick={() => void signOut()}>로그아웃</button></div> : <button className="customerLoginButton" type="button" onClick={() => navigate(createLoginPath(pathname))}>로그인</button>}
           </div>
         </div>

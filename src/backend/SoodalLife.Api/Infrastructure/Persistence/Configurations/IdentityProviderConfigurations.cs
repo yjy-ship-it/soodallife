@@ -13,16 +13,25 @@ internal sealed class UserConfiguration() : EntityConfiguration<User>("users")
         Mapping.String(b, nameof(User.NormalizedLoginId), "normalized_login_id", 256);
         Mapping.String(b, nameof(User.PasswordHash), "password_hash", 512);
         Mapping.String(b, nameof(User.Email), "email", 320, nullable: true);
+        Mapping.String(b, nameof(User.NormalizedEmail), "normalized_email", 320, nullable: true);
         Mapping.String(b, nameof(User.Phone), "phone", 32, nullable: true);
+        Mapping.String(b, nameof(User.EmailVerificationStatusCode), "email_verification_status_code", 30, unicode: false, defaultValue: "NOT_INTEGRATED");
+        Mapping.String(b, nameof(User.PhoneVerificationStatusCode), "phone_verification_status_code", 30, unicode: false, defaultValue: "NOT_INTEGRATED");
         Mapping.String(b, nameof(User.StatusCode), "status_code", 20, unicode: false, defaultValue: "ACTIVE");
         Mapping.DateTime(b, nameof(User.LastLoginAt), "last_login_at", nullable: true);
         Mapping.FullAudit(b);
         b.HasIndex(x => x.NormalizedLoginId).IsUnique();
         b.HasIndex(x => x.Email);
+        b.HasIndex(x => x.NormalizedEmail).IsUnique().HasFilter("[normalized_email] IS NOT NULL");
         b.HasIndex(x => x.Phone);
         b.HasIndex(x => x.StatusCode);
         b.HasIndex(x => x.CreatedAt);
-        b.ToTable("users", t => t.HasCheckConstraint("CK_users_status_code", "[status_code] IN ('ACTIVE','SUSPENDED','WITHDRAWN')"));
+        b.ToTable("users", t =>
+        {
+            t.HasCheckConstraint("CK_users_status_code", "[status_code] IN ('ACTIVE','SUSPENDED','WITHDRAWN')");
+            t.HasCheckConstraint("CK_users_email_verification", "[email_verification_status_code] IN ('NOT_INTEGRATED','PENDING','VERIFIED')");
+            t.HasCheckConstraint("CK_users_phone_verification", "[phone_verification_status_code] IN ('NOT_INTEGRATED','PENDING','VERIFIED')");
+        });
     }
 }
 

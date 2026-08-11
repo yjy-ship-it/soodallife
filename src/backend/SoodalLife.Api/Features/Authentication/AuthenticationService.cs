@@ -24,7 +24,9 @@ internal sealed class AuthenticationService(
 
         var user = await dbContext.Users
             .SingleOrDefaultAsync(
-                candidate => candidate.NormalizedLoginId == normalizedIdentifier || candidate.Email == identifier,
+                candidate => candidate.NormalizedLoginId == normalizedIdentifier ||
+                             candidate.NormalizedEmail == normalizedIdentifier ||
+                             candidate.NormalizedEmail == null && candidate.Email != null && candidate.Email.ToUpper() == normalizedIdentifier,
                 cancellationToken);
 
         if (user is null || user.StatusCode != "ACTIVE")
