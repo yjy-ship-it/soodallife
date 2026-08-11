@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using SoodalLife.Api.Features.Admin;
 
 namespace SoodalLife.Api.Features.Interior;
 
@@ -30,7 +32,11 @@ public sealed record InteriorPaymentPlanResponse(Guid Id,int SequenceNo,string N
 public sealed record InteriorWorkStageResponse(Guid Id,int SequenceNo,string Name,string StatusCode,int ProgressPercent,DateOnly PlannedStartDate,DateOnly PlannedEndDate,int UpdateCount,int InspectionCount,string RowVersion);
 public sealed record InteriorChangeResponse(Guid Id,int ChangeNo,string StatusCode,string Reason,string ScopeChange,decimal AmountDelta,int? ScheduleImpactDays,DateTime RequestedAt,DateTime? CustomerDecidedAt,string RowVersion);
 public sealed record InteriorEventResponse(Guid Id,string EventTypeCode,DateTime OccurredAt,string? Data);
-public sealed record InteriorProjectDetail(Guid Id,string ProjectNumber,string StatusCode,string FeeAssessmentStatusCode,Guid RequestId,string CustomerName,string? CustomerPhone,string ServiceName,string AreaName,string? DetailAddress,string? SiteVisitProvider,string? Contractor,decimal? SiteVisitTrustSnapshot,decimal? ContractorTrustSnapshot,DateOnly? StartDate,DateOnly? ExpectedCompletionDate,DateOnly? ActualCompletionDate,string RowVersion,IReadOnlyList<InteriorSiteVisitResponse> SiteVisits,IReadOnlyList<InteriorDesignResponse> Designs,IReadOnlyList<InteriorContractResponse> Contracts,IReadOnlyList<InteriorPaymentPlanResponse> PaymentPlans,IReadOnlyList<InteriorWorkStageResponse> WorkStages,IReadOnlyList<InteriorChangeResponse> Changes,IReadOnlyList<InteriorEventResponse> Events);
+public sealed record InteriorProjectDetail(Guid Id,string ProjectNumber,string StatusCode,string FeeAssessmentStatusCode,Guid RequestId,string CustomerName,[property:JsonIgnore]string? RawCustomerPhone,string ServiceName,string AreaName,[property:JsonIgnore]string? RawDetailAddress,string? SiteVisitProvider,string? Contractor,decimal? SiteVisitTrustSnapshot,decimal? ContractorTrustSnapshot,DateOnly? StartDate,DateOnly? ExpectedCompletionDate,DateOnly? ActualCompletionDate,string RowVersion,IReadOnlyList<InteriorSiteVisitResponse> SiteVisits,IReadOnlyList<InteriorDesignResponse> Designs,IReadOnlyList<InteriorContractResponse> Contracts,IReadOnlyList<InteriorPaymentPlanResponse> PaymentPlans,IReadOnlyList<InteriorWorkStageResponse> WorkStages,IReadOnlyList<InteriorChangeResponse> Changes,IReadOnlyList<InteriorEventResponse> Events)
+{
+    public string? CustomerPhone => AdminPrivacy.Phone(RawCustomerPhone);
+    public string? DetailAddress => AdminPrivacy.DetailAddress(RawDetailAddress);
+}
 public sealed record ProviderSiteVisitPrivateResponse(Guid SiteVisitId,Guid ProjectId,string CustomerName,string? CustomerPhone,string AreaName,string? DetailAddress,DateTime ScheduledStartAt,DateTime? ScheduledEndAt,string? AccessConditionText,string StatusCode);
 
 public sealed class InteriorBusinessException(int statusCode,string businessCode,string message):Exception(message)

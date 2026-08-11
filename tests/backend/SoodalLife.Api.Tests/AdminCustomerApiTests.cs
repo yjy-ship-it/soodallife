@@ -65,7 +65,7 @@ public sealed class AdminCustomerApiTests(AuthenticationWebApplicationFactory fa
 
         Assert.NotNull(detail);
         Assert.Equal("김수달", detail.Basic.Name);
-        Assert.Equal("01012345678", detail.Basic.Phone);
+        Assert.Equal("010-****-5678", detail.Basic.Phone);
         Assert.Contains(RoleCodes.Customer, detail.Basic.Roles);
         Assert.Contains(RoleCodes.Provider, detail.Basic.Roles);
         Assert.False(detail.Basic.IdentityVerificationSupported);

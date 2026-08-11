@@ -32,6 +32,7 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<AdminDashboardService>();
 builder.Services.AddScoped<AdminAnalyticsService>();
 builder.Services.AddScoped<AdminAuditService>();
+builder.Services.AddScoped<AdminSystemService>();
 builder.Services.AddScoped<AdminServiceCategoryService>();
 builder.Services.AddScoped<AdminRequestFieldService>();
 builder.Services.AddScoped<AdminPricePolicyService>();

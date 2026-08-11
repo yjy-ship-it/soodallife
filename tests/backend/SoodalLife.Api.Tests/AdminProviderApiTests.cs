@@ -38,10 +38,10 @@ public sealed class AdminProviderApiTests(AuthenticationWebApplicationFactory fa
         var providerId = await SeedDetailAsync(); using var client = Client(); await Login(client, factory.Credentials[RoleCodes.Admin]);
         var detail = await client.GetFromJsonAsync<AdminProviderDetailResponse>($"{BasePath}/{providerId}");
         Assert.NotNull(detail); Assert.Equal("수달홈케어", detail.Basic.ProviderName); Assert.Contains(RoleCodes.Customer, detail.Basic.Roles);
-        Assert.Equal("1234567890", detail.Business.BusinessRegistrationNo); Assert.False(detail.Business.DetailFieldsSupported);
+        Assert.Equal("123-**-67890", detail.Business.BusinessRegistrationNo); Assert.False(detail.Business.DetailFieldsSupported);
         Assert.Single(detail.Services); Assert.Single(detail.Areas); Assert.Single(detail.Documents); Assert.False(detail.Documents[0].CanOpenFile);
         var review = Assert.Single(detail.ServiceReviews); Assert.True(review.StructuredRequirementsConfigured); Assert.Equal("관련 자격·사업자 확인", review.LegacyQualificationText);
-        var requirement = Assert.Single(review.Requirements); Assert.Equal("PENDING", requirement.VerificationStatusCode); Assert.Equal("사업자등록증", requirement.LinkedDocumentType);
+        var requirement = Assert.Single(review.Requirements, item => item.LinkedDocumentType == "사업자등록증"); Assert.Equal("PENDING", requirement.VerificationStatusCode);
         Assert.Single(detail.Quotes); Assert.True(detail.Quotes[0].IsAccepted); Assert.Single(detail.Transactions);
         Assert.DoesNotContain(detail.Quotes, quote => quote.RequestTitle == "다른 공급자에게 전달된 요청");
     }

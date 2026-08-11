@@ -162,8 +162,6 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
         if (definitionId.HasValue) { var item = await db.ProviderRequirementDefinitions.SingleOrDefaultAsync(value => value.PublicId == definitionId.Value); if (item is not null) db.ProviderRequirementDefinitions.Remove(item); }
         if (documentTypeId.HasValue) { var item = await db.ProviderDocumentTypes.SingleOrDefaultAsync(value => value.PublicId == documentTypeId.Value); if (item is not null) db.ProviderDocumentTypes.Remove(item); }
         if (futurePolicyId.HasValue) { var item = await db.CategoryOperationPolicies.SingleOrDefaultAsync(value => value.PublicId == futurePolicyId.Value); if (item is not null) db.CategoryOperationPolicies.Remove(item); }
-        var publicIds = new[] { definitionId, documentTypeId, assignmentId }.Where(id => id.HasValue).Select(id => id!.Value).ToArray();
-        db.AuditLogs.RemoveRange(db.AuditLogs.Where(log => log.EntityPublicId.HasValue && publicIds.Contains(log.EntityPublicId.Value)));
         await db.SaveChangesAsync();
     }
 

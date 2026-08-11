@@ -22,7 +22,7 @@ public sealed class AdminTrustApiTests(AuthenticationWebApplicationFactory facto
         Assert.Equal("신규·평가중", item.GradeLabel); Assert.Equal("NEW_OR_EVALUATING", item.EvaluationStatusCode);
         var raw = await (await client.GetAsync(BasePath)).Content.ReadAsStringAsync(); Assert.DoesNotContain("01024681357", raw); Assert.DoesNotContain("trust@sudal.example.kr", raw);
         var detail = await client.GetFromJsonAsync<AdminTrustDetailResponse>($"{BasePath}/{providerId}");
-        Assert.NotNull(detail); Assert.Equal("01024681357", detail.Provider.Phone); Assert.Equal("신규·평가중", detail.Trust.StatusNotice);
+        Assert.NotNull(detail); Assert.Equal("010-****-1357", detail.Provider.Phone); Assert.Equal("신규·평가중", detail.Trust.StatusNotice);
     }
 
     [Theory]

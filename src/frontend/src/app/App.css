@@ -313,6 +313,31 @@
   .adminMetricCard { min-height: 126px; }
 }
 
+/* 감사·보안·시스템 관리 */
+.systemTabs { display:flex; gap:5px; padding:5px; margin-bottom:14px; border:1px solid #dbe3df; border-radius:10px; background:#fff; }
+.systemTabs button { flex:1; min-height:40px; border:0; border-radius:7px; color:#66756d; background:transparent; font-weight:800; cursor:pointer; }
+.systemTabs button.active { color:#fff; background:#286d51; }
+.systemHealth { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:10px; padding:17px; border:1px solid #dbe3df; border-radius:11px; background:#fff; }
+.systemHealth div { display:grid; gap:5px; padding:12px; border-radius:8px; background:#f3f7f5; }
+.systemHealth span,.systemHealth small { color:#748079; font-size:.65rem; }.systemHealth strong { color:#33483e; font-size:.82rem; }.systemHealth strong.ok { color:#20714c; }.systemHealth strong.critical { color:#a54138; }
+.systemHealth button { align-self:center; min-height:38px; padding:0 14px; border:0; border-radius:7px; color:#fff; background:#286d51; cursor:pointer; }
+.systemMetricGrid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.systemMetricGrid button { display:grid; gap:6px; padding:16px; border:1px solid #dbe3df; border-radius:10px; color:#35483e; background:#fff; text-align:left; cursor:pointer; }
+.systemMetricGrid button>span { width:max-content; padding:2px 6px; border-radius:5px; color:#49645a; background:#edf3f0; font-size:.58rem; font-weight:900; }.systemMetricGrid button>span.warning { color:#815d18; background:#fff3d3; }.systemMetricGrid button>span.critical { color:#9b3027; background:#ffe9e6; }
+.systemMetricGrid strong { color:#194e37; font-size:1.3rem; }.systemMetricGrid b { font-size:.7rem; }
+.systemColumns { display:grid; grid-template-columns:1fr 1.4fr; gap:12px; }.systemPanel { padding:19px; margin-bottom:12px; border:1px solid #dbe3df; border-radius:11px; background:#fff; }.systemPanel h2 { margin:0 0 13px; color:#34463d; font-size:.9rem; }
+.systemPanelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:14px; }.systemPanelHeading h2 { margin-bottom:5px; }.systemPanelHeading p { margin:0; color:#748079; font-size:.65rem; }.systemPanelHeading>strong { color:#286d51; }
+.systemStatusList { display:grid; gap:8px; }.systemStatusList div { display:flex; justify-content:space-between; padding:10px; border-radius:7px; background:#f3f7f5; font-size:.68rem; }
+.systemNotice { padding:11px; margin:13px 0 0; border-radius:7px; color:#6d623f; background:#faf4e7; font-size:.65rem; line-height:1.6; }
+.outboxFailure { padding:11px 0; border-bottom:1px solid #e5eae7; }.outboxFailure strong,.outboxFailure span { display:block; }.outboxFailure strong { font-size:.69rem; }.outboxFailure span,.outboxFailure p { color:#748079; font-size:.61rem; }.outboxFailure p { margin:5px 0 0; }
+.integrationGrid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }.integrationGrid article { display:grid; gap:5px; padding:12px; border-radius:8px; background:#f3f6f4; }.integrationGrid span,.integrationGrid small { color:#758079; font-size:.61rem; }.integrationGrid strong { color:#8a5e24; font-size:.72rem; }
+.auditFilters { display:grid; grid-template-columns:repeat(5,minmax(130px,1fr)); gap:8px; margin-bottom:13px; }.auditFilters label { display:grid; gap:5px; color:#637169; font-size:.61rem; font-weight:800; }.auditFilters input,.auditFilters select { min-height:38px; padding:0 8px; border:1px solid #cdd8d2; border-radius:7px; background:#fff; }
+.auditDiff { display:grid; grid-template-columns:1fr 1fr; gap:7px; min-width:440px; padding-top:7px; }.auditDiff pre { max-width:320px; max-height:220px; overflow:auto; padding:9px; margin:0; border-radius:6px; color:#44534c; background:#f1f4f2; font-size:.6rem; white-space:pre-wrap; word-break:break-all; }
+.managedSettingList { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }.managedSettingList button { display:grid; gap:5px; padding:13px; border:1px solid #dbe3df; border-radius:8px; color:#35483e; background:#fff; text-align:left; cursor:pointer; }.managedSettingList span,.managedSettingList small { color:#748079; font-size:.61rem; }
+.securityLimitations ul { margin:0; padding-left:20px; color:#56655d; font-size:.68rem; line-height:1.9; }.systemEmpty { padding:25px; color:#77837d; text-align:center; }
+@media (max-width:1000px){.systemMetricGrid{grid-template-columns:repeat(2,1fr)}.integrationGrid,.managedSettingList{grid-template-columns:repeat(3,1fr)}.auditFilters{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:700px){.systemTabs,.systemHealth{grid-template-columns:1fr;display:grid}.systemColumns,.systemMetricGrid,.integrationGrid,.managedSettingList,.auditFilters{grid-template-columns:1fr}.auditDiff{grid-template-columns:1fr;min-width:260px}}
+
 /* 본사 통계·경영 대시보드 */
 .analyticsHeading > span { max-width: 620px; line-height: 1.55; text-align: right; }
 .analyticsFilterBar { display: grid; gap: 14px; padding: 18px; margin-bottom: 18px; border: 1px solid #dce2df; border-radius: 12px; background: #fff; }

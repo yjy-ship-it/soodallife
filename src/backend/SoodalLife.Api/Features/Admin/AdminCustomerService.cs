@@ -121,7 +121,7 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
                                  orderby request.CreatedAt descending
                                  select new AdminCustomerRequestResponse(
                                      request.PublicId, request.Title, category.Name, request.CreatedAt, request.StatusCode,
-                                     area.AreaName, request.DetailAddress,
+                                     area.AreaName, AdminPrivacy.DetailAddress(request.DetailAddress),
                                      dbContext.Quotes.Count(quote => quote.ServiceRequestId == request.Id),
                                      dbContext.Quotes.Any(quote => quote.ServiceRequestId == request.Id && quote.StatusCode == "ACCEPTED")))
             .ToListAsync(cancellationToken);
@@ -194,7 +194,7 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
 
         return new AdminCustomerDetailResponse(
             new AdminCustomerBasicResponse(identity.Customer.PublicId, identity.User.PublicId, identity.Customer.DisplayName,
-                identity.User.Phone, identity.User.Email, identity.User.StatusCode, identity.User.CreatedAt, identity.User.LastLoginAt,
+                AdminPrivacy.Phone(identity.User.Phone), AdminPrivacy.Email(identity.User.Email), identity.User.StatusCode, identity.User.CreatedAt, identity.User.LastLoginAt,
                 false, "본인인증 구조 없음", activeRoles),
             new AdminCustomerUsageSummaryResponse(requestCount, requestRows.Count(request => request.StatusCode is "OPEN" or "ACCEPTED"),
                 completedTransactionCount, inProgressAfterServiceCount, lastUsedAt),

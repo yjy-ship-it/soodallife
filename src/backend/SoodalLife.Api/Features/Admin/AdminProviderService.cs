@@ -66,7 +66,7 @@ public sealed class AdminProviderService(SoodalLifeDbContext dbContext)
                                join typeValue in dbContext.ProviderDocumentTypes.AsNoTracking() on document.DocumentTypeId equals typeValue.Id into types from type in types.DefaultIfEmpty()
                                join verifierValue in dbContext.Users.AsNoTracking() on document.VerifiedByUserId equals verifierValue.Id into verifiers from verifier in verifiers.DefaultIfEmpty()
                                where document.ProviderProfileId == identity.Provider.Id select new AdminProviderDocumentResponse(document.Id, type != null ? type.Name : document.DocumentTypeCode,
-                                   document.DocumentTypeCode, document.DocumentNumber, document.IssuedAt, document.ExpiresAt, document.VerificationStatusCode, document.VerifiedAt,
+                                   document.DocumentTypeCode, AdminPrivacy.DocumentNumber(document.DocumentNumber), document.IssuedAt, document.ExpiresAt, document.VerificationStatusCode, document.VerifiedAt,
                                    verifier != null ? verifier.LoginId : null, file.OriginalFileName, false, "안전한 관리자 파일 열람 API가 아직 없습니다.")).ToListAsync(cancellationToken);
         var reviews = new List<AdminProviderServiceReviewResponse>();
         foreach (var service in services)
@@ -101,9 +101,9 @@ public sealed class AdminProviderService(SoodalLifeDbContext dbContext)
         var approvalHistory = await dbContext.ProviderApprovalEvents.AsNoTracking().Where(value => value.ProviderProfileId == identity.Provider.Id).OrderByDescending(value => value.DecidedAt).Select(value => new AdminProviderApprovalEventResponse(value.FromStatusCode, value.ToStatusCode, value.ActionCode, value.Reason, value.DecidedAt)).ToListAsync(cancellationToken);
         var audit = await dbContext.AuditLogs.AsNoTracking().Where(value => value.EntityPublicId == identity.Provider.PublicId || value.EntityPublicId == identity.User.PublicId).OrderByDescending(value => value.OccurredAt).Take(100).Select(value => new AdminCustomerAuditResponse(value.OccurredAt, value.ActionCode, value.EntityType, value.ResultCode, value.Reason, value.ActorRoleCode)).ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow); var soon = today.AddDays(30);
-        return new(new(identity.Provider.PublicId, identity.User.PublicId, identity.Provider.BusinessName, identity.User.Phone, identity.User.Email, identity.User.StatusCode, identity.Provider.ApprovalStatusCode, identity.Provider.ActivityStatusCode, identity.User.CreatedAt, identity.User.LastLoginAt, roles),
+        return new(new(identity.Provider.PublicId, identity.User.PublicId, identity.Provider.BusinessName, AdminPrivacy.Phone(identity.User.Phone), AdminPrivacy.Email(identity.User.Email), identity.User.StatusCode, identity.Provider.ApprovalStatusCode, identity.Provider.ActivityStatusCode, identity.User.CreatedAt, identity.User.LastLoginAt, roles),
             new(services.Length, null, null, documents.Count, null, documents.Count(value => value.ExpiresAt >= today && value.ExpiresAt <= soon), documents.Count(value => value.ExpiresAt < today), quotes.Length, quotes.Count(value => value.IsAccepted), transactions.Count(value => value.StatusCode == "COMPLETED"), Max(quotes.Select(value => value.SubmittedAt).Max(), transactions.Select(value => value.CompletedAt ?? value.StartedAt).Max())),
-            new(identity.Provider.BusinessName, identity.Provider.BusinessRegistrationNo, false, "대표자명·사업장 주소·업종·업태 구조가 없습니다."), services, areas, documents, reviews, quotes, transactions, approvalHistory, audit);
+            new(identity.Provider.BusinessName, AdminPrivacy.BusinessNumber(identity.Provider.BusinessRegistrationNo), false, "대표자명·사업장 주소·업종·업태 구조가 없습니다."), services, areas, documents, reviews, quotes, transactions, approvalHistory, audit);
     }
 
     private static string? MaskPhone(string? value) { if (string.IsNullOrWhiteSpace(value)) return null; var digits = new string(value.Where(char.IsDigit).ToArray()); return digits.Length < 7 ? "연락처 등록됨" : $"{digits[..3]}-****-{digits[^4..]}"; }

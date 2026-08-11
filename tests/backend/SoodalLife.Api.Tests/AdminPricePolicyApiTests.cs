@@ -120,7 +120,6 @@ public sealed class AdminPricePolicyApiTests(AuthenticationWebApplicationFactory
         var previous = await db.CategoryPricePolicies.Where(policy => policy.CategoryId == created.CategoryId && policy.Id != created.Id)
             .OrderByDescending(policy => policy.EffectiveFrom).FirstAsync();
         previous.EffectiveTo = null;
-        db.AuditLogs.RemoveRange(db.AuditLogs.Where(log => log.EntityPublicId == publicId));
         db.CategoryPricePolicies.Remove(created);
         await db.SaveChangesAsync();
     }

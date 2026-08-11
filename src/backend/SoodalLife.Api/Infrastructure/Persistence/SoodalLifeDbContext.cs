@@ -152,6 +152,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        EnsureAuditLogsAreAppendOnly();
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
         EnsureSanctionEventsAreAppendOnly();
@@ -164,6 +165,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        EnsureAuditLogsAreAppendOnly();
         EnsureWalletLedgerIsAppendOnly();
         EnsureTrustScoreEventsAreAppendOnly();
         EnsureSanctionEventsAreAppendOnly();
@@ -172,6 +174,12 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureInteriorProjectEventsAreAppendOnly();
         EnsureNotificationHistoryIsAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void EnsureAuditLogsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<AuditLog>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("감사로그는 수정하거나 삭제할 수 없습니다.");
     }
 
     private void EnsureWalletLedgerIsAppendOnly()

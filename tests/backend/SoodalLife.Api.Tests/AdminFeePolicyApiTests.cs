@@ -157,8 +157,6 @@ public sealed class AdminFeePolicyApiTests(AuthenticationWebApplicationFactory f
         var previous = await db.CategoryFeePolicies.Where(policy => policy.CategoryId == created.CategoryId && policy.Id != created.Id)
             .OrderByDescending(policy => policy.EffectiveFrom).FirstAsync();
         previous.EffectiveTo = null;
-        db.AuditLogs.RemoveRange(db.AuditLogs.Where(log => log.EntityPublicId == publicId
-            || (log.EntityPublicId == previous.PublicId && log.ActionCode == "FEE_POLICY_PERIOD_UPDATED")));
         db.CategoryFeePolicies.Remove(created);
         await db.SaveChangesAsync();
     }

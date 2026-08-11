@@ -24,6 +24,7 @@ import { AdminCaseManagementPage } from '../admin/AdminCaseManagementPage'
 import { AdminSubscriptionsPage } from '../admin/AdminSubscriptionsPage'
 import { AdminInteriorPage } from '../admin/AdminInteriorPage'
 import { AdminNotificationsPage } from '../admin/AdminNotificationsPage'
+import { AdminSystemPage } from '../admin/AdminSystemPage'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -88,7 +89,7 @@ function ApplicationRoutes() {
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
-    if (pathname === '/admin/services') return <AdminServiceCategoriesPage pathname={pathname} />
+    if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
     if (pathname === '/admin/customers') return <AdminCustomersPage pathname={pathname} />
     if (adminCustomerMatch) return <AdminCustomersPage pathname={pathname} customerId={adminCustomerMatch[1]} />
@@ -115,6 +116,7 @@ function ApplicationRoutes() {
     if (pathname === '/admin/interior') return <AdminInteriorPage pathname={pathname} />
     if (adminInteriorMatch) return <AdminInteriorPage pathname={pathname} projectId={adminInteriorMatch[1]} />
     if (pathname === '/admin/notifications') return <AdminNotificationsPage pathname={pathname} />
+    if (pathname === '/admin/system') return <AdminSystemPage pathname={pathname} />
     if (requiredRole === 'ADMIN' && findAdminMenu(pathname)) return <AdminPlaceholderPage pathname={pathname} />
     if (pathname === '/customer/requests/new') return <NewCustomerRequestPage />
     if (pathname === '/customer/requests') return <CustomerRequestListPage />

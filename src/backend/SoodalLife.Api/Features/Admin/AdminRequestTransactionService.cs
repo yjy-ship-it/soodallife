@@ -79,8 +79,8 @@ public sealed class AdminRequestTransactionService(SoodalLifeDbContext db)
         var transactionId = await db.Transactions.AsNoTracking().Where(item => item.ServiceRequestId == row.Request.Id).Select(item => (Guid?)item.PublicId).SingleOrDefaultAsync(token);
         var acceptedQuote = quotes.SingleOrDefault(item => item.IsAccepted)?.Id;
         var history = await HistoryAsync("SERVICE_REQUEST", row.Request.PublicId, token);
-        return new(row.Request.PublicId, RequestNumber(row.Request.PublicId), row.Customer.DisplayName, row.User.Phone, row.Service.Name,
-            row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Area.AreaName, row.Request.DetailAddress,
+        return new(row.Request.PublicId, RequestNumber(row.Request.PublicId), row.Customer.DisplayName, AdminPrivacy.Phone(row.User.Phone), row.Service.Name,
+            row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Area.AreaName, AdminPrivacy.DetailAddress(row.Request.DetailAddress),
             row.Request.Title, row.Request.Description, row.Request.CreatedAt, row.Request.StatusCode,
             transactionId.HasValue ? "채택 공급자에게 공개" : "공급자 비공개", answers, candidates, quotes, acceptedQuote, transactionId, history);
     }
@@ -146,8 +146,8 @@ public sealed class AdminRequestTransactionService(SoodalLifeDbContext db)
             .OrderByDescending(item => item.ReceivedAt).Select(item => new AdminAfterServiceSummary(item.PublicId, item.Subject,
                 item.StatusCode, item.ReceivedAt, item.CompletedAt)).ToListAsync(token);
         return new(row.Transaction.PublicId, TransactionNumber(row.Transaction.PublicId), row.Transaction.StatusCode, row.Service.Name,
-            row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Customer.DisplayName, row.User.Phone,
-            row.Provider.BusinessName, row.Request.Title, row.Area.AreaName, row.Request.DetailAddress, row.Transaction.AgreedAmount,
+            row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Customer.DisplayName, AdminPrivacy.Phone(row.User.Phone),
+            row.Provider.BusinessName, row.Request.Title, row.Area.AreaName, AdminPrivacy.DetailAddress(row.Request.DetailAddress), row.Transaction.AgreedAmount,
             row.Transaction.CurrencyCode, row.Transaction.CreatedAt, row.Transaction.StartedAt, row.Transaction.CompletedAt,
             fee, feeLink, items, completion, afterServices, await HistoryAsync("TRANSACTION", row.Transaction.PublicId, token));
     }
