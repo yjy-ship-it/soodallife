@@ -66,13 +66,13 @@ const myMenus = [
 ] as const
 function MySoodalLayout({ title, description, children }: PropsWithChildren<{ title: string; description: string }>) {
   const path = window.location.pathname
-  return <CustomerAppLayout><section className="mySoodalHeading"><p>MY SOODAL</p><h1>{title}</h1><span>{description}</span></section><div className="mySoodalLayout"><nav aria-label="마이수달 메뉴">{myMenus.map(([href, label]) => <button className={path === href ? 'isActive' : ''} onClick={() => navigate(href)} key={href}>{label}</button>)}<hr />{[['/customer/requests', '요청·견적'], ['/customer/transactions', '진행 거래'], ['/support', '고객센터']].map(([href, label]) => <button onClick={() => navigate(href)} key={href}>{label}</button>)}</nav><section className="mySoodalContent">{children}</section></div></CustomerAppLayout>
+  return <CustomerAppLayout><section className="mySoodalHeading"><p>MY SOODAL</p><h1>{title}</h1><span>{description}</span></section><div className="mySoodalLayout"><nav aria-label="마이수달 메뉴">{myMenus.map(([href, label]) => <button className={path === href ? 'isActive' : ''} onClick={() => navigate(href)} key={href}>{label}</button>)}<hr />{[['/customer/requests', '요청·견적'], ['/customer/transactions', '진행 거래'], ['/customer/service-history', '서비스 이력'], ['/customer/reviews', '내 리뷰'], ['/customer/after-services', 'A/S'], ['/customer/disputes', '분쟁'], ['/customer/reports', '신고'], ['/support', '고객센터']].map(([href, label]) => <button onClick={() => navigate(href)} key={href}>{label}</button>)}</nav><section className="mySoodalContent">{children}</section></div></CustomerAppLayout>
 }
 
 export function MySoodalPage() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null)
   useEffect(() => { customerAccountApi.profile().then(setProfile).catch(() => undefined) }, [])
-  return <MySoodalLayout title="마이수달" description="계정과 개인정보를 안전하게 관리하세요."><div className="accountSummary"><p>안녕하세요</p><h2>{profile?.name ?? '고객'}님</h2><span>{profile?.loginId}</span></div><div className="myCardGrid">{myMenus.slice(1).map(([href, label]) => <button onClick={() => navigate(href)} key={href}><strong>{label}</strong><span>{label === '주소 관리' ? '서비스에 사용할 주소를 관리합니다.' : label === '로그인·보안' ? '비밀번호와 탈퇴 신청을 관리합니다.' : '내 계정 설정을 확인합니다.'}</span></button>)}</div><section className="futureMenu"><h2>다음 단계에서 연결됩니다</h2><p>이용내역 · 서비스 이력 · 결제 · A/S/분쟁</p></section></MySoodalLayout>
+  return <MySoodalLayout title="마이수달" description="계정과 서비스 이용 이력을 안전하게 관리하세요."><div className="accountSummary"><p>안녕하세요</p><h2>{profile?.name ?? '고객'}님</h2><span>{profile?.loginId}</span></div><div className="myCardGrid">{myMenus.slice(1).map(([href, label]) => <button onClick={() => navigate(href)} key={href}><strong>{label}</strong><span>{label === '주소 관리' ? '서비스에 사용할 주소를 관리합니다.' : label === '로그인·보안' ? '비밀번호와 탈퇴 신청을 관리합니다.' : '내 계정 설정을 확인합니다.'}</span></button>)}</div><section className="futureMenu"><h2>서비스 이용 관리</h2><p>완료 서비스 이력에서 리뷰, A/S, 분쟁과 신고 진행상태를 이어서 확인할 수 있습니다.</p><button onClick={() => navigate('/customer/service-history')}>서비스 이력 보기</button></section></MySoodalLayout>
 }
 
 export function CustomerProfilePage() {
@@ -129,6 +129,9 @@ function notificationTarget(item: CustomerNotification) {
   if (!item.targetPublicId) return null
   if (item.targetTypeCode === 'ServiceRequest') return `/customer/requests/${item.targetPublicId}`
   if (item.targetTypeCode === 'Transaction') return `/customer/transactions/${item.targetPublicId}`
+  if (item.targetTypeCode === 'AfterService') return `/customer/after-services/${item.targetPublicId}`
+  if (item.targetTypeCode === 'Dispute') return `/customer/disputes/${item.targetPublicId}`
+  if (item.targetTypeCode === 'Report') return `/customer/reports/${item.targetPublicId}`
   if (item.targetTypeCode === 'RequestDispatch') return '/customer/requests'
   return null
 }

@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { AppointmentChange, CompletionConfirmation, CompletionEvidence, CustomerDispute, RatingItem, ReviewResponse, TransactionAppointment, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
+import type { AppointmentChange, CompletionConfirmation, CompletionEvidence, CustomerAfterService, CustomerDispute, CustomerReport, CustomerReportType, RatingItem, ReviewResponse, ServiceHistoryDetail, ServiceHistoryItem, TransactionAppointment, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
 
 async function read<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -18,6 +18,19 @@ export async function uploadReviewFile(file:File){const form=new FormData();form
 export const getMyReviews=()=>fetch('/api/v1/customers/me/reviews',{credentials:'include'}).then(read<ReviewResponse[]>)
 export const getDisputes=()=>fetch('/api/v1/customers/me/disputes',{credentials:'include'}).then(read<CustomerDispute[]>)
 export const getDispute=(id:string)=>fetch(`/api/v1/customers/me/disputes/${id}`,{credentials:'include'}).then(read<CustomerDispute>)
+export async function uploadDisputeEvidence(id:string,file:File,description:string){const form=new FormData();form.append('description',description);form.append('file',file);return fetch(`/api/v1/customers/me/disputes/${id}/evidence`,{method:'POST',credentials:'include',body:form}).then(read<CustomerDispute['evidence'][number]>)}
+export const getServiceHistory=()=>fetch('/api/v1/customers/me/service-history',{credentials:'include'}).then(read<ServiceHistoryItem[]>)
+export const getServiceHistoryDetail=(id:string)=>fetch(`/api/v1/customers/me/service-history/${id}`,{credentials:'include'}).then(read<ServiceHistoryDetail>)
+export const getAfterServices=()=>fetch('/api/v1/customers/me/after-services',{credentials:'include'}).then(read<CustomerAfterService[]>)
+export const getAfterService=(id:string)=>fetch(`/api/v1/after-services/${id}`,{credentials:'include'}).then(read<CustomerAfterService>)
+export const createAfterService=(transactionId:string,input:{subject:string;description:string;requestDetails:string|null;desiredVisitAt:string|null})=>json('POST',`/api/v1/customers/me/transactions/${transactionId}/after-services`,{...input,idempotencyKey:crypto.randomUUID()}).then(read<CustomerAfterService>)
+export async function uploadAfterServiceEvidence(id:string,file:File,description:string){const form=new FormData();form.append('role','CUSTOMER_EVIDENCE');form.append('description',description);form.append('file',file);return fetch(`/api/v1/after-services/${id}/evidence`,{method:'POST',credentials:'include',body:form}).then(read<CustomerAfterService['evidence'][number]>)}
+export const convertAfterServiceToDispute=(id:string,input:{subject:string;reason:string;requestedResolution:string})=>json('POST',`/api/v1/customers/me/after-services/${id}/dispute`,{...input,idempotencyKey:crypto.randomUUID()}).then(read<CustomerDispute>)
+export const getReportTypes=()=>fetch('/api/v1/customers/me/report-types',{credentials:'include'}).then(read<CustomerReportType[]>)
+export const getReports=()=>fetch('/api/v1/customers/me/reports',{credentials:'include'}).then(read<CustomerReport[]>)
+export const getReport=(id:string)=>fetch(`/api/v1/customers/me/reports/${id}`,{credentials:'include'}).then(read<CustomerReport>)
+export const createReport=(input:{targetType:string;targetId:string;reportTypeId:string;description:string})=>json('POST','/api/v1/customers/me/reports',{...input,idempotencyKey:crypto.randomUUID()}).then(read<CustomerReport>)
+export async function uploadReportEvidence(id:string,file:File,description:string){const form=new FormData();form.append('description',description);form.append('file',file);return fetch(`/api/v1/customers/me/reports/${id}/evidence`,{method:'POST',credentials:'include',body:form}).then(read<CustomerReport['evidence'][number]>)}
 const json = (method: string, path: string, body?: unknown) => fetch(path, { method, credentials: 'include', headers: body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
 export const getProviderTransactions = () => fetch('/api/v1/providers/me/transactions', { credentials: 'include' }).then(read<WorkTransactionListItem[]>)
 export const getProviderTransaction = (id: string) => fetch(`/api/v1/providers/me/transactions/${id}`, { credentials: 'include' }).then(read<WorkTransactionDetail>)

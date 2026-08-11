@@ -9,6 +9,7 @@ import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestP
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
+import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
 import { AdminDashboardPage, AdminPlaceholderPage } from '../admin/AdminPages'
 import { findAdminMenu } from '../admin/menu'
 import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
@@ -109,6 +110,10 @@ function ApplicationRoutes() {
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
   const customerDisputeMatch = pathname.match(/^\/customer\/disputes\/([0-9a-f-]+)$/i)
+  const customerHistoryMatch = pathname.match(/^\/customer\/service-history\/([0-9a-f-]+)$/i)
+  const customerAfterServiceMatch = pathname.match(/^\/customer\/after-services\/([0-9a-f-]+)$/i)
+  const customerAfterServiceDisputeMatch = pathname.match(/^\/customer\/after-services\/([0-9a-f-]+)\/dispute$/i)
+  const customerReportMatch = pathname.match(/^\/customer\/reports\/([0-9a-f-]+)$/i)
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
   const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
@@ -165,8 +170,17 @@ function ApplicationRoutes() {
     if (pathname === '/customer/transactions') return <WorkTransactionListPage audience="customer" />
     if (customerTransactionMatch) return <CustomerWorkDetailPage transactionId={customerTransactionMatch[1]} />
     if (pathname === '/customer/reviews') return <MyReviewsPage />
+    if (pathname === '/customer/service-history') return <ServiceHistoryPage />
+    if (customerHistoryMatch) return <ServiceHistoryPage id={customerHistoryMatch[1]} />
+    if (pathname === '/customer/after-services') return <AfterServicesPage />
+    if (pathname === '/customer/after-services/new') return <AfterServicesPage mode="new" />
+    if (customerAfterServiceDisputeMatch) return <AfterServiceDisputeFormPage id={customerAfterServiceDisputeMatch[1]} />
+    if (customerAfterServiceMatch) return <AfterServicesPage id={customerAfterServiceMatch[1]} />
     if (pathname === '/customer/disputes') return <CustomerDisputesPage />
     if (customerDisputeMatch) return <CustomerDisputesPage id={customerDisputeMatch[1]} />
+    if (pathname === '/customer/reports') return <CustomerReportsPage />
+    if (pathname === '/customer/reports/new') return <CustomerReportsPage mode="new" />
+    if (customerReportMatch) return <CustomerReportsPage id={customerReportMatch[1]} />
     if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
     if (pathname === '/provider/matched-requests') return <ProviderMatchedRequestListPage />
