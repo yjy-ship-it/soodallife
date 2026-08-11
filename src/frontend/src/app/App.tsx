@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AuthenticationProvider } from '../auth/AuthContext'
 import { useAuthentication } from '../auth/AuthenticationContext'
-import { getInitialAuthenticatedPath, navigate } from '../auth/routing'
+import { createLoginPath, getInitialAuthenticatedPath, getSafeReturnUrl, navigate } from '../auth/routing'
 import type { RoleCode } from '../auth/types'
 import { LoginPage } from '../pages/LoginPage'
 import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/RolePages'
@@ -25,6 +25,15 @@ import { AdminSubscriptionsPage } from '../admin/AdminSubscriptionsPage'
 import { AdminInteriorPage } from '../admin/AdminInteriorPage'
 import { AdminNotificationsPage } from '../admin/AdminNotificationsPage'
 import { AdminSystemPage } from '../admin/AdminSystemPage'
+import {
+  CustomerHomePage,
+  CustomerNotFoundPage,
+  CustomerSupportPage,
+  PublicContentPage,
+  ServiceCatalogPage,
+  ServiceDetailPage,
+  ServiceSearchPage,
+} from '../customer/CustomerPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -34,13 +43,13 @@ const protectedRoutes: Record<string, RoleCode> = {
 }
 
 function usePathname() {
-  const [pathname, setPathname] = useState(window.location.pathname)
+  const [locationKey, setLocationKey] = useState(`${window.location.pathname}${window.location.search}`)
   useEffect(() => {
-    const updatePath = () => setPathname(window.location.pathname)
+    const updatePath = () => setLocationKey(`${window.location.pathname}${window.location.search}`)
     window.addEventListener('popstate', updatePath)
     return () => window.removeEventListener('popstate', updatePath)
   }, [])
-  return pathname
+  return locationKey.split('?')[0]
 }
 
 function ApplicationRoutes() {
@@ -48,19 +57,29 @@ function ApplicationRoutes() {
   const { status, user } = useAuthentication()
 
   useEffect(() => {
-    if (status === 'anonymous' && pathname !== '/login') {
-      navigate('/login', true)
-    } else if (status === 'authenticated' && user && (pathname === '/' || pathname === '/login')) {
-      navigate(getInitialAuthenticatedPath(user), true)
+    if (status === 'authenticated' && user && pathname === '/login') {
+      navigate(getSafeReturnUrl() ?? getInitialAuthenticatedPath(user), true)
     }
   }, [pathname, status, user])
+
+  const serviceDetailMatch = pathname.match(/^\/services\/([0-9a-f-]+)$/i)
+  if (pathname === '/') return <CustomerHomePage />
+  if (pathname === '/services') return <ServiceCatalogPage />
+  if (pathname === '/services/search') return <ServiceSearchPage />
+  if (serviceDetailMatch) return <ServiceDetailPage id={serviceDetailMatch[1]} />
+  if (pathname === '/notices') return <PublicContentPage type="NOTICE" />
+  if (pathname === '/faq') return <PublicContentPage type="FAQ" />
+  if (pathname === '/support') return <CustomerSupportPage />
 
   if (status === 'loading') {
     return <main className="loadingScreen" aria-live="polite">인증 상태를 확인하고 있습니다…</main>
   }
 
   if (status === 'anonymous') {
-    return <LoginPage />
+    if (pathname === '/login') return <LoginPage />
+    const currentPath = `${pathname}${window.location.search}`
+    navigate(createLoginPath(currentPath), true)
+    return <main className="loadingScreen" aria-live="polite">로그인 화면으로 이동하고 있습니다.</main>
   }
 
   if (!user) {
@@ -88,6 +107,7 @@ function ApplicationRoutes() {
   const requiredRole = protectedRoutes[pathname] ?? (pathname.startsWith('/customer/') ? 'CUSTOMER' : pathname.startsWith('/provider/') ? 'PROVIDER' : pathname.startsWith('/admin/') ? 'ADMIN' : undefined)
   if (requiredRole) {
     if (!user.roles.includes(requiredRole)) return <AccessDeniedPage />
+    if (pathname === '/customer') return <CustomerHomePage />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
@@ -132,7 +152,7 @@ function ApplicationRoutes() {
     return <RoleHomePage role={requiredRole} />
   }
 
-  return <RoleSelectionPage />
+  return <CustomerNotFoundPage />
 }
 
 function App() {

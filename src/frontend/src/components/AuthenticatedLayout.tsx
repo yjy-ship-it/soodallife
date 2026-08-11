@@ -1,9 +1,15 @@
 import type { PropsWithChildren } from 'react'
 import { navigate } from '../auth/routing'
 import { useAuthentication } from '../auth/AuthenticationContext'
+import { ServiceFooter } from './ServiceFooter'
+import { CustomerAppLayout } from '../customer/CustomerAppLayout'
 
 export function AuthenticatedLayout({ children }: PropsWithChildren) {
   const { user, logout } = useAuthentication()
+  if (window.location.pathname.startsWith('/customer')) {
+    return <CustomerAppLayout>{children}</CustomerAppLayout>
+  }
+  const footerVariant = window.location.pathname.startsWith('/provider') ? 'provider' : null
 
   const handleLogout = async () => {
     await logout()
@@ -23,6 +29,7 @@ export function AuthenticatedLayout({ children }: PropsWithChildren) {
         </div>
       </header>
       <main className="dashboardMain">{children}</main>
+      {footerVariant && <ServiceFooter variant={footerVariant} />}
     </div>
   )
 }

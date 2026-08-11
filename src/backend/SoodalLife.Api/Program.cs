@@ -57,6 +57,7 @@ builder.Services.AddScoped<DevelopmentAccountInitializer>();
 builder.Services.AddSingleton<CatalogWorkbookReader>();
 builder.Services.AddScoped<CatalogReferenceDataImporter>();
 builder.Services.AddScoped<CatalogQueryService>();
+builder.Services.AddScoped<PublicCatalogQueryService>();
 builder.Services.AddScoped<CustomerServiceRequestService>();
 builder.Services.AddScoped<ProviderConfigurationService>();
 builder.Services.AddScoped<RequestMatchingService>();

@@ -1,0 +1,12 @@
+{
+  "name": "수달 라이프",
+  "short_name": "수달 라이프",
+  "description": "생활서비스를 찾고 견적을 비교하는 수달 라이프",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F9F8",
+  "theme_color": "#0F766E",
+  "categories": ["lifestyle", "business"]
+}

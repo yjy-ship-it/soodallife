@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuthentication } from '../auth/AuthenticationContext'
 import { AuthenticationApiError } from '../auth/api'
-import { getInitialAuthenticatedPath, navigate } from '../auth/routing'
+import { getInitialAuthenticatedPath, getSafeReturnUrl, navigate } from '../auth/routing'
+import { BrandLogo } from '../components/BrandLogo'
 
 export function LoginPage() {
   const { login } = useAuthentication()
@@ -18,7 +19,7 @@ export function LoginPage() {
 
     try {
       const user = await login(loginOrEmail, password)
-      navigate(getInitialAuthenticatedPath(user), true)
+      navigate(getSafeReturnUrl() ?? getInitialAuthenticatedPath(user), true)
     } catch (requestError) {
       setError(
         requestError instanceof AuthenticationApiError
@@ -34,6 +35,7 @@ export function LoginPage() {
     <main className="loginShell">
       <section className="loginIntro" aria-labelledby="login-title">
         <div>
+          <BrandLogo />
           <p className="eyebrow">SOODAL LIFE</p>
           <h1 id="login-title">일상의 문제를<br />믿을 수 있는 전문가와.</h1>
           <p className="introCopy">
@@ -45,7 +47,7 @@ export function LoginPage() {
 
       <section className="loginPanel" aria-label="로그인">
         <div className="loginCard">
-          <div className="mobileBrand" aria-hidden="true">SOODAL LIFE</div>
+          <div className="mobileBrand"><BrandLogo /></div>
           <h2>로그인</h2>
           <p className="panelDescription">등록된 계정으로 서비스를 시작하세요.</p>
 

@@ -1,7 +1,12 @@
 :root {
+  --color-brand-deep: #0F766E;
+  --color-brand-main: #14B8A6;
+  --color-brand-mint: #A7F3D0;
+  --color-background: #F7F9F8;
+  --color-text-primary: #333333;
   font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
-  color: #13261f;
-  background: #f4faf7;
+  color: var(--color-text-primary);
+  background: var(--color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,7 +30,7 @@ input {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 3px solid rgb(29 151 103 / 30%);
+  outline: 3px solid rgb(20 184 166 / 30%);
   outline-offset: 2px;
 }
 

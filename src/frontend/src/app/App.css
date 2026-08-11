@@ -12,10 +12,10 @@
   flex-direction: column;
   justify-content: space-between;
   padding: clamp(48px, 8vw, 112px);
-  color: #f5fff9;
+  color: #fff;
   background:
-    radial-gradient(circle at 72% 20%, rgb(124 233 177 / 22%), transparent 35%),
-    linear-gradient(145deg, #092f25 0%, #0d563d 58%, #17885e 100%);
+    radial-gradient(circle at 72% 20%, rgb(167 243 208 / 24%), transparent 35%),
+    linear-gradient(145deg, var(--color-brand-deep) 0%, var(--color-brand-main) 100%);
 }
 
 .loginIntro h1 {
@@ -26,6 +26,10 @@
   letter-spacing: -0.055em;
 }
 
+.loginIntro .brandLogoText strong,
+.loginIntro .brandLogoText small { color: #fff; }
+.loginIntro .brandLogoPlaceholder { border-color: var(--color-brand-mint); color: #fff; background: rgb(255 255 255 / 12%); }
+
 .eyebrow {
   margin: 0;
   color: #23a971;
@@ -34,16 +38,16 @@
   letter-spacing: 0.2em;
 }
 
-.loginIntro .eyebrow { color: #83efb9; }
-.introCopy { max-width: 580px; margin: 32px 0 0; color: #d2eee0; font-size: 1.08rem; line-height: 1.8; }
-.introFootnote { margin: 72px 0 0; color: #abd9c4; font-size: 0.9rem; }
+.loginIntro .eyebrow { color: var(--color-brand-mint); }
+.introCopy { max-width: 580px; margin: 32px 0 0; color: #e8fff7; font-size: 1.08rem; line-height: 1.8; }
+.introFootnote { margin: 72px 0 0; color: var(--color-brand-mint); font-size: 0.9rem; }
 
 .loginPanel {
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 40px;
-  background: #f4f7f5;
+  background: var(--color-background);
 }
 
 .loginCard { width: min(440px, 100%); }
@@ -76,16 +80,16 @@
   margin-top: 24px;
   border-radius: 12px;
   color: #fff;
-  background: #117a53;
+  background: var(--color-brand-deep);
   font-weight: 800;
   transition: background 160ms ease, transform 160ms ease;
 }
-.primaryButton:hover:not(:disabled) { background: #0c6745; transform: translateY(-1px); }
+.primaryButton:hover:not(:disabled) { background: var(--color-brand-main); transform: translateY(-1px); }
 .primaryButton:disabled { cursor: not-allowed; opacity: 0.5; }
 .securityNote { margin: 24px 0 0; color: #84908b; font-size: 0.78rem; text-align: center; }
 .errorMessage { margin-top: 18px; padding: 12px 14px; border-radius: 10px; color: #8f2c25; background: #fff0ed; font-size: 0.88rem; }
 
-.appShell { min-height: 100vh; background: #f3f7f5; }
+.appShell { display: flex; min-height: 100vh; flex-direction: column; background: #f3f7f5; }
 .topBar {
   display: flex;
   min-height: 72px;
@@ -101,7 +105,7 @@
 .accountArea { display: flex; align-items: center; gap: 14px; }
 .accountName { max-width: 260px; overflow: hidden; color: #4f625a; font-size: 0.88rem; text-overflow: ellipsis; white-space: nowrap; }
 .secondaryButton { padding: 9px 14px; border: 1px solid #d3dfd9; border-radius: 10px; color: #29483c; background: #fff; font-weight: 700; }
-.dashboardMain { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: clamp(42px, 7vw, 86px) 0; }
+.dashboardMain { width: min(1180px, calc(100% - 40px)); flex: 1; margin: 0 auto; padding: clamp(42px, 7vw, 86px) 0; }
 .heroCard, .messageCard { padding: clamp(34px, 6vw, 64px); border: 1px solid #dbe7e1; border-radius: 24px; background: #fff; box-shadow: 0 24px 70px rgb(26 71 53 / 8%); }
 .heroCard h1, .messageCard h1 { margin: 14px 0 18px; color: #102b21; font-size: clamp(2.4rem, 6vw, 4.8rem); letter-spacing: -0.055em; }
 .heroCard > p:not(.eyebrow), .messageCard > p { max-width: 690px; margin: 0; color: #5f716a; line-height: 1.75; }
