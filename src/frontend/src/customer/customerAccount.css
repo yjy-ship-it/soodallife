@@ -50,6 +50,16 @@
 .accountSummary, .accountForm, .withdrawalPanel, .futureMenu { padding: 28px; border: 1px solid #dce6e2; border-radius: 18px; background: #fff; }
 .accountSummary p, .accountSummary span { margin: 0; color: #71807a; }
 .accountSummary h2 { margin: 6px 0; color: #28483f; font-size: 2rem; }
+.accountSummary small { display: block; margin-top: 12px; color: #5f7069; }
+.accountSummary button { margin-top: 12px; border: 0; color: var(--color-brand-deep); background: transparent; font-weight: 800; cursor: pointer; }
+.myStatusGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.myStatusGrid button { display: grid; gap: 7px; min-height: 100px; align-content: center; padding: 18px; border: 1px solid #dce6e2; border-radius: 14px; color: #53655e; background: #fff; text-align: left; cursor: pointer; }
+.myStatusGrid strong { color: var(--color-brand-deep); font-size: 1.45rem; }
+.recentHistory { padding: 24px; margin-top: 14px; border: 1px solid #dce6e2; border-radius: 18px; background: #fff; }
+.recentHistory header { display: flex; align-items: center; justify-content: space-between; }
+.recentHistory header h2 { margin: 0 0 15px; }
+.recentHistory button { display: grid; width: 100%; gap: 4px; padding: 13px 0; border: 0; border-bottom: 1px solid #e5ece9; color: #344c45; background: transparent; text-align: left; cursor: pointer; }
+.recentHistory header button { width: auto; border: 0; color: var(--color-brand-deep); }
 .myCardGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin-top: 14px; }
 .myCardGrid button { display: grid; min-height: 130px; align-content: start; gap: 9px; padding: 22px; border: 1px solid #dce6e2; border-radius: 16px; color: #304a43; background: #fff; text-align: left; cursor: pointer; }
 .myCardGrid span { color: #77847f; line-height: 1.5; }
@@ -71,6 +81,10 @@
 .formButtons { display: flex; justify-content: flex-end; gap: 8px; }
 .withdrawalPanel { max-width: 680px; margin-top: 16px; border-color: #ead8d4; }
 .withdrawalPanel p { color: #6e7774; line-height: 1.7; }
+.withdrawalBlocker { display: inline-flex; padding: 7px 10px; margin: 0 6px 8px 0; border-radius: 999px; color: #7a443c; background: #fff0ed; font-size: .78rem; font-weight: 800; }
+.securityIdentity { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; max-width: 680px; padding: 20px; margin-bottom: 14px; border: 1px solid #dce6e2; border-radius: 14px; background: #fff; }
+.securityIdentity span { color: #6a7973; }
+.securityIdentity button { margin-left: auto; border: 0; color: var(--color-brand-deep); background: transparent; font-weight: 800; cursor: pointer; }
 .consentList { display: grid; gap: 12px; }
 .consentList article { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px; border: 1px solid #dce6e2; border-radius: 15px; background: #fff; }
 .consentList article > div { display: grid; gap: 6px; }
@@ -78,6 +92,46 @@
 .consentList span, .consentList small { color: #77847f; }
 .consentList label { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .accountEmpty { padding: 35px; border: 1px dashed #cdd9d5; border-radius: 14px; color: #75827d; text-align: center; }
+.consentList details { margin-top: 5px; color: #60716a; }
+.consentList details p { max-width: 680px; line-height: 1.7; white-space: pre-wrap; }
+.consentHistory { margin-top: 24px; }
+.consentHistory article { display: grid; grid-template-columns: 1fr auto; gap: 5px 15px; padding: 14px 0; border-bottom: 1px solid #e2eae7; }
+.consentHistory small { grid-column: 1 / -1; color: #76847f; }
+.notificationPreferences { display: grid; gap: 14px; }
+.notificationPreferences article { padding: 22px; border: 1px solid #dce6e2; border-radius: 16px; background: #fff; }
+.notificationPreferences header { display: flex; justify-content: space-between; gap: 20px; }
+.notificationPreferences header > div { display: grid; gap: 6px; }
+.notificationPreferences header span { color: #6f7f78; }
+.notificationPreferences label { display: flex; align-items: center; gap: 8px; }
+.notificationPreferences dl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0 0; }
+.notificationPreferences dl div { padding: 12px; border-radius: 10px; background: #f3f7f5; }
+.notificationPreferences dt { font-weight: 800; }
+.notificationPreferences dd { margin: 5px 0 0; color: #66766f; font-size: .8rem; }
+.notificationToolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; margin-bottom: 14px; border-radius: 12px; background: #edf6f3; }
+.notificationToolbar > div { display: flex; gap: 5px; }
+.notificationToolbar button { min-height: 38px; padding: 0 13px; border: 1px solid #c9dad4; border-radius: 9px; background: #fff; cursor: pointer; }
+.notificationToolbar button.isActive { color: #fff; background: var(--color-brand-deep); }
+.notificationToolbar > span { margin-left: auto; }
+.notificationWorkspace { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 16px; margin-bottom: 16px; }
+.notificationList { display: grid; gap: 10px; }
+.notificationList article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 18px; border: 1px solid #dce6e2; border-radius: 14px; background: #fff; }
+.notificationList article.notificationUnread { border-left: 5px solid var(--color-brand-main); background: #f5fffb; }
+.notificationList article > button:first-child { display: grid; gap: 6px; border: 0; color: #3b514a; background: transparent; text-align: left; cursor: pointer; }
+.notificationState { color: var(--color-brand-deep); font-size: .75rem; font-weight: 850; }
+.notificationDetail { position: sticky; top: 90px; align-self: start; padding: 26px; border: 1px solid #dce6e2; border-radius: 16px; background: #fff; }
+.notificationDetail > span { color: var(--color-brand-deep); font-weight: 800; }
+.notificationDetail p { color: #5e6f68; line-height: 1.75; white-space: pre-wrap; }
+.notificationDetail dl div { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #edf1ef; }
+.notificationDetail dd { margin: 0; }
+.legalDocuments { display: grid; width: min(960px, calc(100% - 40px)); gap: 14px; padding-bottom: 90px; margin: auto; }
+.legalDocuments article, .policyPending { padding: 28px; border: 1px solid #dce6e2; border-radius: 17px; background: #fff; }
+.legalDocuments header { display: flex; justify-content: space-between; gap: 20px; }
+.legalDocuments header h2 { margin: 7px 0; }
+.legalDocuments header b { color: var(--color-brand-deep); }
+.legalDocuments header > strong { align-self: start; padding: 7px 10px; border-radius: 999px; color: #805c18; background: #fff2cf; }
+.legalDocuments article > p { line-height: 1.85; white-space: pre-wrap; }
+.legalDocuments aside { color: #805c18; }
+.policyPending { display: grid; gap: 7px; color: #6c7974; background: #f5f7f6; }
 
 @media (max-width: 820px) {
   .mySoodalLayout { grid-template-columns: 1fr; }
@@ -86,6 +140,10 @@
   .mySoodalLayout > nav hr { display: none; }
   .addressLayout { grid-template-columns: 1fr; }
   .addressForm { position: static; }
+  .myStatusGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notificationWorkspace { grid-template-columns: 1fr; }
+  .notificationDetail { position: static; }
+  .notificationPreferences dl { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 700px) {
@@ -102,4 +160,8 @@
   .myCardGrid { grid-template-columns: 1fr; }
   .accountForm, .accountSummary, .withdrawalPanel, .futureMenu { padding: 22px; }
   .consentList article { align-items: start; flex-direction: column; }
+  .notificationPreferences header { flex-direction: column; }
+  .notificationToolbar > span { width: 100%; margin-left: 0; }
+  .notificationList article { grid-template-columns: 1fr; }
+  .legalDocuments { width: min(100% - 32px, 960px); padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 }

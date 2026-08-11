@@ -31,6 +31,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<CustomerAccountService>();
+builder.Services.AddScoped<CustomerDailyService>();
 builder.Services.AddSingleton<IIdentityVerificationAdapter, NotIntegratedIdentityVerificationAdapter>();
 builder.Services.AddSingleton<IPasswordResetDeliveryAdapter, NotIntegratedPasswordResetDeliveryAdapter>();
 builder.Services.AddScoped<AdminDashboardService>();

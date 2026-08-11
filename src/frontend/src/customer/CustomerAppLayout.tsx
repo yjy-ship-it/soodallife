@@ -33,6 +33,9 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
   const pathname = window.location.pathname
   const isCustomer = user?.roles.includes('CUSTOMER') ?? false
   const [unreadCount, setUnreadCount] = useState(0)
+  const [online, setOnline] = useState(navigator.onLine)
+
+  useEffect(() => { const update = () => setOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
 
   useEffect(() => {
     if (!isCustomer) return
@@ -66,6 +69,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
           </div>
         </div>
       </header>
+      {!online && <div className="customerOfflineNotice" role="status">인터넷 연결이 필요합니다. 저장·변경 작업은 온라인에서 다시 시도해 주세요.</div>}
       <main id="customer-main" className="customerMain">{actions}{children}</main>
       <ServiceFooter variant="customer" />
       <nav className="customerBottomNav" aria-label="모바일 고객 메뉴">

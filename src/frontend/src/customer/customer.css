@@ -30,6 +30,7 @@
 .customerLoginButton { border-color: var(--color-brand-deep); color: #fff; background: var(--color-brand-deep); cursor: pointer; }
 .customerAccountMenu { display: flex; gap: 5px; }
 .customerMain { min-height: 55vh; }
+.customerOfflineNotice { position: sticky; z-index: 20; top: var(--customer-header-height); padding: 11px 20px; color: #6b4d12; background: #fff0be; text-align: center; font-weight: 800; }
 .customerHero { display: grid; width: min(var(--customer-content-width), calc(100% - 40px)); grid-template-columns: minmax(0, 1.6fr) minmax(260px, .7fr); gap: clamp(30px, 6vw, 90px); align-items: center; min-height: 540px; padding: 70px 0; margin: auto; }
 .customerHero > div > p, .pageHeading > p, .customerSection header p, .sectionEyebrow, .entryGrid article > p { margin: 0 0 12px; color: var(--color-brand-deep); font-size: .78rem; font-weight: 900; letter-spacing: .09em; }
 .customerHero h1 { max-width: 760px; margin: 0; color: #24423b; font-size: clamp(2.7rem, 5.2vw, 5rem); line-height: 1.08; letter-spacing: -.065em; }
@@ -121,6 +122,14 @@ button.noticeCard { cursor: pointer; }
 .contentListPage details { padding: 20px; border: 1px solid var(--color-border); border-radius: 14px; background: #fff; }
 .contentListPage summary { color: #344d46; font-weight: 850; cursor: pointer; }
 .contentListPage details p { color: #66756f; line-height: 1.75; white-space: pre-wrap; }
+.contentSearch { display: grid; max-width: 520px; gap: 8px; color: #53655e; font-weight: 800; }
+.contentSearch input { min-height: 48px; padding: 0 14px; border: 1px solid var(--color-border); border-radius: 11px; background: #fff; }
+.publicNoticeRow { display: grid; grid-template-columns: 120px 1fr auto; gap: 18px; align-items: center; min-height: 72px; padding: 0 20px; border: 1px solid var(--color-border); border-radius: 13px; color: #354e47; background: #fff; text-align: left; cursor: pointer; }
+.publicNoticeRow span, .publicNoticeRow small { color: #74827d; }
+.publicContentDetail { width: min(900px, calc(100% - 40px)); min-height: 360px; padding: 34px; margin: 0 auto 90px; border: 1px solid var(--color-border); border-radius: 18px; background: #fff; }
+.publicContentDetail > span { color: #71807a; }
+.publicContentDetail p { color: #53655e; line-height: 1.85; white-space: pre-wrap; }
+.publicContentDetail button { min-height: 42px; padding: 0 15px; border: 1px solid var(--color-brand-deep); border-radius: 9px; color: var(--color-brand-deep); background: #fff; cursor: pointer; }
 .supportGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-bottom: 80px; }
 .supportGrid > * { display: grid; min-height: 160px; align-content: start; gap: 10px; padding: 26px; border: 1px solid var(--color-border); border-radius: 18px; color: inherit; background: #fff; text-align: left; }
 .supportGrid button { cursor: pointer; }
@@ -161,6 +170,8 @@ button.noticeCard { cursor: pointer; }
   .serviceGrid { grid-template-columns: 1fr; }
   .serviceCard { min-height: 175px; }
   .entryGrid, .newsGrid, .supportGrid, .detailColumns { grid-template-columns: 1fr; }
+  .publicNoticeRow { grid-template-columns: 1fr; gap: 5px; padding: 16px; }
+  .publicContentDetail { width: min(100% - 32px, 900px); padding: 24px; }
   .entryGrid article { min-height: 230px; padding: 26px; }
   .signedInWelcome, .customerCta { width: min(100% - 32px, var(--customer-content-width)); align-items: stretch; flex-direction: column; padding: 24px; }
   .signedInWelcome div:last-child { display: grid; grid-template-columns: 1fr 1fr; }

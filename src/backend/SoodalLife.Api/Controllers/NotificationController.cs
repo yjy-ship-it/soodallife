@@ -23,7 +23,7 @@ public sealed class AdminNotificationController(NotificationManagementService se
 [ApiController,Authorize,Route("api/v1/notifications")]
 public sealed class NotificationController(NotificationManagementService service):ControllerBase
 {
-    [HttpGet]public Task<ActionResult<IReadOnlyList<NotificationListItem>>> List(CancellationToken t)=>Run(()=>service.Mine(User,t));
+    [HttpGet]public Task<ActionResult<IReadOnlyList<NotificationListItem>>> List([FromQuery]string view="ALL",CancellationToken t=default)=>Run(()=>service.Mine(User,view,t));
     [HttpGet("unread-count")]public Task<ActionResult<NotificationUnreadCountResponse>> Unread(CancellationToken t)=>Run(()=>service.Unread(User,t));
     [HttpGet("{id:guid}")]public Task<ActionResult<NotificationListItem>> Detail(Guid id,CancellationToken t)=>Run(()=>service.Detail(id,User,t));
     [HttpPost("{id:guid}/read")]public Task<ActionResult> Read(Guid id,CancellationToken t)=>RunEmpty(()=>service.Read(id,User,t));

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +40,7 @@ public sealed partial class CustomerAccountService(
                       version.IsActive && version.EffectiveFrom <= now && (version.EffectiveTo == null || version.EffectiveTo > now)
                 orderby document.DisplayOrder, version.VersionNo descending
                 select new LegalDocumentResponse(document.PublicId, version.PublicId, document.Code, document.RequirementCode,
-                    version.Title, version.Content, version.VersionNo, document.IsPlaceholder || version.IsPlaceholder))
+                    version.Title, version.Content, version.VersionNo, version.EffectiveFrom, version.EffectiveTo, document.IsPlaceholder || version.IsPlaceholder))
             .GroupBy(x => x.Id).Select(x => x.First()).ToListAsync(token);
     }
 
@@ -253,8 +254,9 @@ public sealed partial class CustomerAccountService(
         return documents.Select(document =>
         {
             var row = rows.SingleOrDefault(x => x.PublicId == document.VersionId);
-            return new ConsentResponse(document.VersionId, document.Code, document.RequirementCode, document.Title, document.VersionNo,
-                document.IsPlaceholder, row?.ConsentStatusCode ?? "NOT_CONSENTED", row?.ConsentedAt, row?.WithdrawnAt);
+            return new ConsentResponse(document.VersionId, document.Code, document.RequirementCode, document.Title, document.Content, document.VersionNo,
+                document.EffectiveFrom, document.EffectiveTo, document.IsPlaceholder, document.RequirementCode == "OPTIONAL",
+                row?.ConsentStatusCode ?? "NOT_CONSENTED", row?.ConsentedAt, row?.WithdrawnAt);
         }).ToList();
     }
 
@@ -269,6 +271,8 @@ public sealed partial class CustomerAccountService(
             ?? throw NotFound("LEGAL_VERSION_NOT_FOUND", "약관 버전을 찾을 수 없습니다.");
         if (!input.Agreed && row.Document.RequirementCode == "REQUIRED") throw Bad("REQUIRED_CONSENT_WITHDRAWAL_BLOCKED", "필수 동의는 계정 이용 중 철회할 수 없습니다.");
         var consent = await db.UserConsents.SingleOrDefaultAsync(x => x.UserId == identity.User.Id && x.LegalDocumentVersionId == row.Version.Id, token);
+        var previousStatus = consent?.ConsentStatusCode ?? "NOT_CONSENTED";
+        var nextStatus = input.Agreed ? "CONSENTED" : "WITHDRAWN";
         if (consent is null)
         {
             if (!input.Agreed) return;
@@ -280,6 +284,10 @@ public sealed partial class CustomerAccountService(
             consent.ConsentedAt = input.Agreed ? now : consent.ConsentedAt;
             consent.WithdrawnAt = input.Agreed ? null : now;
         }
+        if (previousStatus != nextStatus)
+            db.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = identity.User.Id, ActorRoleCode = RoleCodes.Customer,
+                ActionCode = input.Agreed ? "CUSTOMER_CONSENT_GRANTED" : "CUSTOMER_CONSENT_WITHDRAWN", EntityType = "LEGAL_DOCUMENT_VERSION",
+                EntityPublicId = row.Version.PublicId, ResultCode = "SUCCESS", AfterJson = JsonSerializer.Serialize(new { consentStatus = nextStatus }) });
         await db.SaveChangesAsync(token);
     }
 

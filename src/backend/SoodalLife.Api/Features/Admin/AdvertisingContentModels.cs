@@ -87,9 +87,9 @@ public sealed record ManagedContentVersionResponse(Guid Id, int VersionNo, strin
 public sealed record PublicAdvertisingCreative(Guid CampaignId, Guid CreativeId, string CampaignTypeCode, string Title,
     string? Subtitle, string? BodyText, Guid? MediaId, string? AltText, string? ButtonText,
     string DestinationTypeCode, string? DestinationValue, int Priority, int DisplayOrder);
-public sealed record PublicManagedContent(Guid Id, string ContentTypeCode, string Title, string? BodyText,
+public sealed record PublicManagedContent(Guid Id, string ContentTypeCode, string AudienceTypeCode, string Title, string? BodyText,
     string? QuestionText, string? AnswerText, Guid? MediaId, string? LinkText,
-    string DestinationTypeCode, string? DestinationValue, int DisplayOrder, int VersionNo);
+    string DestinationTypeCode, string? DestinationValue, int DisplayOrder, int VersionNo, DateTime PublishedAt);
 public sealed record AdvertisingEventRequest([param: Required, StringLength(20)] string AudienceTypeCode,
     [param: Required, StringLength(50)] string PlacementCode, Guid? CategoryId, Guid? AreaId);
 

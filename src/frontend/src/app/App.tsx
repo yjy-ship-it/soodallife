@@ -29,6 +29,7 @@ import { AdminNotificationsPage } from '../admin/AdminNotificationsPage'
 import { AdminSystemPage } from '../admin/AdminSystemPage'
 import {
   CustomerHomePage,
+  CompanyInfoPage,
   CustomerNotFoundPage,
   CustomerSupportPage,
   PublicContentPage,
@@ -44,6 +45,7 @@ import {
   CustomerProfilePage,
   CustomerSecurityPage,
   CustomerSignupPage,
+  LegalDocumentsPage,
   MySoodalPage,
   PasswordResetRequestPage,
 } from '../customer/CustomerAccountPages'
@@ -76,13 +78,23 @@ function ApplicationRoutes() {
   }, [pathname, status, user])
 
   const serviceDetailMatch = pathname.match(/^\/services\/([0-9a-f-]+)$/i)
+  const noticeDetailMatch = pathname.match(/^\/notices\/([0-9a-f-]+)$/i)
+  const faqDetailMatch = pathname.match(/^\/faq\/([0-9a-f-]+)$/i)
   if (pathname === '/') return <CustomerHomePage />
   if (pathname === '/services') return <ServiceCatalogPage />
   if (pathname === '/services/search') return <ServiceSearchPage />
   if (serviceDetailMatch) return <ServiceDetailPage id={serviceDetailMatch[1]} />
   if (pathname === '/notices') return <PublicContentPage type="NOTICE" />
+  if (noticeDetailMatch) return <PublicContentPage type="NOTICE" id={noticeDetailMatch[1]} />
   if (pathname === '/faq') return <PublicContentPage type="FAQ" />
+  if (faqDetailMatch) return <PublicContentPage type="FAQ" id={faqDetailMatch[1]} />
   if (pathname === '/support') return <CustomerSupportPage />
+  if (pathname === '/company') return <CompanyInfoPage />
+  if (pathname === '/policies') return <LegalDocumentsPage />
+  if (pathname === '/policies/terms') return <LegalDocumentsPage code="TERMS_OF_SERVICE" />
+  if (pathname === '/policies/privacy') return <LegalDocumentsPage code="PRIVACY_POLICY" />
+  if (pathname === '/policies/location') return <LegalDocumentsPage code="LOCATION_SERVICE_TERMS" />
+  if (pathname === '/policies/electronic-finance') return <LegalDocumentsPage code="ELECTRONIC_FINANCE_GUIDE" />
   if (pathname === '/signup') return <CustomerSignupPage />
   if (pathname === '/password-reset') return <PasswordResetRequestPage />
 

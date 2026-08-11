@@ -52,12 +52,16 @@ export type PublicServiceDetail = PublicServiceSummary & {
 export type PublicContent = {
   id: string
   contentTypeCode: string
+  audienceTypeCode: string
   title: string
   bodyText: string | null
   questionText: string | null
   answerText: string | null
   destinationTypeCode: string
   destinationValue: string | null
+  displayOrder: number
+  versionNo: number
+  publishedAt: string
 }
 
 export type PublicPromotion = {

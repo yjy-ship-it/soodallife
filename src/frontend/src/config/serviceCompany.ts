@@ -30,11 +30,11 @@ type ServicePolicyLink = {
 }
 
 export const servicePolicyLinks: readonly ServicePolicyLink[] = [
-  { label: '회사소개', href: null },
-  { label: '이용약관', href: null },
-  { label: '개인정보처리방침', href: null, emphasized: true },
-  { label: '위치기반서비스 이용약관', href: null },
-  { label: '전자금융거래 안내', href: null },
+  { label: '회사소개', href: '/company' },
+  { label: '이용약관', href: '/policies/terms' },
+  { label: '개인정보처리방침', href: '/policies/privacy', emphasized: true },
+  { label: '위치기반서비스 이용약관', href: '/policies/location' },
+  { label: '전자금융거래 안내', href: '/policies/electronic-finance' },
   { label: '고객센터', href: '/support' },
   { label: '공지사항', href: '/notices' },
   { label: 'FAQ', href: '/faq' },
