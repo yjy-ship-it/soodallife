@@ -7,7 +7,7 @@ public sealed class ServiceRequest
     public long CustomerProfileId { get; set; }
     public long CategoryId { get; set; }
     public long CategoryPolicyId { get; set; }
-    public long AdministrativeAreaId { get; set; }
+    public long? AdministrativeAreaId { get; set; }
     public string? DetailAddress { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
@@ -51,6 +51,19 @@ public sealed class RequestAnswerFile
     public long Id { get; set; }
     public long RequestAnswerId { get; set; }
     public long FileId { get; set; }
+    public int DisplayOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+}
+
+public sealed class ServiceRequestFile
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ServiceRequestId { get; set; }
+    public long FileId { get; set; }
+    public long? FieldDefinitionId { get; set; }
+    public string PurposeCode { get; set; } = "REQUEST_REFERENCE";
     public int DisplayOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }

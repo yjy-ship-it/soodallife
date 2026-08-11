@@ -38,6 +38,7 @@ import {
   CustomerAddressesPage,
   CustomerConsentsPage,
   CustomerNotificationSettingsPage,
+  CustomerNotificationCenterPage,
   CustomerProfilePage,
   CustomerSecurityPage,
   CustomerSignupPage,
@@ -125,6 +126,7 @@ function ApplicationRoutes() {
     if (pathname === '/customer/security') return <CustomerSecurityPage />
     if (pathname === '/customer/consents') return <CustomerConsentsPage />
     if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
+    if (pathname === '/customer/notifications') return <CustomerNotificationCenterPage />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />

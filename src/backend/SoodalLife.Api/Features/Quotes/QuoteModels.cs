@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SoodalLife.Api.Features.Quotes;
 
 public sealed record QuoteItemInput(
@@ -80,6 +82,86 @@ public sealed record QuoteListItemResponse(
     DateTime ValidUntil,
     bool IsSelected);
 
+public sealed record CustomerRatingAverageResponse(
+    Guid ItemId,
+    string ItemCode,
+    string ItemName,
+    decimal AverageValue,
+    int RatingCount,
+    decimal MinValue,
+    decimal MaxValue);
+
+public sealed record CustomerQuoteComparisonResponse(
+    Guid Id,
+    Guid ProviderId,
+    string ProviderName,
+    string Status,
+    decimal SubtotalAmount,
+    decimal VatAmount,
+    decimal TotalAmount,
+    string CurrencyCode,
+    DateTime? SubmittedAt,
+    int RevisionNo,
+    DateTime ValidUntil,
+    DateTime? AvailableStartAt,
+    string? EstimatedDurationText,
+    string? Terms,
+    IReadOnlyList<string> IncludedItems,
+    int DefaultWarrantyDays,
+    decimal? TrustScore,
+    string? TrustGrade,
+    string TrustEvaluationStatus,
+    string TrustDisplay,
+    int ReviewCount,
+    int PublicReviewCount,
+    IReadOnlyList<CustomerRatingAverageResponse> RatingItemAverages,
+    string ProviderApprovalStatus,
+    string ServiceApprovalStatus,
+    bool RequirementsConfigured,
+    bool RequiredEvidenceSatisfied,
+    bool IsSelected);
+
+public sealed record CustomerQuoteDetailResponse(
+    Guid Id,
+    Guid RequestId,
+    Guid ProviderId,
+    string ProviderName,
+    string Status,
+    DateTime? SubmittedAt,
+    DateTime? AcceptedAt,
+    DateTime? ExpiresAt,
+    bool CanEdit,
+    bool CanSubmit,
+    QuoteRevisionResponse Revision,
+    Guid? TransactionId,
+    CustomerQuoteComparisonResponse Comparison);
+
+public sealed record CustomerProviderReviewResponse(
+    Guid Id,
+    string BodyText,
+    DateTime SubmittedAt,
+    IReadOnlyList<CustomerRatingAverageResponse> Ratings);
+
+public sealed record CustomerProviderProfileResponse(
+    Guid Id,
+    string BusinessName,
+    string ApprovalStatus,
+    string ActivityStatus,
+    string ServiceApprovalStatus,
+    IReadOnlyList<string> ActiveServices,
+    decimal? TrustScore,
+    string? TrustGrade,
+    string TrustEvaluationStatus,
+    string TrustDisplay,
+    int CompletedServiceCount,
+    int PublicReviewCount,
+    IReadOnlyList<CustomerRatingAverageResponse> RatingItemAverages,
+    bool RequirementsConfigured,
+    int RequiredEvidenceCount,
+    int ApprovedEvidenceCount,
+    bool RequiredEvidenceSatisfied,
+    IReadOnlyList<CustomerProviderReviewResponse> RecentReviews);
+
 public sealed record QuoteSubmissionReadinessResponse(
     Guid RequestId,
     Guid ProviderId,
@@ -99,8 +181,8 @@ public sealed record AcceptQuoteResponse(
     string TransactionStatus,
     decimal AgreedAmount,
     string CurrencyCode,
-    decimal? ChargedFeeAmount = null,
-    Guid? WalletLedgerEntryId = null);
+    [property: JsonIgnore] decimal? ChargedFeeAmount = null,
+    [property: JsonIgnore] Guid? WalletLedgerEntryId = null);
 
 public sealed class QuoteBusinessException(
     string businessCode,

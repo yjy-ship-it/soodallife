@@ -39,13 +39,19 @@ public sealed class QuotesController(QuoteService quoteService) : ControllerBase
 
     [Authorize(Roles = RoleCodes.Customer)]
     [HttpGet("requests/{requestId:guid}/quotes")]
-    public Task<ActionResult<IReadOnlyList<QuoteListItemResponse>>> GetForRequest(Guid requestId, CancellationToken cancellationToken) =>
+    public Task<ActionResult<IReadOnlyList<CustomerQuoteComparisonResponse>>> GetForRequest(Guid requestId, CancellationToken cancellationToken) =>
         Execute(() => quoteService.GetCustomerQuotesAsync(User, requestId, cancellationToken));
 
     [Authorize(Roles = RoleCodes.Customer)]
     [HttpGet("quotes/{quoteId:guid}")]
-    public Task<ActionResult<QuoteDetailResponse>> GetDetail(Guid quoteId, CancellationToken cancellationToken) =>
+    public Task<ActionResult<CustomerQuoteDetailResponse>> GetDetail(Guid quoteId, CancellationToken cancellationToken) =>
         Execute(() => quoteService.GetCustomerQuoteDetailAsync(User, quoteId, cancellationToken));
+
+    [Authorize(Roles = RoleCodes.Customer)]
+    [HttpGet("customer/providers/{providerId:guid}")]
+    public Task<ActionResult<CustomerProviderProfileResponse>> GetProviderProfile(
+        Guid providerId, [FromQuery] Guid requestId, CancellationToken cancellationToken) =>
+        Execute(() => quoteService.GetCustomerProviderProfileAsync(User, providerId, requestId, cancellationToken));
 
     [Authorize(Roles = RoleCodes.Customer)]
     [HttpPost("quotes/{quoteId:guid}/accept")]

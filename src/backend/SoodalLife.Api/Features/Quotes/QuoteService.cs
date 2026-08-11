@@ -28,7 +28,7 @@ public sealed class QuoteService(
         var dispatch = await FindOwnedDispatchAsync(identity.ProviderId, requestPublicId, cancellationToken);
         ValidateRequestOpen(dispatch.Request);
         var evaluation = await eligibilityService.EvaluateAsync(identity.ProviderId, dispatch.Request.CategoryId,
-            dispatch.Request.AdministrativeAreaId, cancellationToken);
+            dispatch.Request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
         var policy = await ResolveAcceptanceFeePolicyAsync(dispatch.Request, cancellationToken);
         var amount = FeeAmount(policy);
         var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == identity.ProviderId)
@@ -168,7 +168,7 @@ public sealed class QuoteService(
         return (await BuildDetailAsync(quote, cancellationToken))!;
     }
 
-    public async Task<IReadOnlyList<QuoteListItemResponse>> GetCustomerQuotesAsync(
+    public async Task<IReadOnlyList<CustomerQuoteComparisonResponse>> GetCustomerQuotesAsync(
         ClaimsPrincipal principal,
         Guid requestPublicId,
         CancellationToken cancellationToken)
@@ -179,34 +179,25 @@ public sealed class QuoteService(
         if (request is null) throw NotFound();
 
         var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
-        var quotes = await (
-                from quote in dbContext.Quotes.AsNoTracking()
-                join provider in dbContext.ProviderProfiles.AsNoTracking() on quote.ProviderProfileId equals provider.Id
-                where quote.ServiceRequestId == request.Id && visibleStatuses.Contains(quote.StatusCode)
-                select new { Quote = quote, provider.BusinessName })
+        var quotes = await dbContext.Quotes.AsNoTracking()
+            .Where(quote => quote.ServiceRequestId == request.Id && visibleStatuses.Contains(quote.StatusCode))
             .ToListAsync(cancellationToken);
-        var result = new List<QuoteListItemResponse>();
-        foreach (var row in quotes)
+        var result = new List<CustomerQuoteComparisonResponse>();
+        foreach (var quote in quotes)
         {
-            var revision = await LatestRevisionAsync(row.Quote.Id, cancellationToken);
+            var revision = await LatestRevisionAsync(quote.Id, cancellationToken);
             if (revision is null) continue;
-            if (row.Quote.StatusCode == "SUBMITTED" && revision.ValidUntil <= DateTime.UtcNow) continue;
-            result.Add(new QuoteListItemResponse(
-                row.Quote.PublicId,
-                row.BusinessName,
-                row.Quote.StatusCode,
-                revision.TotalAmount,
-                revision.CurrencyCode,
-                row.Quote.SubmittedAt,
-                revision.RevisionNo,
-                revision.ValidUntil,
-                row.Quote.StatusCode == "ACCEPTED"));
+            if (quote.StatusCode == "SUBMITTED" && revision.ValidUntil <= DateTime.UtcNow) continue;
+            result.Add(await BuildCustomerComparisonAsync(quote, revision, request, cancellationToken));
         }
 
-        return result.OrderBy(item => item.TotalAmount).ThenBy(item => item.SubmittedAt).ToArray();
+        return result.OrderBy(item => item.TrustScore.HasValue ? 0 : 1)
+            .ThenByDescending(item => item.TrustScore)
+            .ThenByDescending(item => item.SubmittedAt)
+            .ToArray();
     }
 
-    public async Task<QuoteDetailResponse> GetCustomerQuoteDetailAsync(
+    public async Task<CustomerQuoteDetailResponse> GetCustomerQuoteDetailAsync(
         ClaimsPrincipal principal,
         Guid quotePublicId,
         CancellationToken cancellationToken)
@@ -220,7 +211,67 @@ public sealed class QuoteService(
         var detail = (await BuildDetailAsync(quote, cancellationToken))!;
         if (quote.StatusCode == "SUBMITTED" && detail.Revision.ValidUntil <= DateTime.UtcNow)
             throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
-        return detail with { CanEdit = false, CanSubmit = false };
+        var request = await dbContext.ServiceRequests.AsNoTracking().SingleAsync(x => x.Id == quote.ServiceRequestId, cancellationToken);
+        var revision = await LatestRevisionAsync(quote.Id, cancellationToken)
+            ?? throw Conflict("QUOTE_REVISION_REQUIRED", "견적 상세가 없습니다.");
+        var comparison = await BuildCustomerComparisonAsync(quote, revision, request, cancellationToken);
+        return new CustomerQuoteDetailResponse(
+            detail.Id, detail.RequestId, comparison.ProviderId, detail.ProviderName, detail.Status,
+            detail.SubmittedAt, detail.AcceptedAt, detail.ExpiresAt, false, false, detail.Revision,
+            detail.TransactionId, comparison);
+    }
+
+    public async Task<CustomerProviderProfileResponse> GetCustomerProviderProfileAsync(
+        ClaimsPrincipal principal,
+        Guid providerPublicId,
+        Guid requestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var customer = await GetCustomerIdentityAsync(principal, cancellationToken);
+        var request = await dbContext.ServiceRequests.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.PublicId == requestPublicId && x.CustomerProfileId == customer.CustomerId, cancellationToken) ?? throw NotFound();
+        var provider = await dbContext.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == providerPublicId, cancellationToken)
+            ?? throw NotFound();
+        var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
+        if (!await dbContext.Quotes.AsNoTracking().AnyAsync(x => x.ServiceRequestId == request.Id &&
+                x.ProviderProfileId == provider.Id && visibleStatuses.Contains(x.StatusCode), cancellationToken))
+            throw NotFound();
+
+        var serviceLink = await dbContext.ProviderServiceCategories.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.ProviderProfileId == provider.Id && x.CategoryId == request.CategoryId && x.StatusCode == "ACTIVE", cancellationToken);
+        var serviceApproval = serviceLink is null ? "NOT_REGISTERED" : await dbContext.ProviderServiceApprovals.AsNoTracking()
+            .Where(x => x.ProviderServiceCategoryId == serviceLink.Id).Select(x => x.ApprovalStatusCode)
+            .SingleOrDefaultAsync(cancellationToken) ?? "PENDING";
+        var activeServices = await (from link in dbContext.ProviderServiceCategories.AsNoTracking()
+                                    join category in dbContext.ServiceCategories.AsNoTracking() on link.CategoryId equals category.Id
+                                    where link.ProviderProfileId == provider.Id && link.StatusCode == "ACTIVE" && category.StatusCode == "ACTIVE"
+                                    orderby category.Name
+                                    select category.Name).ToListAsync(cancellationToken);
+        var trust = await dbContext.ProviderTrustScoreCurrent.AsNoTracking().SingleOrDefaultAsync(x => x.ProviderProfileId == provider.Id, cancellationToken);
+        var reviews = await ReviewSummaryAsync(provider.Id, cancellationToken);
+        var requirements = await RequirementSummaryAsync(provider.Id, serviceLink?.Id, request.CategoryId, cancellationToken);
+        var completed = await dbContext.Transactions.AsNoTracking().CountAsync(x => x.ProviderProfileId == provider.Id && x.StatusCode == "COMPLETED", cancellationToken);
+        var recentRows = await dbContext.Reviews.AsNoTracking().Where(x => x.ProviderProfileId == provider.Id &&
+                x.VisibilityStatusCode == "PUBLIC" && x.VerificationStatusCode == "VERIFIED_TRANSACTION")
+            .OrderByDescending(x => x.SubmittedAt).Take(3).ToListAsync(cancellationToken);
+        var recent = new List<CustomerProviderReviewResponse>();
+        foreach (var review in recentRows)
+        {
+            var ratings = await (from rating in dbContext.ReviewRatings.AsNoTracking()
+                                 join item in dbContext.ReviewRatingItems.AsNoTracking() on rating.RatingItemId equals item.Id
+                                 where rating.ReviewId == review.Id
+                                 orderby rating.DisplayOrder
+                                 select new CustomerRatingAverageResponse(item.PublicId, item.Code, item.Name, rating.RatingValue, 1, item.MinValue, item.MaxValue))
+                .ToListAsync(cancellationToken);
+            recent.Add(new CustomerProviderReviewResponse(review.PublicId, review.BodyText, review.SubmittedAt, ratings));
+        }
+
+        return new CustomerProviderProfileResponse(
+            provider.PublicId, provider.BusinessName, provider.ApprovalStatusCode, provider.ActivityStatusCode,
+            serviceApproval, activeServices, CalculatedTrustScore(trust), CalculatedTrustScore(trust).HasValue ? trust?.GradeCode : null,
+            trust?.EvaluationStatusCode ?? "NEW_OR_EVALUATING", TrustDisplay(trust), completed,
+            reviews.PublicCount, reviews.Averages, requirements.Configured, requirements.RequiredCount,
+            requirements.ApprovedCount, requirements.Satisfied, recent);
     }
 
     public async Task<AcceptQuoteResponse> AcceptAsync(
@@ -545,14 +596,16 @@ public sealed class QuoteService(
 
     private async Task ValidateProviderEligibilityAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
     {
-        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId,
+            request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
         if (!evaluation.IsEligible)
             throw Forbidden(evaluation.ReasonCode ?? "PROVIDER_NOT_ELIGIBLE", "현재 이 요청에 견적을 제출하거나 채택될 수 없는 공급자 상태입니다.");
     }
 
     private async Task<QuoteSubmissionReadinessResponse> BuildSubmissionReadinessAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
     {
-        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+        var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId,
+            request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
         var policy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
         var amount = FeeAmount(policy);
         var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == providerId)
@@ -602,6 +655,100 @@ public sealed class QuoteService(
         if (request.StatusCode != "OPEN" || request.ExpiresAt is null || request.ExpiresAt <= DateTime.UtcNow)
             throw Conflict("REQUEST_NOT_OPEN", "공개 중이고 마감 전인 요청에만 견적을 작성할 수 있습니다.");
     }
+
+    private async Task<CustomerQuoteComparisonResponse> BuildCustomerComparisonAsync(
+        Quote quote,
+        QuoteRevision revision,
+        ServiceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var provider = await dbContext.ProviderProfiles.AsNoTracking()
+            .SingleAsync(item => item.Id == quote.ProviderProfileId, cancellationToken);
+        var service = await dbContext.ProviderServiceCategories.AsNoTracking().SingleOrDefaultAsync(item =>
+            item.ProviderProfileId == provider.Id && item.CategoryId == request.CategoryId && item.StatusCode == "ACTIVE", cancellationToken);
+        var serviceApproval = service is null ? "NOT_REGISTERED" : await dbContext.ProviderServiceApprovals.AsNoTracking()
+            .Where(item => item.ProviderServiceCategoryId == service.Id)
+            .Select(item => item.ApprovalStatusCode)
+            .SingleOrDefaultAsync(cancellationToken) ?? "PENDING";
+        var trust = await dbContext.ProviderTrustScoreCurrent.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.ProviderProfileId == provider.Id, cancellationToken);
+        var reviews = await ReviewSummaryAsync(provider.Id, cancellationToken);
+        var requirements = await RequirementSummaryAsync(provider.Id, service?.Id, request.CategoryId, cancellationToken);
+        var warrantyDays = await dbContext.CategoryOperationPolicies.AsNoTracking()
+            .Where(item => item.CategoryId == request.CategoryId && item.IsActive)
+            .OrderByDescending(item => item.EffectiveFrom)
+            .Select(item => (int?)item.DefaultWarrantyDays)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0;
+        var includedItems = await dbContext.QuoteItems.AsNoTracking()
+            .Where(item => item.QuoteRevisionId == revision.Id)
+            .OrderBy(item => item.LineNo)
+            .Select(item => item.ItemName)
+            .ToListAsync(cancellationToken);
+
+        return new CustomerQuoteComparisonResponse(
+            quote.PublicId, provider.PublicId, provider.BusinessName, quote.StatusCode,
+            revision.SubtotalAmount, revision.VatAmount, revision.TotalAmount, revision.CurrencyCode,
+            quote.SubmittedAt, revision.RevisionNo, revision.ValidUntil, revision.AvailableStartAt,
+            revision.EstimatedDurationText, revision.Terms, includedItems, warrantyDays,
+            CalculatedTrustScore(trust), CalculatedTrustScore(trust).HasValue ? trust?.GradeCode : null,
+            trust?.EvaluationStatusCode ?? "NEW_OR_EVALUATING", TrustDisplay(trust),
+            reviews.TotalCount, reviews.PublicCount, reviews.Averages, provider.ApprovalStatusCode,
+            serviceApproval, requirements.Configured, requirements.Satisfied, quote.StatusCode == "ACCEPTED");
+    }
+
+    private async Task<ReviewSummary> ReviewSummaryAsync(long providerId, CancellationToken cancellationToken)
+    {
+        var publicReviewIds = await dbContext.Reviews.AsNoTracking()
+            .Where(item => item.ProviderProfileId == providerId && item.VisibilityStatusCode == "PUBLIC" &&
+                item.VerificationStatusCode == "VERIFIED_TRANSACTION")
+            .Select(item => item.Id).ToArrayAsync(cancellationToken);
+        var averages = await (from rating in dbContext.ReviewRatings.AsNoTracking()
+                              join item in dbContext.ReviewRatingItems.AsNoTracking() on rating.RatingItemId equals item.Id
+                              where publicReviewIds.Contains(rating.ReviewId) && item.IsActive
+                              group rating by new { item.PublicId, item.Code, item.Name, item.MinValue, item.MaxValue } into values
+                              orderby values.Key.Name
+                              select new CustomerRatingAverageResponse(values.Key.PublicId, values.Key.Code, values.Key.Name,
+                                  values.Average(value => value.RatingValue), values.Count(), values.Key.MinValue, values.Key.MaxValue))
+            .ToListAsync(cancellationToken);
+        return new ReviewSummary(publicReviewIds.Length, publicReviewIds.Length, averages);
+    }
+
+    private async Task<RequirementSummary> RequirementSummaryAsync(
+        long providerId,
+        long? providerServiceCategoryId,
+        long categoryId,
+        CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var policyIds = await dbContext.CategoryOperationPolicies.AsNoTracking()
+            .Where(item => item.CategoryId == categoryId && item.IsActive && item.EffectiveFrom <= today &&
+                (item.EffectiveTo == null || item.EffectiveTo > today))
+            .Select(item => item.Id).ToArrayAsync(cancellationToken);
+        var assignments = await dbContext.CategoryProviderRequirementAssignments.AsNoTracking()
+            .Where(item => policyIds.Contains(item.CategoryOperationPolicyId) && item.IsActive)
+            .ToListAsync(cancellationToken);
+        var required = assignments.Where(item => item.IsRequired).ToArray();
+        if (assignments.Count == 0 || providerServiceCategoryId is null)
+            return new RequirementSummary(assignments.Count > 0, required.Length, 0, false);
+
+        var assignmentIds = required.Select(item => item.Id).ToArray();
+        var verifications = await dbContext.ProviderServiceRequirementVerifications.AsNoTracking()
+            .Where(item => item.ProviderServiceCategoryId == providerServiceCategoryId.Value && assignmentIds.Contains(item.RequirementAssignmentId))
+            .ToDictionaryAsync(item => item.RequirementAssignmentId, cancellationToken);
+        var approved = required.Count(assignment => !assignment.VerificationRequired ||
+            verifications.TryGetValue(assignment.Id, out var verification) && verification.VerificationStatusCode == "APPROVED" &&
+            (!assignment.ExpiryCheckRequired || verification.ExpiresAt.HasValue &&
+                verification.ExpiresAt.Value >= today.AddDays(assignment.MinimumValidDays ?? 0)));
+        return new RequirementSummary(true, required.Length, approved, approved == required.Length);
+    }
+
+    private static string TrustDisplay(ProviderTrustScoreCurrent? trust) =>
+        trust?.Score is null || trust.EvaluationStatusCode != "CALCULATED"
+            ? "신규·평가중"
+            : $"{trust.Score:0.##}점{(string.IsNullOrWhiteSpace(trust.GradeCode) ? string.Empty : $" · {trust.GradeCode}")}";
+
+    private static decimal? CalculatedTrustScore(ProviderTrustScoreCurrent? trust) =>
+        trust?.EvaluationStatusCode == "CALCULATED" ? trust.Score : null;
 
     private async Task<QuoteDetailResponse?> BuildDetailAsync(Quote quote, CancellationToken cancellationToken)
     {
@@ -703,4 +850,6 @@ public sealed class QuoteService(
     private sealed record ProviderIdentity(long UserId, long ProviderId);
     private sealed record CustomerIdentity(long UserId, long CustomerId);
     private sealed record OwnedDispatch(RequestDispatch Dispatch, ServiceRequest Request);
+    private sealed record ReviewSummary(int TotalCount, int PublicCount, IReadOnlyList<CustomerRatingAverageResponse> Averages);
+    private sealed record RequirementSummary(bool Configured, int RequiredCount, int ApprovedCount, bool Satisfied);
 }

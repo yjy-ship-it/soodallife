@@ -33,6 +33,14 @@ public sealed record ProviderMatchedRequestAnswer(
     object? Value,
     bool IsMasked);
 
+public sealed record ProviderMatchedRequestFile(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string ScanStatus,
+    string DownloadUrl);
+
 public sealed record ProviderMatchedRequestDetail(
     Guid RequestId,
     string CategoryPath,
@@ -47,7 +55,8 @@ public sealed record ProviderMatchedRequestDetail(
     string RequestStatus,
     string? CustomerPhone,
     string? DetailAddress,
-    IReadOnlyList<ProviderMatchedRequestAnswer> Answers);
+    IReadOnlyList<ProviderMatchedRequestAnswer> Answers,
+    IReadOnlyList<ProviderMatchedRequestFile> Files);
 
 public sealed class MatchingException(
     string businessCode,

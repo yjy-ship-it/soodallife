@@ -1,4 +1,4 @@
-import type { AdministrativeArea, Availability, Consent, CustomerAddress, CustomerProfile, LegalDocument, NotificationPreference } from './accountTypes'
+import type { AdministrativeArea, Availability, Consent, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, NotificationPreference } from './accountTypes'
 
 export class CustomerAccountApiError extends Error {
   readonly status: number
@@ -41,4 +41,8 @@ export const customerAccountApi = {
   sigungu: (parentId?: string) => request<AdministrativeArea[]>(`/api/v1/administrative-areas/sigungu${parentId ? `?parentId=${parentId}` : ''}`),
   notificationPreferences: () => request<NotificationPreference[]>('/api/v1/notifications/preferences'),
   updateNotificationPreference: (value: NotificationPreference) => request<NotificationPreference>('/api/v1/notifications/preferences', put(value)),
+  notifications: () => request<CustomerNotification[]>('/api/v1/notifications'),
+  readNotification: (id: string) => request(`/api/v1/notifications/${id}/read`, { method: 'POST' }),
+  readAllNotifications: () => request('/api/v1/notifications/read-all', { method: 'POST' }),
+  archiveNotification: (id: string) => request(`/api/v1/notifications/${id}/archive`, { method: 'POST' }),
 }

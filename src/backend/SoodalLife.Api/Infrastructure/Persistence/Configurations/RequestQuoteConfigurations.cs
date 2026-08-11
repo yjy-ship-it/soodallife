@@ -12,7 +12,7 @@ internal sealed class ServiceRequestConfiguration() : EntityConfiguration<Servic
         Mapping.Long(b, nameof(ServiceRequest.CustomerProfileId), "customer_profile_id");
         Mapping.Long(b, nameof(ServiceRequest.CategoryId), "category_id");
         Mapping.Long(b, nameof(ServiceRequest.CategoryPolicyId), "category_policy_id");
-        Mapping.Long(b, nameof(ServiceRequest.AdministrativeAreaId), "administrative_area_id");
+        Mapping.NullableLong(b, nameof(ServiceRequest.AdministrativeAreaId), "administrative_area_id");
         Mapping.String(b, nameof(ServiceRequest.DetailAddress), "detail_address", 500, nullable: true);
         Mapping.String(b, nameof(ServiceRequest.Title), "title", 200);
         Mapping.String(b, nameof(ServiceRequest.Description), "description", null, nullable: true);
@@ -86,6 +86,30 @@ internal sealed class RequestAnswerFileConfiguration() : EntityConfiguration<Req
         b.HasIndex(x => x.RequestAnswerId);
         b.HasIndex(x => x.FileId);
         b.HasIndex(x => new { x.RequestAnswerId, x.FileId }).IsUnique();
+    }
+}
+
+internal sealed class ServiceRequestFileConfiguration() : EntityConfiguration<ServiceRequestFile>("service_request_files")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ServiceRequestFile> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(ServiceRequestFile.ServiceRequestId), "service_request_id");
+        Mapping.Long(b, nameof(ServiceRequestFile.FileId), "file_id");
+        Mapping.NullableLong(b, nameof(ServiceRequestFile.FieldDefinitionId), "request_field_id");
+        Mapping.String(b, nameof(ServiceRequestFile.PurposeCode), "purpose_code", 30, unicode: false, defaultValue: "REQUEST_REFERENCE");
+        Mapping.Int(b, nameof(ServiceRequestFile.DisplayOrder), "display_order", 0);
+        Mapping.CreatedAudit(b);
+        Mapping.Fk<ServiceRequestFile, ServiceRequest>(b, nameof(ServiceRequestFile.ServiceRequestId));
+        Mapping.Fk<ServiceRequestFile, StoredFile>(b, nameof(ServiceRequestFile.FileId));
+        Mapping.Fk<ServiceRequestFile, CategoryFieldDefinition>(b, nameof(ServiceRequestFile.FieldDefinitionId));
+        b.HasIndex(x => x.ServiceRequestId);
+        b.HasIndex(x => x.FileId).IsUnique();
+        b.HasIndex(x => x.FieldDefinitionId);
+        b.HasIndex(x => new { x.ServiceRequestId, x.DisplayOrder });
+        b.HasIndex(x => new { x.ServiceRequestId, x.FileId }).IsUnique();
+        b.ToTable("service_request_files", t =>
+            t.HasCheckConstraint("CK_service_request_files_purpose", "[purpose_code] IN ('REQUEST_REFERENCE','DYNAMIC_FIELD')"));
     }
 }
 

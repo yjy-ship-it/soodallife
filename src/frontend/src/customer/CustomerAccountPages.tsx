@@ -4,8 +4,9 @@ import { useAuthentication } from '../auth/AuthenticationContext'
 import { getSafeReturnUrl, navigate } from '../auth/routing'
 import { BrandLogo } from '../components/BrandLogo'
 import { ServiceFooter } from '../components/ServiceFooter'
+import { getCustomerQuote } from '../quotes/api'
 import { customerAccountApi, CustomerAccountApiError } from './accountApi'
-import type { AdministrativeArea, Consent, CustomerAddress, CustomerProfile, LegalDocument, NotificationPreference } from './accountTypes'
+import type { AdministrativeArea, Consent, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, NotificationPreference } from './accountTypes'
 import { CustomerAppLayout } from './CustomerAppLayout'
 import './customerAccount.css'
 
@@ -112,4 +113,22 @@ export function CustomerNotificationSettingsPage() {
   const [items, setItems] = useState<NotificationPreference[]>([]); const [error, setError] = useState(''); useEffect(() => { customerAccountApi.notificationPreferences().then(setItems).catch(error => setError(message(error))) }, [])
   const toggle = async (item: NotificationPreference) => { try { const value = await customerAccountApi.updateNotificationPreference({ ...item, webEnabled: !item.webEnabled }); setItems(current => current.map(candidate => candidate.eventGroupCode === value.eventGroupCode ? value : candidate)) } catch (error) { setError(message(error)) } }
   return <MySoodalLayout title="알림 설정" description="현재 연결된 Web 알림 수신 설정을 관리합니다."><div className="consentList">{items.length ? items.map(item => <article key={item.eventGroupCode}><div><strong>{item.eventGroupCode}</strong><span>카카오·SMS·Email·Push는 외부연동 전입니다.</span></div><label><input type="checkbox" checked={item.webEnabled} onChange={() => void toggle(item)} />Web 알림</label></article>) : <p className="accountEmpty">저장된 알림 설정이 없습니다. 알림 이벤트가 생성되면 이곳에서 관리합니다.</p>}</div>{error && <p className="accountError">{error}</p>}</MySoodalLayout>
+}
+
+export function CustomerNotificationCenterPage() {
+  const [items, setItems] = useState<CustomerNotification[]>([]); const [error, setError] = useState('')
+  const load = () => customerAccountApi.notifications().then(values => setItems(values.filter(item => !item.isArchived))).catch(reason => setError(message(reason)))
+  useEffect(() => { void load() }, [])
+  const open = async (item: CustomerNotification) => { try { if (!item.readAt) await customerAccountApi.readNotification(item.id); const target = item.targetTypeCode === 'Quote' && item.targetPublicId ? `/customer/requests/${(await getCustomerQuote(item.targetPublicId)).requestId}` : notificationTarget(item); if (target) navigate(target); else await load() } catch (reason) { setError(message(reason)) } }
+  const readAll = async () => { try { await customerAccountApi.readAllNotifications(); await load() } catch (reason) { setError(message(reason)) } }
+  const archive = async (item: CustomerNotification) => { try { await customerAccountApi.archiveNotification(item.id); await load() } catch (reason) { setError(message(reason)) } }
+  return <MySoodalLayout title="알림센터" description="견적과 거래 진행 알림을 확인하고 관련 업무 화면으로 이동합니다."><div className="sectionHeading"><span>읽지 않은 알림 {items.filter(item => !item.readAt).length}개</span><button className="accountSecondary" onClick={() => void readAll()}>모두 읽음</button></div>{error && <p className="accountError">{error}</p>}<div className="consentList">{items.length === 0 ? <p className="accountEmpty">새 알림이 없습니다.</p> : items.map(item => <article key={item.id} className={item.readAt ? undefined : 'notificationUnread'}><button type="button" onClick={() => void open(item)}><strong>{item.title}</strong><span>{item.body}</span><small>{date(item.createdAt)} · {item.readAt ? '읽음' : '읽지 않음'}</small></button><button type="button" className="accountSecondary" onClick={() => void archive(item)}>보관</button></article>)}</div><button className="accountSecondary" onClick={() => navigate('/customer/notification-settings')}>알림 설정</button></MySoodalLayout>
+}
+
+function notificationTarget(item: CustomerNotification) {
+  if (!item.targetPublicId) return null
+  if (item.targetTypeCode === 'ServiceRequest') return `/customer/requests/${item.targetPublicId}`
+  if (item.targetTypeCode === 'Transaction') return `/customer/transactions/${item.targetPublicId}`
+  if (item.targetTypeCode === 'RequestDispatch') return '/customer/requests'
+  return null
 }

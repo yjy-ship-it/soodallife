@@ -29,6 +29,8 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
         {
             throw new MatchingException("REQUEST_NOT_OPEN", "공개 중이며 마감 전인 요청만 매칭할 수 있습니다.");
         }
+        var administrativeAreaId = request.AdministrativeAreaId
+            ?? throw new MatchingException("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청은 매칭할 수 없습니다.");
 
         IDbContextTransaction? transaction = null;
         if (dbContext.Database.IsRelational() && dbContext.Database.CurrentTransaction is null)
@@ -50,7 +52,7 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
             var eligibleCount = 0;
             foreach (var provider in providers)
             {
-                var evaluation = await eligibilityService.EvaluateAsync(provider.Id, request.CategoryId, request.AdministrativeAreaId, cancellationToken);
+                var evaluation = await eligibilityService.EvaluateAsync(provider.Id, request.CategoryId, administrativeAreaId, cancellationToken);
                 var categoryMatch = evaluation.ServiceRegistered;
                 var areaMatch = evaluation.AreaMatched;
                 var approvalMatch = evaluation.UserAndRoleActive && evaluation.ProviderApprovedAndActive && evaluation.ServiceApproved;
@@ -252,6 +254,21 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
                 !visible);
         }).ToArray();
         var desiredAt = answers.FirstOrDefault(item => item.Field.FieldKey == "desired_date")?.Answer.ValueDateTime;
+        var files = await (from link in dbContext.ServiceRequestFiles.AsNoTracking()
+                           join file in dbContext.Files.AsNoTracking() on link.FileId equals file.Id
+                           join field in dbContext.CategoryFieldDefinitions.AsNoTracking() on link.FieldDefinitionId equals field.Id into fieldGroup
+                           from field in fieldGroup.DefaultIfEmpty()
+                           where link.ServiceRequestId == row.Request.Id && file.StatusCode == "ACTIVE" &&
+                                 (field == null || field.ProviderVisibilityCode == "FULL" && field.PreAcceptMaskingCode == "NONE")
+                           orderby link.DisplayOrder
+                           select new ProviderMatchedRequestFile(
+                               file.PublicId,
+                               file.OriginalFileName,
+                               file.ContentType,
+                               file.SizeBytes,
+                               file.ScanResultText == "NOT_INTEGRATED" ? "NOT_INTEGRATED" : "UNKNOWN",
+                               $"/api/v1/requests/{row.Request.PublicId}/files/{file.PublicId}"))
+            .ToListAsync(cancellationToken);
 
         return new ProviderMatchedRequestDetail(
             row.Request.PublicId,
@@ -267,7 +284,8 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
             row.Request.StatusCode,
             null,
             null,
-            responseAnswers);
+            responseAnswers,
+            files);
     }
 
     private async Task<long> GetProviderIdAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)

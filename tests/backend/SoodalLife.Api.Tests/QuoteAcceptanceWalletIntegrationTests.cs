@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,9 +75,10 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         var otherQuote = await CreateAndSubmitQuote(otherProvider, request.Id, "비교 견적", 125000m);
         var acceptedResponse = await customer.PostAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);
-        var accepted = (await acceptedResponse.Content.ReadFromJsonAsync<AcceptQuoteResponse>())!;
-        Assert.Equal(3000m, accepted.ChargedFeeAmount);
-        Assert.NotNull(accepted.WalletLedgerEntryId);
+        var acceptedJson = await acceptedResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("chargedFeeAmount", acceptedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("walletLedgerEntryId", acceptedJson, StringComparison.OrdinalIgnoreCase);
+        var accepted = JsonSerializer.Deserialize<AcceptQuoteResponse>(acceptedJson, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
         var repeated = await customer.PostAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);

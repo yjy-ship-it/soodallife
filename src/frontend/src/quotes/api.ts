@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { AcceptQuoteResult, QuoteDetail, QuoteListItem, SaveQuoteRevisionInput } from './types'
+import type { AcceptQuoteResult, CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, SaveQuoteRevisionInput } from './types'
 
 export class QuoteApiError extends Error {
   readonly status: number
@@ -43,8 +43,10 @@ export const addQuoteRevision = (quoteId: string, input: SaveQuoteRevisionInput)
 export const submitQuote = (quoteId: string) =>
   json('POST', `/api/v1/quotes/${quoteId}/submit`).then(readJson<QuoteDetail>)
 export const getCustomerQuotes = (requestId: string) =>
-  fetch(`/api/v1/requests/${requestId}/quotes`, { credentials: 'include' }).then(readJson<QuoteListItem[]>)
+  fetch(`/api/v1/requests/${requestId}/quotes`, { credentials: 'include' }).then(readJson<CustomerQuoteComparison[]>)
 export const getCustomerQuote = (quoteId: string) =>
-  fetch(`/api/v1/quotes/${quoteId}`, { credentials: 'include' }).then(readJson<QuoteDetail>)
+  fetch(`/api/v1/quotes/${quoteId}`, { credentials: 'include' }).then(readJson<CustomerQuoteDetail>)
+export const getCustomerProviderProfile = (providerId: string, requestId: string) =>
+  fetch(`/api/v1/customer/providers/${providerId}?requestId=${encodeURIComponent(requestId)}`, { credentials: 'include' }).then(readJson<CustomerProviderProfile>)
 export const acceptQuote = (quoteId: string) =>
   json('POST', `/api/v1/quotes/${quoteId}/accept`).then(readJson<AcceptQuoteResult>)

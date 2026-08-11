@@ -45,7 +45,7 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
     }
 
     [Fact]
-    public async Task MissingRequiredDynamicField_ReturnsBadRequest()
+    public async Task Draft_AllowsMissingFields_ButPublishValidatesRequiredFields()
     {
         using var client = CreateClient();
         await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
@@ -57,9 +57,122 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
             answers = Array.Empty<object>(),
         });
 
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+        var publish = await client.PostAsync($"/api/v1/requests/{created.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.BadRequest, publish.StatusCode);
+        var error = await publish.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.Equal("REQUEST_PUBLISH_VALIDATION_FAILED", error!.BusinessCode);
+    }
+
+    [Fact]
+    public async Task Customer_CanUpdateAndResumeDraft()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+        var created = await client.PostAsJsonAsync("/api/v1/requests", new { categoryId = factory.Catalog.ServiceId, idempotencyKey = $"draft-{Guid.NewGuid():N}" });
+        var draft = (await created.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+        var updated = await client.PutAsJsonAsync($"/api/v1/requests/{draft.Id}", new { administrativeAreaId = factory.Catalog.AreaId, title = "수정한 임시 요청", detailAddress = "비공개 상세주소", isUrgent = false, answers = ValidAnswers() });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var detail = await client.GetFromJsonAsync<ServiceRequestDetailResponse>($"/api/v1/requests/{draft.Id}");
+        Assert.Equal("수정한 임시 요청", detail!.Title); Assert.True(detail.CanEdit); Assert.True(detail.CanPublish); Assert.Equal(3, detail.Answers.Count);
+    }
+
+    [Fact]
+    public async Task OtherCustomer_CannotUpdateDraft()
+    {
+        using var owner = CreateClient(); await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]); var created = await CreateValidRequestAsync(owner);
+        using var other = CreateClient(); await LoginAsync(other, factory.OtherCustomerCredential);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PutAsJsonAsync($"/api/v1/requests/{created.Id}", new { title = "침범", answers = Array.Empty<object>() })).StatusCode);
+    }
+
+    [Fact]
+    public async Task InvalidSelectValue_IsRejected()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+        var answers = ValidAnswers().ToArray(); answers[2] = new { fieldId = factory.Catalog.FieldIds[2], value = "허용되지않음" };
+        var response = await client.PostAsJsonAsync("/api/v1/requests", new { categoryId = factory.Catalog.ServiceId, answers });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
-        Assert.Equal("DYNAMIC_FIELD_REQUIRED", error!.BusinessCode);
+    }
+
+    [Theory]
+    [InlineData("sample.jpg", "image/jpeg", new byte[] { 0xFF, 0xD8, 0xFF, 0x01 }, HttpStatusCode.OK)]
+    [InlineData("sample.jpg", "image/jpeg", new byte[] { 0x00, 0x01, 0x02 }, HttpStatusCode.BadRequest)]
+    [InlineData("sample.exe", "application/octet-stream", new byte[] { 0x4D, 0x5A }, HttpStatusCode.BadRequest)]
+    public async Task RequestFile_ValidatesTypeExtensionAndSignature(string name, string contentType, byte[] bytes, HttpStatusCode expected)
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);
+        using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent(bytes); content.Headers.ContentType = new(contentType); form.Add(content, "file", name);
+        var response = await client.PostAsync($"/api/v1/requests/{draft.Id}/files", form); Assert.Equal(expected, response.StatusCode);
+        if (response.IsSuccessStatusCode) { var json = await response.Content.ReadAsStringAsync(); Assert.DoesNotContain("storageKey", json, StringComparison.OrdinalIgnoreCase); Assert.Contains("NOT_INTEGRATED", json); }
+    }
+
+    [Fact]
+    public async Task OtherCustomer_CannotUploadToOwnedDraft()
+    {
+        using var owner = CreateClient(); await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(owner);
+        using var other = CreateClient(); await LoginAsync(other, factory.OtherCustomerCredential); using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent([0xFF, 0xD8, 0xFF]); content.Headers.ContentType = new("image/jpeg"); form.Add(content, "file", "safe.jpg");
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsync($"/api/v1/requests/{draft.Id}/files", form)).StatusCode);
+    }
+
+    [Fact]
+    public async Task RequestFile_OverTenMegabytes_IsRejected()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);
+        var bytes = new byte[10 * 1024 * 1024 + 1]; bytes[0] = 0xFF; bytes[1] = 0xD8; bytes[2] = 0xFF;
+        using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent(bytes); content.Headers.ContentType = new("image/jpeg"); form.Add(content, "file", "large.jpg");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/api/v1/requests/{draft.Id}/files", form)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(RoleCodes.Provider)]
+    [InlineData(RoleCodes.Admin)]
+    public async Task NonCustomer_CannotReadCustomerRequestList(string role)
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[role]);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/requests")).StatusCode);
+    }
+
+    [Fact]
+    public async Task OtherCustomer_CannotCancelRequest()
+    {
+        using var owner = CreateClient(); await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(owner);
+        using var other = CreateClient(); await LoginAsync(other, factory.OtherCustomerCredential);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync($"/api/v1/requests/{draft.Id}/cancel", new { reason = "권한 없음" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Draft_CanBeCancelledIdempotently()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);
+        var first = await client.PostAsJsonAsync($"/api/v1/requests/{draft.Id}/cancel", new { reason = "더 이상 필요하지 않음" });
+        var second = await client.PostAsJsonAsync($"/api/v1/requests/{draft.Id}/cancel", new { reason = "더 이상 필요하지 않음" });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode); Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal("CANCELLED", (await second.Content.ReadFromJsonAsync<ServiceRequestDetailResponse>())!.Status);
+    }
+
+    [Fact]
+    public async Task DuplicateCreateIdempotencyKey_ReturnsSameDraft()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var key = $"same-{Guid.NewGuid():N}";
+        var first = await client.PostAsJsonAsync("/api/v1/requests", new { categoryId = factory.Catalog.ServiceId, idempotencyKey = key });
+        var second = await client.PostAsJsonAsync("/api/v1/requests", new { categoryId = factory.Catalog.ServiceId, idempotencyKey = key });
+        Assert.Equal((await first.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!.Id, (await second.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!.Id);
+    }
+
+    [Fact]
+    public async Task UnknownDynamicField_IsRejected()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+        var response = await client.PostAsJsonAsync("/api/v1/requests", new { categoryId = factory.Catalog.ServiceId, answers = new[] { new { fieldId = Guid.NewGuid(), value = "알 수 없음" } } });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishedRequest_CannotBeEdited()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/v1/requests/{draft.Id}/publish", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/v1/requests/{draft.Id}", new { title = "공개 후 수정", answers = ValidAnswers() })).StatusCode);
     }
 
     [Fact]
@@ -118,6 +231,13 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
     }
+
+    private object[] ValidAnswers() =>
+    [
+        new { fieldId = factory.Catalog.FieldIds[0], value = "요청 내용을 충분히 자세하게 작성한 테스트 데이터입니다." },
+        new { fieldId = factory.Catalog.FieldIds[1], value = DateTimeOffset.UtcNow.AddDays(2).ToString("O") },
+        new { fieldId = factory.Catalog.FieldIds[2], value = "주거" },
+    ];
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions
     {

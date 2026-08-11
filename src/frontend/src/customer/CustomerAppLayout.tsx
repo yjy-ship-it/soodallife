@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react'
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { useAuthentication } from '../auth/AuthenticationContext'
 import { createLoginPath, navigate } from '../auth/routing'
 import { BrandLogo } from '../components/BrandLogo'
@@ -32,6 +32,14 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
   const { status, user, logout } = useAuthentication()
   const pathname = window.location.pathname
   const isCustomer = user?.roles.includes('CUSTOMER') ?? false
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!isCustomer) return
+    fetch('/api/v1/notifications/unread-count', { credentials: 'include' })
+      .then(response => response.ok ? response.json() as Promise<{ count: number }> : Promise.reject())
+      .then(value => setUnreadCount(value.count)).catch(() => setUnreadCount(0))
+  }, [isCustomer, pathname])
 
   const go = (path: string, isPublic: boolean) => {
     navigate(isPublic || isCustomer ? path : createLoginPath(path))
@@ -53,7 +61,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
           <div className="customerHeaderActions">
             <button className="headerLocation" type="button" disabled title="지역 선택 기능 준비 중">지역 선택</button>
             <button className="headerIconButton" type="button" onClick={() => navigate('/services/search')} aria-label="서비스 검색"><Icon name="search" /></button>
-            {isCustomer && <button className="headerIconButton" type="button" onClick={() => navigate('/customer/notification-settings')} aria-label="알림 설정"><Icon name="bell" /></button>}
+            {isCustomer && <button className="headerIconButton notificationBell" type="button" onClick={() => navigate('/customer/notifications')} aria-label={`알림 ${unreadCount}개`}><Icon name="bell" />{unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}</button>}
             {status === 'authenticated' ? <div className="customerAccountMenu"><button type="button" onClick={() => navigate(isCustomer ? '/customer' : '/roles')}>{isCustomer ? '마이수달' : '역할 선택'}</button><button type="button" onClick={() => void signOut()}>로그아웃</button></div> : <button className="customerLoginButton" type="button" onClick={() => navigate(createLoginPath(pathname))}>로그인</button>}
           </div>
         </div>

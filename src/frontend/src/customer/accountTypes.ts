@@ -5,3 +5,4 @@ export type CustomerAddress = { id: string; addressName: string; recipientName: 
 export type Consent = { legalDocumentVersionId: string; code: string; requirementCode: 'REQUIRED' | 'OPTIONAL' | 'NOTICE'; title: string; versionNo: number; isPlaceholder: boolean; consentStatus: string; consentedAt: string | null; withdrawnAt: string | null }
 export type AdministrativeArea = { id: string; name: string; code: string; parentId: string | null; parentName: string | null }
 export type NotificationPreference = { eventGroupCode: string; webEnabled: boolean; kakaoEnabled: boolean; smsEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; rowVersion: string }
+export type CustomerNotification = { id: string; eventTypeCode: string; title: string; body: string; priorityCode: string; statusCode: string; targetTypeCode: string | null; targetPublicId: string | null; createdAt: string; readAt: string | null; isArchived: boolean }

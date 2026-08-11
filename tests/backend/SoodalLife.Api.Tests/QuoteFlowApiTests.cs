@@ -64,11 +64,25 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
             .Content.ReadFromJsonAsync<QuoteDetailResponse>())!;
         await secondProvider.PostAsync($"/api/v1/quotes/{otherDraft.Id}/submit", null);
 
-        var list = await customer.GetFromJsonAsync<List<QuoteListItemResponse>>($"/api/v1/requests/{request.Id}/quotes");
+        var listResponse = await customer.GetAsync($"/api/v1/requests/{request.Id}/quotes");
+        var listJson = await listResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("overallRating", listJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("wallet", listJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fee", listJson, StringComparison.OrdinalIgnoreCase);
+        var list = JsonSerializer.Deserialize<List<CustomerQuoteComparisonResponse>>(listJson, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Equal(2, list!.Count);
-        var detail = await customer.GetFromJsonAsync<QuoteDetailResponse>($"/api/v1/quotes/{draft.Id}");
+        Assert.All(list, item => Assert.Equal("신규·평가중", item.TrustDisplay));
+        var detail = await customer.GetFromJsonAsync<CustomerQuoteDetailResponse>($"/api/v1/quotes/{draft.Id}");
         Assert.Equal(2, detail!.Revision.RevisionNo);
         Assert.Equal(2, detail.Revision.Items.Count);
+        Assert.Equal("신규·평가중", detail.Comparison.TrustDisplay);
+        var profileResponse = await customer.GetAsync($"/api/v1/customer/providers/{detail.ProviderId}?requestId={request.Id}");
+        Assert.Equal(HttpStatusCode.OK, profileResponse.StatusCode);
+        var profileJson = await profileResponse.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("decisionReason", profileJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("admin", profileJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("phone", profileJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("email", profileJson, StringComparison.OrdinalIgnoreCase);
 
         var acceptedResponse = await customer.PostAsync($"/api/v1/quotes/{draft.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);

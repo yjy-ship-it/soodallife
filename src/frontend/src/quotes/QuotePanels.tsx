@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as quoteApi from './api'
-import type { QuoteDetail, QuoteItemInput, QuoteListItem, SaveQuoteRevisionInput } from './types'
+import type { CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, QuoteItemInput, SaveQuoteRevisionInput } from './types'
 
 const emptyItem = (): QuoteItemInput => ({ itemName: '', description: null, quantity: 1, unitText: '식', unitPriceAmount: 0 })
 
@@ -101,25 +101,29 @@ export function ProviderQuotePanel({ requestId, requestExpiresAt }: { requestId:
 }
 
 export function CustomerQuotesPanel({ requestId }: { requestId: string }) {
-  const [quotes, setQuotes] = useState<QuoteListItem[]>([]), [selected, setSelected] = useState<QuoteDetail | null>(null)
+  const [quotes, setQuotes] = useState<CustomerQuoteComparison[]>([]), [selected, setSelected] = useState<CustomerQuoteDetail | null>(null)
+  const [profile, setProfile] = useState<CustomerProviderProfile | null>(null), [accepting, setAccepting] = useState(false)
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [loading, setLoading] = useState(true)
   const load = useCallback(() => quoteApi.getCustomerQuotes(requestId).then(setQuotes).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false)), [requestId])
   useEffect(() => { void load() }, [load])
-  const show = async (quoteId: string) => { setError(''); try { setSelected(await quoteApi.getCustomerQuote(quoteId)) } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 불러오지 못했습니다.') } }
+  const show = async (quoteId: string) => { setError(''); setProfile(null); try { setSelected(await quoteApi.getCustomerQuote(quoteId)) } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 불러오지 못했습니다.') } }
+  const showProfile = async () => { if (!selected) return; setError(''); try { setProfile(await quoteApi.getCustomerProviderProfile(selected.providerId, requestId)) } catch (reason) { setError(reason instanceof Error ? reason.message : '공급자 정보를 불러오지 못했습니다.') } }
   const accept = async () => {
     if (!selected) return
-    setError('')
+    if (!window.confirm(`${selected.providerName}의 견적 ${formatMoney(selected.revision.totalAmount)}을 선택할까요? 선택 후에는 다른 견적을 선택할 수 없습니다.`)) return
+    setError(''); setAccepting(true)
     try {
       const result = await quoteApi.acceptQuote(selected.id)
       setMessage(`견적을 선택했습니다. 거래번호: ${result.transactionId}`)
       setSelected(await quoteApi.getCustomerQuote(selected.id)); await load()
-    } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 선택하지 못했습니다.') }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 선택하지 못했습니다.') } finally { setAccepting(false) }
   }
   return <section className="detailCard quotePanel">
     <div className="sectionHeading"><div><p className="eyebrow">RECEIVED QUOTES</p><h2>받은 견적</h2></div><span>{quotes.length}건</span></div>
     {error && <div className="errorBanner">{error}</div>}{message && <div className="successBanner">{message}</div>}
-    {loading ? <p className="emptyState">견적을 불러오는 중입니다.</p> : quotes.length === 0 ? <p className="emptyState">아직 제출된 견적이 없습니다.</p> : <div className="quoteList">{quotes.map((item) => <button key={item.id} className={selected?.id === item.id ? 'quoteListItem selectedQuote' : 'quoteListItem'} type="button" onClick={() => void show(item.id)}><div><strong>{item.providerName}</strong><span className="statusBadge">{item.status}</span></div><strong>{formatMoney(item.totalAmount)}</strong><small>REV {item.revisionNo} · {item.submittedAt ? formatDate(item.submittedAt) : '-'}</small></button>)}</div>}
-    {selected && <div className="quoteDetail"><div className="sectionHeading"><div><h3>{selected.providerName}</h3><p>{selected.revision.summary}</p></div><strong>{formatMoney(selected.revision.totalAmount)}</strong></div><dl><dt>revision</dt><dd>{selected.revision.revisionNo}</dd><dt>제출일</dt><dd>{selected.submittedAt ? formatDate(selected.submittedAt) : '-'}</dd><dt>유효기간</dt><dd>{formatDate(selected.revision.validUntil)}</dd><dt>예상 작업기간</dt><dd>{selected.revision.estimatedDurationText || '-'}</dd><dt>조건·메모</dt><dd>{selected.revision.terms || '-'}</dd></dl><div className="quoteItemTable">{selected.revision.items.map((item) => <div key={item.lineNo}><span>{item.itemName}</span><span>{item.quantity} {item.unitText ?? ''}</span><span>{formatMoney(item.unitPriceAmount)}</span><strong>{formatMoney(item.lineTotalAmount)}</strong></div>)}</div><div className="quoteTotals"><span>소계 {formatMoney(selected.revision.subtotalAmount)}</span><span>부가세 {formatMoney(selected.revision.vatAmount)}</span><strong>총액 {formatMoney(selected.revision.totalAmount)}</strong></div>{selected.status === 'SUBMITTED' && <div className="formActions"><button className="primaryButton" type="button" onClick={() => void accept()}>이 견적 선택</button></div>}{selected.status === 'ACCEPTED' && <p className="successBanner">선택된 견적입니다.</p>}</div>}
+    {loading ? <p className="emptyState">견적을 불러오는 중입니다.</p> : quotes.length === 0 ? <p className="emptyState">아직 제출된 견적이 없습니다. 조건에 맞는 공급자에게 요청을 전달하고 있습니다.</p> : <><p className="privacyNote">Trust 현재값이 높은 순으로 표시합니다. 플랫폼이 특정 공급자를 추천하는 순위는 아닙니다.</p><div className="quoteCompareGrid">{quotes.map(item => <button key={item.id} className={selected?.id === item.id ? 'quoteCompareCard selectedQuote' : 'quoteCompareCard'} type="button" onClick={() => void show(item.id)}><span className="statusBadge">{item.isSelected ? '선택됨' : item.status}</span><h3>{item.providerName}</h3><strong>{formatMoney(item.totalAmount)}</strong><p>{item.trustDisplay} · 공개 리뷰 {item.publicReviewCount}건</p><small>{item.estimatedDurationText || '작업기간 협의'} · A/S 기준 {item.defaultWarrantyDays}일</small></button>)}</div></>}
+    {selected && <div className="quoteDetail"><div className="sectionHeading"><div><h3>{selected.providerName}</h3><p>{selected.revision.summary}</p></div><strong>{formatMoney(selected.revision.totalAmount)}</strong></div><button className="secondaryButton inlineButton" type="button" onClick={() => void showProfile()}>공급자 정보 보기</button><dl><dt>Trust</dt><dd>{selected.comparison.trustDisplay}</dd><dt>승인 상태</dt><dd>공급자 {selected.comparison.providerApprovalStatus} · 서비스 {selected.comparison.serviceApprovalStatus}</dd><dt>필수 자격</dt><dd>{selected.comparison.requiredEvidenceSatisfied ? '확인됨' : '확인 중'}</dd><dt>제출일</dt><dd>{selected.submittedAt ? formatDate(selected.submittedAt) : '-'}</dd><dt>유효기간</dt><dd>{formatDate(selected.revision.validUntil)}</dd><dt>작업 가능일</dt><dd>{selected.revision.availableStartAt ? formatDate(selected.revision.availableStartAt) : '협의'}</dd><dt>예상 작업기간</dt><dd>{selected.revision.estimatedDurationText || '협의'}</dd><dt>A/S 기준</dt><dd>{selected.comparison.defaultWarrantyDays}일</dd><dt>조건·메모</dt><dd>{selected.revision.terms || '-'}</dd></dl><div className="ratingBars">{selected.comparison.ratingItemAverages.map(item => <span key={item.itemId}>{item.itemName} {item.averageValue.toFixed(1)} / {item.maxValue} ({item.ratingCount}건)</span>)}</div><div className="quoteItemTable">{selected.revision.items.map(item => <div key={item.lineNo}><span>{item.itemName}</span><span>{item.quantity} {item.unitText ?? ''}</span><span>{formatMoney(item.unitPriceAmount)}</span><strong>{formatMoney(item.lineTotalAmount)}</strong></div>)}</div><div className="quoteTotals"><span>소계 {formatMoney(selected.revision.subtotalAmount)}</span><span>부가세 {formatMoney(selected.revision.vatAmount)}</span><strong>총액 {formatMoney(selected.revision.totalAmount)}</strong></div>{selected.status === 'SUBMITTED' && <div className="formActions"><button className="primaryButton" disabled={accepting} type="button" onClick={() => void accept()}>{accepting ? '선택 처리 중…' : '이 견적 선택'}</button></div>}{selected.status === 'ACCEPTED' && <p className="successBanner">선택된 견적입니다. 상세주소와 업무 연락처는 이 공급자에게만 공개됩니다.</p>}</div>}
+    {profile && <aside className="providerProfile"><div className="sectionHeading"><h3>{profile.businessName}</h3><button type="button" onClick={() => setProfile(null)}>닫기</button></div><p>{profile.trustDisplay} · 완료 서비스 {profile.completedServiceCount}건 · 공개 리뷰 {profile.publicReviewCount}건</p><p>승인 서비스: {profile.activeServices.join(', ') || '없음'}</p><p>필수 증빙 {profile.approvedEvidenceCount}/{profile.requiredEvidenceCount} 확인</p>{profile.recentReviews.map(review => <blockquote key={review.id}>{review.bodyText}<small>{formatDate(review.submittedAt)}</small></blockquote>)}</aside>}
   </section>
 }
 

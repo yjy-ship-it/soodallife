@@ -53,6 +53,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<RequestAnswer> RequestAnswers => Set<RequestAnswer>();
     public DbSet<RequestAnswerFile> RequestAnswerFiles => Set<RequestAnswerFile>();
+    public DbSet<ServiceRequestFile> ServiceRequestFiles => Set<ServiceRequestFile>();
     public DbSet<DispatchCandidate> DispatchCandidates => Set<DispatchCandidate>();
     public DbSet<RequestDispatch> RequestDispatches => Set<RequestDispatch>();
     public DbSet<Notification> Notifications => Set<Notification>();
