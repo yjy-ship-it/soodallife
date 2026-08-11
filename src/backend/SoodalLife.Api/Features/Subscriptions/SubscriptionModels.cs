@@ -14,7 +14,7 @@ public sealed record RecurrenceRuleRequest(
     DateOnly? EndDate);
 
 public sealed record CreateCareProductRequest(Guid ServiceCategoryId,[param:Required,StringLength(200)]string ProductName,string? Description,[param:Required,StringLength(4000)]string ServiceScopeText,[param:Range(1,100)]int VisitsPerPeriod,[param:Range(1,1440)]int ExpectedDurationMinutes,string BillingPeriodCode,decimal? StandardMonthlyAmount,decimal? StandardVisitAmount,DateOnly EffectiveFrom,DateOnly? EffectiveTo,bool IsActive=true);
-public sealed record CreateSubscriptionRequest(Guid ServiceCategoryId,Guid? CareProductId,Guid AdministrativeAreaId,string RequestTypeCode,[param:Required,StringLength(4000)]string RequestedScopeText,DateOnly PreferredStartDate,string? DetailAddress,RecurrenceRuleRequest Recurrence);
+public sealed record CreateSubscriptionRequest(Guid ServiceCategoryId,Guid? CareProductId,Guid AdministrativeAreaId,string RequestTypeCode,[param:Required,StringLength(4000)]string RequestedScopeText,DateOnly PreferredStartDate,string? DetailAddress,RecurrenceRuleRequest Recurrence,Guid? CustomerAddressId=null,[param:StringLength(150)]string? IdempotencyKey=null);
 public sealed record SubmitSubscriptionApplicationRequest([param:Required,StringLength(4000)]string ProposedScopeText,decimal? ProposedMonthlyAmount,decimal? ProposedVisitAmount,string? AvailableScheduleText,[param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record SelectSubscriptionProviderRequest(Guid ApplicationId,[param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record ChangeContractStateRequest(string? Reason,DateTime? ResumePlannedAt,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);

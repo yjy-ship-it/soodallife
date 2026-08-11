@@ -76,6 +76,7 @@ builder.Services.AddScoped<CustomerDisputeService>();
 builder.Services.AddScoped<CustomerAfterServiceService>();
 builder.Services.AddScoped<CustomerReportService>();
 builder.Services.AddScoped<CareSubscriptionService>();
+builder.Services.AddScoped<CustomerCareSubscriptionService>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();
 builder.Services.AddScoped<InteriorProjectService>();

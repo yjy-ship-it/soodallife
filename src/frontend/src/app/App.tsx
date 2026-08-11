@@ -49,6 +49,15 @@ import {
   MySoodalPage,
   PasswordResetRequestPage,
 } from '../customer/CustomerAccountPages'
+import {
+  CustomerCareContractsPage,
+  CustomerCareHomePage,
+  CustomerCarePaymentsPage,
+  NewCustomerCareRequestPage,
+  CustomerCareRequestsPage,
+  CustomerCareVisitsPage,
+  CustomerProgressPage,
+} from '../customer/CustomerCarePages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -81,6 +90,7 @@ function ApplicationRoutes() {
   const noticeDetailMatch = pathname.match(/^\/notices\/([0-9a-f-]+)$/i)
   const faqDetailMatch = pathname.match(/^\/faq\/([0-9a-f-]+)$/i)
   if (pathname === '/') return <CustomerHomePage />
+  if (pathname === '/care') return <CustomerCareHomePage />
   if (pathname === '/services') return <ServiceCatalogPage />
   if (pathname === '/services/search') return <ServiceSearchPage />
   if (serviceDetailMatch) return <ServiceDetailPage id={serviceDetailMatch[1]} />
@@ -118,6 +128,9 @@ function ApplicationRoutes() {
   }
 
   const customerRequestMatch = pathname.match(/^\/customer\/requests\/([0-9a-f-]+)$/i)
+  const customerCareRequestMatch = pathname.match(/^\/customer\/care\/requests\/([0-9a-f-]+)$/i)
+  const customerCareContractMatch = pathname.match(/^\/customer\/care\/contracts\/([0-9a-f-]+)$/i)
+  const customerCareVisitMatch = pathname.match(/^\/customer\/care\/visits\/([0-9a-f-]+)$/i)
   const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
@@ -146,6 +159,15 @@ function ApplicationRoutes() {
     if (pathname === '/customer/consents') return <CustomerConsentsPage />
     if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
     if (pathname === '/customer/notifications') return <CustomerNotificationCenterPage />
+    if (pathname === '/customer/progress') return <CustomerProgressPage />
+    if (pathname === '/customer/care/request/new') return <NewCustomerCareRequestPage />
+    if (pathname === '/customer/care/requests') return <CustomerCareRequestsPage />
+    if (customerCareRequestMatch) return <CustomerCareRequestsPage id={customerCareRequestMatch[1]} />
+    if (pathname === '/customer/care/contracts') return <CustomerCareContractsPage />
+    if (customerCareContractMatch) return <CustomerCareContractsPage id={customerCareContractMatch[1]} />
+    if (pathname === '/customer/care/visits') return <CustomerCareVisitsPage />
+    if (customerCareVisitMatch) return <CustomerCareVisitsPage id={customerCareVisitMatch[1]} />
+    if (pathname === '/customer/care/payments') return <CustomerCarePaymentsPage />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />

@@ -5,6 +5,9 @@ export async function safeNotificationTarget(item: CustomerNotification) {
   if (item.targetTypeCode === 'RequestDispatch') return '/customer/requests'
   if (!item.targetPublicId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.targetPublicId)) return null
   if (item.targetTypeCode === 'Quote') return `/customer/requests/${(await getCustomerQuote(item.targetPublicId)).requestId}`
+  if (item.targetTypeCode === 'SubscriptionRequest') return `/customer/care/requests/${item.targetPublicId}`
+  if (item.targetTypeCode === 'SubscriptionContract') return `/customer/care/contracts/${item.targetPublicId}`
+  if (item.targetTypeCode === 'SubscriptionVisitSchedule') return `/customer/care/visits/${item.targetPublicId}`
   const routes: Record<string, string> = {
     ServiceRequest: 'requests',
     Transaction: 'transactions',

@@ -11,7 +11,7 @@ const navItems = [
   { path: '/', label: '홈', icon: 'home', public: true },
   { path: '/services', label: '서비스', icon: 'grid', public: true },
   { path: '/customer/requests', label: '요청·견적', icon: 'document', public: false },
-  { path: '/customer/transactions', label: '진행', icon: 'clock', public: false },
+  { path: '/customer/progress', label: '진행', icon: 'clock', public: false },
   { path: '/customer', label: '마이수달', icon: 'user', public: false },
 ] as const
 
@@ -57,7 +57,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
           <BrandLogo />
           <nav className="customerDesktopNav" aria-label="고객 주요 메뉴">
             <button type="button" onClick={() => navigate('/services')}>서비스</button>
-            <button type="button" onClick={() => navigate('/services/search?q=정기구독')}>수달 케어</button>
+            <button type="button" onClick={() => navigate('/care')}>수달 케어</button>
             <button type="button" onClick={() => navigate('/services/search?q=인테리어')}>수달 인테리어</button>
             <button type="button" onClick={() => navigate('/support')}>고객센터</button>
           </nav>
