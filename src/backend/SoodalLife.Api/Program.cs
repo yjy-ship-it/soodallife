@@ -78,6 +78,7 @@ builder.Services.AddScoped<CustomerServiceRequestService>();
 builder.Services.AddSingleton<IFilePrivacyContract, FilePrivacyContract>();
 builder.Services.AddScoped<ServiceRequestFilePrivacyResolver>();
 builder.Services.AddScoped<ProviderConfigurationService>();
+builder.Services.AddScoped<ProviderOperationsHubService>();
 builder.Services.AddScoped<ProviderRegistrationService>();
 builder.Services.AddScoped<RequestMatchingService>();
 builder.Services.AddScoped<ProviderTradingEligibilityService>();

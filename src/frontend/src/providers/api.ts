@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { MatchedRequestDetail, MatchedRequestListItem, ProviderAfterServiceDetail, ProviderAfterServiceListItem, ProviderCaseFile, ProviderDashboard, ProviderDisputeDetail, ProviderDisputeListItem, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
+import type { MatchedRequestDetail, MatchedRequestListItem, ProviderAfterServiceDetail, ProviderAfterServiceListItem, ProviderCaseFile, ProviderDashboard, ProviderDisputeDetail, ProviderDisputeListItem, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderOperationsHub, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
 
 export class ProviderApiError extends Error {
   readonly status: number
@@ -22,6 +22,14 @@ export const getProviderProfile = () => request<ProviderProfile>('/api/v1/provid
 export const updateProviderProfile = (value: Partial<ProviderProfile>) => request<ProviderProfile>('/api/v1/providers/me', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
 export const getProviderDashboard = () => request<ProviderDashboard>('/api/v1/providers/me/onboarding-dashboard')
 export const getProviderOperationsDashboard = () => request<ProviderOperationsDashboard>('/api/v1/providers/me/operations-dashboard')
+export const getProviderOperationsHub = (query: { group?:string; domain?:string; page?:number; pageSize?:number } = {}) => {
+  const params = new URLSearchParams()
+  if (query.group) params.set('group', query.group)
+  if (query.domain) params.set('domain', query.domain)
+  if (query.page) params.set('page', String(query.page))
+  if (query.pageSize) params.set('pageSize', String(query.pageSize))
+  return request<ProviderOperationsHub>(`/api/v1/providers/me/operations-hub${params.size ? `?${params}` : ''}`)
+}
 export const getProviderServices = () => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories')
 export const replaceProviderServices = (categoryIds: string[]) => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories', {
   method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryIds }),

@@ -8,7 +8,8 @@ import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/Role
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import { ProviderApprovalPage, ProviderDocumentsPage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
-import { ProviderOperationsHomePage, ProviderQuoteListPage } from '../providers/ProviderOperations'
+import { ProviderQuoteListPage } from '../providers/ProviderOperations'
+import { ProviderInboxPage, ProviderOperationsHubHomePage, ProviderSchedulePage } from '../providers/ProviderOperationsHubPages'
 import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
 import { ProviderWalletPage } from '../providers/ProviderWalletPage'
 import { ProviderCareApplicationsPage, ProviderCareContractsPage, ProviderCareHomePage, ProviderCareRequestsPage, ProviderCareScheduleChangesPage, ProviderCareVisitsPage } from '../providers/ProviderCarePages'
@@ -246,7 +247,10 @@ function ApplicationRoutes() {
     if (customerReportMatch) return <CustomerReportsPage id={customerReportMatch[1]} />
     if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
-    if (pathname === '/provider') return <ProviderOperationsHomePage />
+    if (pathname === '/provider') return <ProviderOperationsHubHomePage />
+    if (pathname === '/provider/inbox') return <ProviderInboxPage />
+    if (pathname === '/provider/progress') return <ProviderInboxPage progressOnly />
+    if (pathname === '/provider/schedule') return <ProviderSchedulePage />
     if (pathname === '/provider/quotes') return <ProviderQuoteListPage />
     if (pathname === '/provider/wallet') return <ProviderWalletPage />
     if (pathname === '/provider/care') return <ProviderCareHomePage />
