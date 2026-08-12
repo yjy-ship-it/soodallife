@@ -291,7 +291,7 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         b.ToTable("files", t =>
         {
             t.HasCheckConstraint("CK_files_size_bytes", "[size_bytes] >= 0");
-            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE')");
+            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE')");
             t.HasCheckConstraint("CK_files_status", "[status_code] IN ('PENDING','ACTIVE','QUARANTINED','DELETED')");
             t.HasCheckConstraint("CK_files_malware_scan_status", "[malware_scan_status_code] IS NULL OR [malware_scan_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','CLEAN','INFECTED','FAILED')");
             t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");

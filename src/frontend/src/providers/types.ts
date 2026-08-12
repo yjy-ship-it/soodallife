@@ -79,3 +79,12 @@ export interface MatchedRequestDetail extends MatchedRequestListItem {
   answers: MatchedRequestAnswer[]
   files: MatchedRequestFile[]
 }
+
+export interface ProviderCaseSource { transactionId:string|null; subscriptionVisitId:string|null; interiorProjectId:string|null; afterServiceId:string|null }
+export interface ProviderCaseFile { id:string; fileName:string; contentType:string; sizeBytes:number; role:string|null; description:string|null; sourceType:string; publicationMode:string; downloadUrl:string }
+export interface ProviderAfterServiceTimeline { actionType:string; status:string; displayStatus:string; note:string|null; scheduledAt:string|null; performedAt:string|null; occurredAt:string }
+export interface ProviderAfterServiceListItem { id:string; caseNumber:string; subject:string; status:string; displayStatus:string; sourceType:string; receivedAt:string; scheduledAt:string|null; contactAvailable:boolean }
+export interface ProviderAfterServiceDetail extends ProviderAfterServiceListItem { source:ProviderCaseSource; description:string; requestDetails:string|null; warrantyStartDate:string|null; warrantyEndDate:string|null; isWithinWarranty:boolean|null; dueAt:string|null; providerConfirmedAt:string|null; providerResponse:string|null; visitRequired:boolean|null; startedAt:string|null; completedAt:string|null; resolutionSummary:string|null; unresolvedReason:string|null; recurrenceOccurred:boolean|null; customerName:string; customerPhone:string|null; detailAddress:string|null; contactPolicy:string; rowVersion:string; timeline:ProviderAfterServiceTimeline[]; evidence:ProviderCaseFile[] }
+export interface ProviderDisputeTimeline { actionType:string; note:string|null; reason:string|null; occurredAt:string; isProviderSubmission:boolean }
+export interface ProviderDisputeListItem { id:string; caseNumber:string; subject:string; status:string; displayStatus:string; sourceType:string; receivedAt:string; lastActionAt:string|null }
+export interface ProviderDisputeDetail extends ProviderDisputeListItem { source:ProviderCaseSource; customerClaim:string; dueAt:string|null; resolvedAt:string|null; rowVersion:string; timeline:ProviderDisputeTimeline[]; evidence:ProviderCaseFile[]; providerMayRespond:boolean; decisionPolicy:string }

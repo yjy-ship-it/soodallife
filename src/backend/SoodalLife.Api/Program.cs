@@ -86,6 +86,7 @@ builder.Services.AddScoped<WorkService>();
 builder.Services.AddScoped<TransactionAppointmentService>();
 builder.Services.AddScoped<CustomerDisputeService>();
 builder.Services.AddScoped<CustomerAfterServiceService>();
+builder.Services.AddScoped<ProviderAftercareService>();
 builder.Services.AddScoped<CustomerReportService>();
 builder.Services.AddScoped<CareSubscriptionService>();
 builder.Services.AddScoped<CustomerCareSubscriptionService>();

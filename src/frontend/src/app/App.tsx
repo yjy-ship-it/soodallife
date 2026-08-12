@@ -9,6 +9,7 @@ import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestP
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
 import { ProviderApprovalPage, ProviderDocumentsPage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
 import { ProviderOperationsHomePage, ProviderQuoteListPage } from '../providers/ProviderOperations'
+import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
@@ -140,6 +141,8 @@ function ApplicationRoutes() {
   const customerInteriorProjectMatch = pathname.match(/^\/customer\/interior\/projects\/([0-9a-f-]+)$/i)
   const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
+  const providerAfterServiceMatch = pathname.match(/^\/provider\/after-services\/([0-9a-f-]+)$/i)
+  const providerDisputeMatch = pathname.match(/^\/provider\/disputes\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
   const customerDisputeMatch = pathname.match(/^\/customer\/disputes\/([0-9a-f-]+)$/i)
   const customerHistoryMatch = pathname.match(/^\/customer\/service-history\/([0-9a-f-]+)$/i)
@@ -237,6 +240,10 @@ function ApplicationRoutes() {
     if (providerRequestMatch) return <ProviderMatchedRequestDetailPage requestId={providerRequestMatch[1]} />
     if (pathname === '/provider/work') return <WorkTransactionListPage audience="provider" />
     if (providerWorkMatch) return <ProviderWorkDetailPage transactionId={providerWorkMatch[1]} />
+    if (pathname === '/provider/after-services') return <ProviderAfterServiceListPage />
+    if (providerAfterServiceMatch) return <ProviderAfterServiceDetailPage id={providerAfterServiceMatch[1]} />
+    if (pathname === '/provider/disputes') return <ProviderDisputeListPage />
+    if (providerDisputeMatch) return <ProviderDisputeDetailPage id={providerDisputeMatch[1]} />
     return <RoleHomePage role={requiredRole} />
   }
 

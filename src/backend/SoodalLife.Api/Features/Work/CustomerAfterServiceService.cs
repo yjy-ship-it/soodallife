@@ -117,7 +117,7 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var access = await Access(principal, id, token);
         var validated = await Validate(upload, token); var now = DateTime.UtcNow;
         var storageKey = $"after-service/{id:N}/{Guid.NewGuid():N}{validated.Extension}";
-        var file = NewFile("AFTER_SERVICE_EVIDENCE", storageKey, upload, validated.Bytes, access.UserId, now);
+        var file = NewFile("AFTER_SERVICE", storageKey, upload, validated.Bytes, access.UserId, now);
         db.Files.Add(file); await db.SaveChangesAsync(token);
         try
         {

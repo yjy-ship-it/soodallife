@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { MatchedRequestDetail, MatchedRequestListItem, ProviderDashboard, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
+import type { MatchedRequestDetail, MatchedRequestListItem, ProviderAfterServiceDetail, ProviderAfterServiceListItem, ProviderCaseFile, ProviderDashboard, ProviderDisputeDetail, ProviderDisputeListItem, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
 
 export class ProviderApiError extends Error {
   readonly status: number
@@ -41,3 +41,15 @@ export const resubmitProviderService = (categoryId: string) => request<void>(`/a
 export const getProviderLegalDocuments = () => request<ProviderLegalDocument[]>('/api/v1/public/provider-registration/legal-documents')
 export const registerProvider = (value: unknown) => request<{ userId: string; providerId: string; loginId: string; roles: string[] }>('/api/v1/public/provider-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
 export const addProviderRole = (value: unknown) => request<{ userId: string; providerId: string; loginId: string; roles: string[] }>('/api/v1/provider-registration/role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
+export const getProviderAfterServices = () => request<ProviderAfterServiceListItem[]>('/api/v1/providers/me/after-services')
+export const getProviderAfterService = (id:string) => request<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}`)
+const command = <T,>(path:string, value:unknown) => request<T>(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)})
+export const confirmProviderAfterService = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/confirm`,value)
+export const scheduleProviderAfterService = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/visit-schedule`,value)
+export const addProviderAfterServiceAction = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/actions`,value)
+export const completeProviderAfterService = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/completion-report`,value)
+export const uploadProviderAfterServiceEvidence = (id:string,file:File,role:string,description:string) => {const body=new FormData();body.append('file',file);body.append('role',role);body.append('description',description);return request<ProviderCaseFile>(`/api/v1/providers/me/after-services/${id}/evidence`,{method:'POST',body})}
+export const getProviderDisputes = () => request<ProviderDisputeListItem[]>('/api/v1/providers/me/disputes')
+export const getProviderDispute = (id:string) => request<ProviderDisputeDetail>(`/api/v1/providers/me/disputes/${id}`)
+export const respondProviderDispute = (id:string,value:unknown) => command<ProviderDisputeDetail>(`/api/v1/providers/me/disputes/${id}/responses`,value)
+export const uploadProviderDisputeEvidence = (id:string,file:File,description:string) => {const body=new FormData();body.append('file',file);body.append('description',description);return request<ProviderCaseFile>(`/api/v1/providers/me/disputes/${id}/evidence`,{method:'POST',body})}
