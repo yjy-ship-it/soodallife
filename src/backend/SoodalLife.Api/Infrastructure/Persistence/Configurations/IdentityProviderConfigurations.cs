@@ -97,6 +97,14 @@ internal sealed class ProviderProfileConfiguration() : EntityConfiguration<Provi
         Mapping.Long(b, nameof(ProviderProfile.UserId), "user_id");
         Mapping.String(b, nameof(ProviderProfile.BusinessName), "business_name", 200);
         Mapping.String(b, nameof(ProviderProfile.BusinessRegistrationNo), "business_registration_no", 32, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.RepresentativeName), "representative_name", 100, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.ContactName), "contact_name", 100, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.BusinessAddress), "business_address", 500, nullable: true);
+        Mapping.Binary(b, nameof(ProviderProfile.BusinessAddressEncrypted), "business_address_encrypted");
+        Mapping.NullableShort(b, nameof(ProviderProfile.PrivacyProtectionVersion), "privacy_protection_version");
+        Mapping.String(b, nameof(ProviderProfile.BusinessTypeText), "business_type_text", 100, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.BusinessItemText), "business_item_text", 100, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.Introduction), "introduction", 1000, nullable: true);
         Mapping.String(b, nameof(ProviderProfile.ApprovalStatusCode), "approval_status_code", 20, unicode: false, defaultValue: "PENDING");
         Mapping.String(b, nameof(ProviderProfile.ActivityStatusCode), "activity_status_code", 20, unicode: false, defaultValue: "INACTIVE");
         Mapping.Decimal(b, nameof(ProviderProfile.TrustScore), "trust_score", nullable: true, precision: 9, scale: 4);

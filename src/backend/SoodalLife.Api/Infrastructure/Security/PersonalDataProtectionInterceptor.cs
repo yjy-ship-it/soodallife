@@ -58,6 +58,13 @@ public sealed class PersonalDataProtectionInterceptor(
                     if (Changed(entry, nameof(CustomerAddress.DetailAddress))) { address.DetailAddressEncrypted = ProtectNullable(address.DetailAddress); addressProtected = true; }
                     if (addressProtected) address.PrivacyProtectionVersion = Version;
                     break;
+                case ProviderProfile provider:
+                    if (Changed(entry, nameof(ProviderProfile.BusinessAddress)))
+                    {
+                        provider.BusinessAddressEncrypted = ProtectNullable(provider.BusinessAddress);
+                        provider.PrivacyProtectionVersion = Version;
+                    }
+                    break;
                 case ServiceRequest request:
                     if (Changed(entry, nameof(ServiceRequest.DetailAddress)))
                     {

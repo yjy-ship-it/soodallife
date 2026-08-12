@@ -7,6 +7,7 @@ import { LoginPage } from '../pages/LoginPage'
 import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/RolePages'
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
+import { ProviderApprovalPage, ProviderDocumentsPage, ProviderHomePage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
@@ -109,6 +110,8 @@ function ApplicationRoutes() {
   if (pathname === '/policies/electronic-finance') return <LegalDocumentsPage code="ELECTRONIC_FINANCE_GUIDE" />
   if (pathname === '/signup') return <CustomerSignupPage />
   if (pathname === '/password-reset') return <PasswordResetRequestPage />
+  if (pathname === '/provider/start') return <ProviderPublicStartPage />
+  if (pathname === '/provider/signup') return <ProviderSignupPage />
 
   if (status === 'loading') {
     return <main className="loadingScreen" aria-live="polite">인증 상태를 확인하고 있습니다…</main>
@@ -223,6 +226,11 @@ function ApplicationRoutes() {
     if (customerReportMatch) return <CustomerReportsPage id={customerReportMatch[1]} />
     if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
+    if (pathname === '/provider') return <ProviderHomePage />
+    if (pathname === '/provider/onboarding') return <ProviderProfilePage />
+    if (pathname === '/provider/documents') return <ProviderDocumentsPage />
+    if (pathname === '/provider/approval') return <ProviderApprovalPage />
+    if (pathname === '/provider/notifications') return <CustomerNotificationCenterPage />
     if (pathname === '/provider/matched-requests') return <ProviderMatchedRequestListPage />
     if (providerRequestMatch) return <ProviderMatchedRequestDetailPage requestId={providerRequestMatch[1]} />
     if (pathname === '/provider/work') return <WorkTransactionListPage audience="provider" />

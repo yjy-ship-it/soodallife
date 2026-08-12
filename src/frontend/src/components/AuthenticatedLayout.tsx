@@ -3,13 +3,17 @@ import { navigate } from '../auth/routing'
 import { useAuthentication } from '../auth/AuthenticationContext'
 import { ServiceFooter } from './ServiceFooter'
 import { CustomerAppLayout } from '../customer/CustomerAppLayout'
+import { ProviderAppLayout } from '../providers/ProviderAppLayout'
 
 export function AuthenticatedLayout({ children }: PropsWithChildren) {
   const { user, logout } = useAuthentication()
   if (window.location.pathname.startsWith('/customer')) {
     return <CustomerAppLayout>{children}</CustomerAppLayout>
   }
-  const footerVariant = window.location.pathname.startsWith('/provider') ? 'provider' : null
+  if (window.location.pathname.startsWith('/provider')) {
+    return <ProviderAppLayout>{children}</ProviderAppLayout>
+  }
+  const footerVariant = null
 
   const handleLogout = async () => {
     await logout()

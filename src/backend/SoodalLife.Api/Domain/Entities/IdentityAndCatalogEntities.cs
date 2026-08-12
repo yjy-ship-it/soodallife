@@ -173,6 +173,14 @@ public sealed class ProviderProfile
     public long UserId { get; set; }
     public string BusinessName { get; set; } = string.Empty;
     public string? BusinessRegistrationNo { get; set; }
+    public string? RepresentativeName { get; set; }
+    public string? ContactName { get; set; }
+    public string? BusinessAddress { get; set; }
+    public byte[]? BusinessAddressEncrypted { get; set; }
+    public short? PrivacyProtectionVersion { get; set; }
+    public string? BusinessTypeText { get; set; }
+    public string? BusinessItemText { get; set; }
+    public string? Introduction { get; set; }
     public string ApprovalStatusCode { get; set; } = "PENDING";
     public string ActivityStatusCode { get; set; } = "INACTIVE";
     public decimal? TrustScore { get; set; }
