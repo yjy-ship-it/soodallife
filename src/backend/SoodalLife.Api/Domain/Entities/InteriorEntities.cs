@@ -20,6 +20,34 @@ public sealed class InteriorProject
     public DateOnly? ProjectStartDate { get; set; }
     public DateOnly? ExpectedCompletionDate { get; set; }
     public DateOnly? ActualCompletionDate { get; set; }
+    public DateTime? ProviderCompletionSubmittedAt { get; set; }
+    public long? ProviderCompletionSubmittedByUserId { get; set; }
+    public string? ProviderCompletionSummary { get; set; }
+    public string? ProviderFinalChecklistJson { get; set; }
+    public DateTime? CustomerCompletionAcknowledgedAt { get; set; }
+    public long? CustomerCompletionAcknowledgedByUserId { get; set; }
+    public string? CustomerCompletionComment { get; set; }
+    public DateTime? AdminCompletedAt { get; set; }
+    public long? AdminCompletedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class InteriorProjectParticipant
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long InteriorProjectId { get; set; }
+    public long ProviderProfileId { get; set; }
+    public string RoleCode { get; set; } = string.Empty;
+    public DateTime EffectiveFrom { get; set; }
+    public DateTime? EffectiveTo { get; set; }
+    public string StatusCode { get; set; } = "ACTIVE";
+    public bool IsPrimary { get; set; }
+    public string? ScopeText { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -245,6 +273,20 @@ public sealed class InteriorStageInspection
     public string? RequestedCorrectionText { get; set; }
     public DateTime InspectedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class InteriorStageInspectionAcknowledgement
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long StageInspectionId { get; set; }
+    public long CustomerProfileId { get; set; }
+    public DateTime AcknowledgedAt { get; set; }
+    public string? Comment { get; set; }
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
 

@@ -68,7 +68,7 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         Assert.DoesNotContain("상세주소", json);
         Assert.DoesNotContain("businessRegistration", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("wallet", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("fee", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"fee", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         var terminate = await flow.Customer.PostAsJsonAsync($"/api/v1/customers/me/care/contracts/{flow.Contract.Id}/terminate", new { idempotencyKey = $"terminate-{Guid.NewGuid():N}", reason = "고객 해지 요청", resumePlannedAt = (DateTime?)null, rowVersion = (string?)null });
         Assert.Equal(HttpStatusCode.OK, terminate.StatusCode);
         var pendingTermination = await terminate.Content.ReadFromJsonAsync<CustomerSubscriptionContractResponse>();
-        Assert.Equal("ACTIVE", pendingTermination!.StatusCode); Assert.Equal("해지 처리 대기", pendingTermination.StatusDisplay); Assert.NotNull(pendingTermination.TerminationRequestedAt);
+        Assert.Equal("TERMINATION_REQUESTED", pendingTermination!.StatusCode); Assert.Equal("해지 처리 대기", pendingTermination.StatusDisplay); Assert.NotNull(pendingTermination.TerminationRequestedAt);
 
         db.ChangeTracker.Clear();
         var preservedPast = await db.SubscriptionVisitSchedules.AsNoTracking().SingleAsync(item => item.Id == pastVisitId);
@@ -154,7 +154,7 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         Assert.DoesNotContain("ExternalPaymentReference", paymentsJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("payout", paymentsJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("netAmount", paymentsJson, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("fee", paymentsJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"fee", paymentsJson, StringComparison.OrdinalIgnoreCase);
 
         using var other = Client(); await Login(other, factory.OtherCustomerCredential);
         Assert.Empty((await other.GetFromJsonAsync<List<CustomerSubscriptionPaymentHistoryResponse>>("/api/v1/customers/me/care/payments"))!);

@@ -110,6 +110,7 @@ public sealed class SubscriptionContract
     public string? FeePolicySnapshotJson { get; set; }
     public string ServiceScopeSnapshotJson { get; set; } = "{}";
     public string RecurrenceSnapshotJson { get; set; } = "{}";
+    public string CompletionPolicySnapshotJson { get; set; } = "{}";
     public decimal? ProviderTrustScoreSnapshot { get; set; }
     public string CurrencyCode { get; set; } = "KRW";
     public DateTime? NextBillingAt { get; set; }
@@ -134,6 +135,12 @@ public sealed class SubscriptionVisitSchedule
     public DateTime? VisitVerifiedAt { get; set; }
     public string? VisitVerificationMethodCode { get; set; }
     public string? VisitVerificationResultCode { get; set; }
+    public string GpsVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
+    public string PossessionVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
+    public string VisitVerificationStatusCode { get; set; } = "NOT_VERIFIED";
+    public DateTime? VerificationOverrideAt { get; set; }
+    public long? VerificationOverrideByUserId { get; set; }
+    public string? VerificationOverrideReason { get; set; }
     public DateTime? WorkStartedAt { get; set; }
     public DateTime? WorkCompletedAt { get; set; }
     public DateTime? ProviderCompletionSubmittedAt { get; set; }

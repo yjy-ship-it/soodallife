@@ -140,6 +140,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<SubscriptionPayoutEvent> SubscriptionPayoutEvents => Set<SubscriptionPayoutEvent>();
     public DbSet<SubscriptionRefundAdjustment> SubscriptionRefundAdjustments => Set<SubscriptionRefundAdjustment>();
     public DbSet<InteriorProject> InteriorProjects => Set<InteriorProject>();
+    public DbSet<InteriorProjectParticipant> InteriorProjectParticipants => Set<InteriorProjectParticipant>();
     public DbSet<InteriorSiteVisit> InteriorSiteVisits => Set<InteriorSiteVisit>();
     public DbSet<InteriorSiteVisitMeasurement> InteriorSiteVisitMeasurements => Set<InteriorSiteVisitMeasurement>();
     public DbSet<InteriorSiteVisitFile> InteriorSiteVisitFiles => Set<InteriorSiteVisitFile>();
@@ -153,6 +154,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<InteriorWorkUpdate> InteriorWorkUpdates => Set<InteriorWorkUpdate>();
     public DbSet<InteriorWorkUpdateFile> InteriorWorkUpdateFiles => Set<InteriorWorkUpdateFile>();
     public DbSet<InteriorStageInspection> InteriorStageInspections => Set<InteriorStageInspection>();
+    public DbSet<InteriorStageInspectionAcknowledgement> InteriorStageInspectionAcknowledgements => Set<InteriorStageInspectionAcknowledgement>();
     public DbSet<InteriorContractChange> InteriorContractChanges => Set<InteriorContractChange>();
     public DbSet<InteriorDefect> InteriorDefects => Set<InteriorDefect>();
     public DbSet<InteriorProjectEvent> InteriorProjectEvents => Set<InteriorProjectEvent>();

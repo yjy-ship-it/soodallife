@@ -21,7 +21,9 @@ public sealed record ChangeContractStateRequest(string? Reason,DateTime? ResumeP
 public sealed record ReplaceSubscriptionProviderRequest(Guid ProviderId,[param:Required,StringLength(1000)]string Reason,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
 public sealed record RequestScheduleChangeRequest(DateTime ScheduledStartAt,DateTime? ScheduledEndAt,[param:Required,StringLength(2000)]string Reason,[param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record DecideScheduleChangeRequest(bool Approve,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
-public sealed record CompleteSubscriptionVisitRequest(string? VerificationMethodCode,string? VerificationResultCode,string? ChecklistJson,string? CompletionNote,IReadOnlyList<Guid>? FileIds,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
+public sealed record ForceScheduleChangeDecisionRequest(bool Approve,[param:Required,StringLength(1000)]string Reason,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
+public sealed record CompleteSubscriptionVisitRequest(string? VerificationMethodCode,string? VerificationResultCode,string? ChecklistJson,string? CompletionNote,IReadOnlyList<Guid>? FileIds,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion,string? GpsEvidence=null,string? PossessionEvidence=null);
+public sealed record OverrideSubscriptionVisitVerificationRequest([param:Required,StringLength(1000)]string Reason,[param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
 public sealed record ConfirmSubscriptionVisitRequest([param:Required,StringLength(150)]string IdempotencyKey,string? RowVersion);
 public sealed record CreateSubscriptionReviewRequest([param:Required,StringLength(4000)]string BodyText,decimal? OverallRating,[param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record CreateSubscriptionCaseRequest([param:Required,StringLength(200)]string Subject,[param:Required,StringLength(4000)]string Description,[param:Required,StringLength(150)]string IdempotencyKey);

@@ -189,12 +189,13 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         else if (code == "TERMINATE")
         {
             if (contract.StatusCode == "TERMINATED" || contract.TerminationRequestedAt.HasValue) throw Conflict("CONTRACT_STATE_INVALID", "이미 해지되었거나 처리 중인 구독입니다.");
-            contract.TerminationRequestedAt = now; contract.TerminationReason = Clean(input.Reason);
+            contract.StatusCode = "TERMINATION_REQUESTED"; contract.TerminationRequestedAt = now; contract.TerminationReason = Clean(input.Reason);
         }
         else throw Bad("CONTRACT_ACTION_INVALID", "구독 처리유형을 확인해 주세요.");
         contract.UpdatedAt = now; contract.UpdatedByUserId = identity.UserId;
         Event(contract.SubscriptionRequestId, contract.Id, null, code == "PAUSE" ? "PAUSED" : code == "RESUME" ? "RESUMED" : "TERMINATION_REQUESTED",
             identity.UserId, input.IdempotencyKey, now);
+        if (code == "TERMINATE") Audit(identity.UserId, "SUBSCRIPTION_TERMINATION_REQUESTED", "SUBSCRIPTION_CONTRACT", contract.PublicId, input.Reason, now);
         await db.SaveChangesAsync(token);
         return await Contract(contract.Id, identity.ProfileId, token);
     }
@@ -228,6 +229,7 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var now = DateTime.UtcNow;
         ApplyVersion(item, input.RowVersion); item.StatusCode = "CANCELLED"; item.DecidedAt = now; item.DecidedByUserId = identity.UserId; item.UpdatedAt = now;
         Event(row.contract.SubscriptionRequestId, row.contract.Id, row.visit.Id, "SCHEDULE_CHANGE_CANCELLED", identity.UserId, input.IdempotencyKey, now);
+        Audit(identity.UserId, "SCHEDULE_CHANGE_CANCELLED", "SUBSCRIPTION_SCHEDULE_CHANGE", item.PublicId, null, now);
         await db.SaveChangesAsync(token); return MapChange(item);
     }
 
@@ -383,6 +385,9 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
     private void Event(long? requestId, long? contractId, long? visitId, string type, long actor, string key, DateTime now) =>
         db.SubscriptionEvents.Add(new SubscriptionEvent { SubscriptionRequestId = requestId, SubscriptionContractId = contractId,
             SubscriptionVisitScheduleId = visitId, EventTypeCode = type, OccurredAt = now, ActorUserId = actor, IdempotencyKey = key.Trim() });
+    private void Audit(long actor, string action, string entity, Guid id, string? reason, DateTime now) =>
+        db.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = actor, ActorRoleCode = RoleCodes.Customer,
+            ActionCode = action, EntityType = entity, EntityPublicId = id, ResultCode = "SUCCESS", Reason = Clean(reason) });
     private void ApplyVersion(object entity, string? value) { if (!string.IsNullOrWhiteSpace(value)) db.Entry(entity).Property("RowVersion").OriginalValue = Convert.FromBase64String(value); }
     private static SubscriptionRecurrenceResponse MapRule(SubscriptionRecurrenceRule item) => new(item.FrequencyTypeCode, item.IntervalValue,
         item.VisitsPerPeriod, string.IsNullOrWhiteSpace(item.WeekdaysJson) ? [] : System.Text.Json.JsonSerializer.Deserialize<List<int>>(item.WeekdaysJson) ?? [],

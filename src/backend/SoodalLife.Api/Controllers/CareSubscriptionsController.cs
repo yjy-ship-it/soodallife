@@ -19,6 +19,8 @@ public sealed class CareSubscriptionsController(CareSubscriptionService service)
     public Task<ActionResult<SubscriptionContractResponse>> Select(Guid id,SelectSubscriptionProviderRequest input,CancellationToken token)=>Run(()=>service.SelectProvider(id,input,User,token));
     [Authorize(Roles=RoleCodes.Customer+","+RoleCodes.Provider),HttpPost("visits/{id:guid}/schedule-changes")]
     public Task<ActionResult<SubscriptionScheduleChangeResponse>> ScheduleChange(Guid id,RequestScheduleChangeRequest input,CancellationToken token)=>Run(()=>service.RequestScheduleChange(id,input,User,token));
+    [Authorize(Roles=RoleCodes.Customer+","+RoleCodes.Provider),HttpPost("schedule-changes/{id:guid}/decision")]
+    public Task<ActionResult<SubscriptionScheduleChangeResponse>> DecideScheduleChange(Guid id,DecideScheduleChangeRequest input,CancellationToken token)=>Run(()=>service.DecideScheduleChange(id,input,User,token));
     [Authorize(Roles=RoleCodes.Provider),HttpPost("visits/{id:guid}/completion")]
     public Task<ActionResult<SubscriptionVisitResponse>> Complete(Guid id,CompleteSubscriptionVisitRequest input,CancellationToken token)=>Run(()=>service.CompleteVisit(id,input,User,token));
     [Authorize(Roles=RoleCodes.Provider),HttpGet("providers/me/contracts/{id:guid}")]
@@ -51,7 +53,8 @@ public sealed class AdminSubscriptionsController(CareSubscriptionService service
     [HttpPost("contracts/{id:guid}/resume")]public Task<ActionResult<SubscriptionContractResponse>> Resume(Guid id,ChangeContractStateRequest input,CancellationToken token)=>Run(()=>service.ChangeState(id,"RESUME",input,Actor(),token));
     [HttpPost("contracts/{id:guid}/terminate")]public Task<ActionResult<SubscriptionContractResponse>> Terminate(Guid id,ChangeContractStateRequest input,CancellationToken token)=>Run(()=>service.ChangeState(id,"TERMINATE",input,Actor(),token));
     [HttpPost("contracts/{id:guid}/provider")]public Task<ActionResult<SubscriptionContractResponse>> Replace(Guid id,ReplaceSubscriptionProviderRequest input,CancellationToken token)=>Run(()=>service.ReplaceProvider(id,input,Actor(),token));
-    [HttpPost("schedule-changes/{id:guid}/decision")]public Task<ActionResult<SubscriptionScheduleChangeResponse>> Decide(Guid id,DecideScheduleChangeRequest input,CancellationToken token)=>Run(()=>service.DecideScheduleChange(id,input,Actor(),token));
+    [HttpPost("schedule-changes/{id:guid}/force-decision")]public Task<ActionResult<SubscriptionScheduleChangeResponse>> ForceDecide(Guid id,ForceScheduleChangeDecisionRequest input,CancellationToken token)=>Run(()=>service.ForceScheduleChange(id,input,Actor(),token));
+    [HttpPost("visits/{id:guid}/verification-override")]public Task<ActionResult<SubscriptionVisitResponse>> OverrideVerification(Guid id,OverrideSubscriptionVisitVerificationRequest input,CancellationToken token)=>Run(()=>service.OverrideVisitVerification(id,input,Actor(),token));
     [HttpPost("visits/{id:guid}/skip")]public Task<ActionResult<SubscriptionVisitResponse>> Skip(Guid id,[FromBody]Dictionary<string,string> input,CancellationToken token)=>Run(()=>service.SkipVisit(id,input.GetValueOrDefault("idempotencyKey")??string.Empty,Actor(),token));
     private Guid Actor()=>Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private async Task<ActionResult<T>> Run<T>(Func<Task<T>> action){try{return Ok(await action());}catch(SubscriptionBusinessException e){return StatusCode(e.StatusCode,ApiErrorResponse.Create(HttpContext,e.BusinessCode,e.Message));}}
