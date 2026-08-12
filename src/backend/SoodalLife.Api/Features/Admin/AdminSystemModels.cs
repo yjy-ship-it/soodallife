@@ -42,6 +42,8 @@ public sealed record AdminIntegrationStatus(string Code, string Label, string St
 public sealed record AdminManagedSetting(string Area, string Source, string Path, string Note);
 public sealed record AdminAccountSummary(Guid Id, string LoginId, string Status, IReadOnlyList<string> Roles, DateTime CreatedAt, DateTime? LastLoginAt);
 public sealed record AdminDatabaseStatus(string Connection, string MigrationStatus, int PendingMigrationCount, IReadOnlyList<string> PendingMigrations);
+public sealed record AdminAutomationJobStatus(string Name, string ConfigurationStatus, bool Enabled, DateTime? LastStartedAt, DateTime? LastSucceededAt, DateTime? LastFailedAt, string? LastErrorCode, DateTime? NextScheduledAt, int ProcessingCount, int FailedCount);
+public sealed record AdminRetentionCandidateSummary(string Domain, long CandidateCount, string ActionStatus, string ReasonCode);
 
 public sealed record AdminSystemStatusResponse(
     DateTime GeneratedAt,
@@ -52,7 +54,9 @@ public sealed record AdminSystemStatusResponse(
     IReadOnlyList<AdminIntegrationStatus> Integrations,
     IReadOnlyList<AdminManagedSetting> ManagedSettings,
     IReadOnlyList<AdminAccountSummary> Administrators,
-    IReadOnlyList<string> SecurityLimitations);
+    IReadOnlyList<string> SecurityLimitations,
+    IReadOnlyList<AdminAutomationJobStatus> AutomationJobs,
+    IReadOnlyList<AdminRetentionCandidateSummary> RetentionCandidates);
 
 public sealed class AdminSystemException(string businessCode, string message, int statusCode = 400) : Exception(message)
 {

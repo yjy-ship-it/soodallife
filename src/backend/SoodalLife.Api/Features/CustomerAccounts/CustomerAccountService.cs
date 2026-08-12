@@ -9,13 +9,16 @@ using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Infrastructure.Security;
 
 namespace SoodalLife.Api.Features.CustomerAccounts;
 
 public sealed partial class CustomerAccountService(
     SoodalLifeDbContext db,
     IPasswordHasher<User> passwordHasher,
-    IPasswordResetDeliveryAdapter resetDelivery)
+    IPasswordResetDeliveryAdapter resetDelivery,
+    IPersonalDataSearchHasher searchHasher,
+    IPersonalDataReader personalDataReader)
 {
     public async Task<AvailabilityResponse> LoginIdAvailable(string value, CancellationToken token)
     {
@@ -28,7 +31,10 @@ public sealed partial class CustomerAccountService(
     {
         var normalized = NormalizeEmail(value);
         EnsureEmail(normalized);
-        return new(!await db.Users.AsNoTracking().AnyAsync(x => x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized, token), normalized.ToLowerInvariant());
+        var exists = searchHasher.IsConfigured
+            ? await db.Users.AsNoTracking().AnyAsync(x => x.EmailSearchHash != null && x.EmailSearchHash.SequenceEqual(searchHasher.Email(value)) || x.EmailSearchHash == null && (x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized), token)
+            : await db.Users.AsNoTracking().AnyAsync(x => x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized, token);
+        return new(!exists, normalized.ToLowerInvariant());
     }
 
     public Task<List<LegalDocumentResponse>> ActiveDocuments(CancellationToken token)
@@ -55,7 +61,7 @@ public sealed partial class CustomerAccountService(
         EnsurePassword(input.Password, input.PasswordConfirmation);
 
         if (await db.Users.AnyAsync(x => x.NormalizedLoginId == normalizedLogin, token)) throw Conflict("LOGIN_ID_DUPLICATE", "이미 사용 중인 아이디입니다.");
-        if (await db.Users.AnyAsync(x => x.NormalizedEmail == email.ToUpper() || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == email.ToUpper(), token)) throw Conflict("EMAIL_DUPLICATE", "이미 사용 중인 이메일입니다.");
+        if (!(await EmailAvailable(email, token)).Available) throw Conflict("EMAIL_DUPLICATE", "이미 사용 중인 이메일입니다.");
 
         var now = DateTime.UtcNow;
         var activeVersions = await (from document in db.LegalDocuments
@@ -108,12 +114,14 @@ public sealed partial class CustomerAccountService(
     public async Task<CustomerProfileResponse> Profile(ClaimsPrincipal principal, CancellationToken token)
     {
         var id = PublicUserId(principal);
-        return await (from user in db.Users.AsNoTracking()
+        var row = await (from user in db.Users.AsNoTracking()
                       join profile in db.CustomerProfiles.AsNoTracking() on user.Id equals profile.UserId
                       where user.PublicId == id
-                      select new CustomerProfileResponse(profile.DisplayName, user.LoginId, user.Email, FormatPhone(user.Phone),
-                          user.EmailVerificationStatusCode, user.PhoneVerificationStatusCode, user.StatusCode, user.CreatedAt, user.LastLoginAt))
-            .SingleOrDefaultAsync(token) ?? throw NotFound("CUSTOMER_PROFILE_NOT_FOUND", "고객 프로필을 찾을 수 없습니다.");
+                      select new { profile.DisplayName, User = user }).SingleOrDefaultAsync(token)
+            ?? throw NotFound("CUSTOMER_PROFILE_NOT_FOUND", "고객 프로필을 찾을 수 없습니다.");
+        return new(row.DisplayName, row.User.LoginId, personalDataReader.Read(row.User.EmailEncrypted, row.User.Email),
+            FormatPhone(personalDataReader.Read(row.User.PhoneEncrypted, row.User.Phone)), row.User.EmailVerificationStatusCode,
+            row.User.PhoneVerificationStatusCode, row.User.StatusCode, row.User.CreatedAt, row.User.LastLoginAt);
     }
 
     public async Task<CustomerProfileResponse> UpdateProfile(ClaimsPrincipal principal, UpdateCustomerProfileRequest input, CancellationToken token)
@@ -124,7 +132,10 @@ public sealed partial class CustomerAccountService(
         {
             EnsureEmail(email);
             var normalized = email.ToUpperInvariant();
-            if (await db.Users.AnyAsync(x => x.Id != identity.User.Id && (x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized), token))
+            var duplicate = searchHasher.IsConfigured
+                ? await db.Users.AnyAsync(x => x.Id != identity.User.Id && (x.EmailSearchHash != null && x.EmailSearchHash.SequenceEqual(searchHasher.Email(email)) || x.EmailSearchHash == null && (x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized)), token)
+                : await db.Users.AnyAsync(x => x.Id != identity.User.Id && (x.NormalizedEmail == normalized || x.NormalizedEmail == null && x.Email != null && x.Email.ToUpper() == normalized), token);
+            if (duplicate)
                 throw Conflict("EMAIL_DUPLICATE", "이미 사용 중인 이메일입니다.");
         }
         var phone = string.IsNullOrWhiteSpace(input.Phone) ? null : NormalizePhone(input.Phone);
@@ -143,14 +154,17 @@ public sealed partial class CustomerAccountService(
     public async Task<List<CustomerAddressResponse>> Addresses(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Identity(principal, token);
-        return await (from address in db.CustomerAddresses.AsNoTracking()
+        var rows = await (from address in db.CustomerAddresses.AsNoTracking()
                       join area in db.AdministrativeAreas.AsNoTracking() on address.AdministrativeAreaId equals area.Id into areaGroup
                       from area in areaGroup.DefaultIfEmpty()
                       where address.CustomerProfileId == identity.Profile.Id && address.IsActive
                       orderby address.IsDefault descending, address.CreatedAt descending
-                      select new CustomerAddressResponse(address.PublicId, address.AddressName, address.RecipientName, address.PostalCode,
-                          address.RoadAddress, address.DetailAddress, area == null ? null : area.PublicId, area == null ? null : area.AreaName,
-                          address.Latitude, address.Longitude, address.IsDefault, Convert.ToBase64String(address.RowVersion))).ToListAsync(token);
+                      select new { Address = address, AreaId = area == null ? (Guid?)null : area.PublicId, AreaName = area == null ? null : area.AreaName }).ToListAsync(token);
+        return rows.Select(row => new CustomerAddressResponse(row.Address.PublicId, row.Address.AddressName,
+            personalDataReader.Read(row.Address.RecipientNameEncrypted, row.Address.RecipientName), row.Address.PostalCode,
+            personalDataReader.Read(row.Address.RoadAddressEncrypted, row.Address.RoadAddress) ?? string.Empty,
+            personalDataReader.Read(row.Address.DetailAddressEncrypted, row.Address.DetailAddress) ?? string.Empty,
+            row.AreaId, row.AreaName, row.Address.Latitude, row.Address.Longitude, row.Address.IsDefault, Convert.ToBase64String(row.Address.RowVersion))).ToList();
     }
 
     public async Task<CustomerAddressResponse> CreateAddress(ClaimsPrincipal principal, SaveCustomerAddressRequest input, CancellationToken token)

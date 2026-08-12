@@ -54,7 +54,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             services.RemoveAll<DbContextOptions<SoodalLifeDbContext>>();
             services.RemoveAll<SoodalLifeDbContext>();
             services.AddDbContext<SoodalLifeDbContext>((provider, options) => options.UseInMemoryDatabase(_databaseName)
-                .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>()));
+                .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>(), provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataReadInterceptor>()));
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }

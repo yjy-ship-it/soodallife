@@ -488,8 +488,53 @@ internal sealed class OutboxEventConfiguration() : EntityConfiguration<OutboxEve
         b.HasIndex(x => new { x.StatusCode, x.AvailableAt, x.Id });
         b.ToTable("outbox_events", t =>
         {
-            t.HasCheckConstraint("CK_outbox_events_status", "[status_code] IN ('PENDING','PROCESSING','PUBLISHED','FAILED')");
+            t.HasCheckConstraint("CK_outbox_events_status", "[status_code] IN ('PENDING','PROCESSING','PUBLISHED','FAILED','DEAD')");
             t.HasCheckConstraint("CK_outbox_events_payload_json", "ISJSON([payload_json]) = 1");
         });
+    }
+}
+
+
+internal sealed class ScheduledJobLeaseConfiguration() : EntityConfiguration<ScheduledJobLease>("scheduled_job_leases")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ScheduledJobLease> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.String(b, nameof(ScheduledJobLease.JobName), "job_name", 100, unicode: false);
+        Mapping.String(b, nameof(ScheduledJobLease.ConfigurationStatusCode), "configuration_status_code", 30, unicode: false);
+        Mapping.String(b, nameof(ScheduledJobLease.LeaseOwner), "lease_owner", 150, nullable: true, unicode: false);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.LeaseExpiresAt), "lease_expires_at", nullable: true);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.LastStartedAt), "last_started_at", nullable: true);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.LastSucceededAt), "last_succeeded_at", nullable: true);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.LastFailedAt), "last_failed_at", nullable: true);
+        Mapping.String(b, nameof(ScheduledJobLease.LastErrorCode), "last_error_code", 100, nullable: true, unicode: false);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.NextScheduledAt), "next_scheduled_at", nullable: true);
+        Mapping.Int(b, nameof(ScheduledJobLease.ProcessingCount), "processing_count", 0);
+        Mapping.Int(b, nameof(ScheduledJobLease.FailedCount), "failed_count", 0);
+        Mapping.DateTime(b, nameof(ScheduledJobLease.UpdatedAt), "updated_at", utcDefault: true);
+        Mapping.RowVersion(b);
+        b.HasIndex(x => x.JobName).IsUnique();
+        b.HasIndex(x => new { x.ConfigurationStatusCode, x.NextScheduledAt });
+        b.HasIndex(x => x.LeaseExpiresAt);
+        b.ToTable("scheduled_job_leases", t => t.HasCheckConstraint("CK_scheduled_job_leases_configuration", "[configuration_status_code] IN ('ENABLED','DISABLED','NOT_CONFIGURED')"));
+    }
+}
+
+internal sealed class ScheduledJobRunConfiguration() : EntityConfiguration<ScheduledJobRun>("scheduled_job_runs")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ScheduledJobRun> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.String(b, nameof(ScheduledJobRun.JobName), "job_name", 100, unicode: false);
+        Mapping.String(b, nameof(ScheduledJobRun.InstanceId), "instance_id", 150, unicode: false);
+        Mapping.String(b, nameof(ScheduledJobRun.StatusCode), "status_code", 20, unicode: false);
+        Mapping.DateTime(b, nameof(ScheduledJobRun.StartedAt), "started_at");
+        Mapping.DateTime(b, nameof(ScheduledJobRun.CompletedAt), "completed_at", nullable: true);
+        Mapping.Int(b, nameof(ScheduledJobRun.ProcessedCount), "processed_count", 0);
+        Mapping.Int(b, nameof(ScheduledJobRun.FailedCount), "failed_count", 0);
+        Mapping.String(b, nameof(ScheduledJobRun.ErrorCode), "error_code", 100, nullable: true, unicode: false);
+        b.HasIndex(x => new { x.JobName, x.StartedAt }).IsDescending(false, true);
+        b.HasIndex(x => x.StatusCode);
+        b.ToTable("scheduled_job_runs", t => t.HasCheckConstraint("CK_scheduled_job_runs_status", "[status_code] IN ('RUNNING','SUCCEEDED','FAILED','SKIPPED')"));
     }
 }

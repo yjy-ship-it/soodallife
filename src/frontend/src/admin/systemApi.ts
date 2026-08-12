@@ -9,6 +9,11 @@ async function call<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+async function command(path: string) {
+  const response = await fetch(path, { method: 'POST', credentials: 'include' })
+  if (!response.ok) throw new Error((await response.json().catch(() => null) as { message?: string } | null)?.message ?? '작업을 요청하지 못했습니다.')
+}
+
 export function getSystemStatus() {
   return call<SystemStatusResponse>('/api/v1/admin/system/status')
 }
@@ -23,3 +28,5 @@ export function getAuditLogs(filters: AuditFilters) {
   query.set('page', String(filters.page ?? 1))
   return call<AuditLogResponse>(`/api/v1/admin/audit-logs?${query.toString()}`)
 }
+
+export function retryOutbox(id: string) { return command(`/api/v1/admin/system/outbox/${id}/retry`) }

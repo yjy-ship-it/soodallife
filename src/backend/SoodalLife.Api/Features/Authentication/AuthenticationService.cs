@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Infrastructure.Security;
 
 namespace SoodalLife.Api.Features.Authentication;
 
@@ -12,7 +13,8 @@ public interface IAuthenticationService
 
 internal sealed class AuthenticationService(
     SoodalLifeDbContext dbContext,
-    IPasswordHasher<User> passwordHasher) : IAuthenticationService
+    IPasswordHasher<User> passwordHasher,
+    IPersonalDataSearchHasher searchHasher) : IAuthenticationService
 {
     public async Task<AuthenticatedUserResponse?> AuthenticateAsync(
         string loginOrEmail,
@@ -22,12 +24,15 @@ internal sealed class AuthenticationService(
         var identifier = loginOrEmail.Trim();
         var normalizedIdentifier = identifier.ToUpperInvariant();
 
-        var user = await dbContext.Users
-            .SingleOrDefaultAsync(
-                candidate => candidate.NormalizedLoginId == normalizedIdentifier ||
-                             candidate.NormalizedEmail == normalizedIdentifier ||
-                             candidate.NormalizedEmail == null && candidate.Email != null && candidate.Email.ToUpper() == normalizedIdentifier,
-                cancellationToken);
+        User? user;
+        if (identifier.Contains('@') && searchHasher.IsConfigured)
+        {
+            var hash = searchHasher.Email(identifier);
+            user = await dbContext.Users.SingleOrDefaultAsync(candidate =>
+                candidate.EmailSearchHash != null && candidate.EmailSearchHash.SequenceEqual(hash) ||
+                candidate.EmailSearchHash == null && (candidate.NormalizedEmail == normalizedIdentifier || candidate.NormalizedEmail == null && candidate.Email != null && candidate.Email.ToUpper() == normalizedIdentifier), cancellationToken);
+        }
+        else user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.NormalizedLoginId == normalizedIdentifier, cancellationToken);
 
         if (user is null || user.StatusCode != "ACTIVE")
         {

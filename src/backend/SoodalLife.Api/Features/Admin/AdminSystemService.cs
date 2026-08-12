@@ -128,6 +128,9 @@ public sealed partial class AdminSystemService(SoodalLifeDbContext db)
                               join role in db.Roles.AsNoTracking() on link.RoleId equals role.Id
                               where adminIds.Contains(link.UserId) && link.RevokedAt == null && role.IsActive
                               select new { link.UserId, role.Code }).ToListAsync(token);
+        var jobRows = await db.ScheduledJobLeases.AsNoTracking().OrderBy(x => x.JobName).ToListAsync(token);
+        var expiredPasswordResets = await db.PasswordResetRequests.AsNoTracking().LongCountAsync(x => x.UsedAt == null && x.ExpiresAt <= DateTime.UtcNow, token);
+        var withdrawalCandidates = await db.CustomerWithdrawalRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "APPROVED", token);
 
         return new(DateTime.UtcNow,
             new(canConnect ? "CONNECTED" : "UNAVAILABLE", migrationStatus, pendingMigrations.Count, pendingMigrations),
@@ -160,7 +163,29 @@ public sealed partial class AdminSystemService(SoodalLifeDbContext db)
                 "관리자 MFA, IP·기기 정책, 재인증 및 대량 다운로드 경보는 미구현입니다.",
                 "Outbox 재처리는 멱등성과 중복 실행 안전성이 검증되지 않아 제공하지 않습니다.",
                 "개발 파일 저장소는 시그니처 검증만 수행하며 악성코드 검사 연동은 미구현입니다.",
+            ],
+            jobRows.Select(x => new AdminAutomationJobStatus(x.JobName, x.ConfigurationStatusCode, x.ConfigurationStatusCode == "ENABLED",
+                x.LastStartedAt, x.LastSucceededAt, x.LastFailedAt, x.LastErrorCode, x.NextScheduledAt, x.ProcessingCount, x.FailedCount)).ToArray(),
+            [
+                new("PASSWORD_RESET", expiredPasswordResets, "REPORT_ONLY", "RETENTION_PERIOD_POLICY_REQUIRED"),
+                new("CUSTOMER_WITHDRAWAL", withdrawalCandidates, "REPORT_ONLY", "RETENTION_AND_LEGAL_HOLD_POLICY_REQUIRED"),
+                new("FILE", 0, "NOT_CONFIGURED", "FILE_RETENTION_POLICY_REQUIRED"),
+                new("PERSONAL_DATA", 0, "NOT_CONFIGURED", "DOMAIN_RETENTION_POLICY_REQUIRED"),
             ]);
+    }
+
+    public async Task RequestOutboxRetryAsync(Guid id, Guid actorPublicId, CancellationToken token)
+    {
+        var actor = await (from user in db.Users join link in db.UserRoles on user.Id equals link.UserId join role in db.Roles on link.RoleId equals role.Id
+                           where user.PublicId == actorPublicId && user.StatusCode == "ACTIVE" && link.RevokedAt == null && role.Code == RoleCodes.Admin
+                           select (long?)user.Id).SingleOrDefaultAsync(token) ?? throw new AdminSystemException("ADMIN_REQUIRED", "관리자 권한이 필요합니다.", 403);
+        var row = await db.OutboxEvents.SingleOrDefaultAsync(x => x.PublicId == id, token) ?? throw new AdminSystemException("OUTBOX_NOT_FOUND", "Outbox Event를 찾을 수 없습니다.", 404);
+        if (row.StatusCode is not ("FAILED" or "DEAD")) throw new AdminSystemException("OUTBOX_RETRY_STATE_INVALID", "실패 또는 중단 상태의 Event만 재처리할 수 있습니다.", 409);
+        row.StatusCode = "PENDING"; row.AvailableAt = DateTime.UtcNow; row.ErrorMessage = null;
+        db.AuditLogs.Add(new() { OccurredAt = DateTime.UtcNow, ActorUserId = actor, ActorRoleCode = RoleCodes.Admin,
+            ActionCode = "OUTBOX_RETRY_REQUESTED", EntityType = "OUTBOX_EVENT", EntityPublicId = row.PublicId, ResultCode = "SUCCESS",
+            AfterJson = JsonSerializer.Serialize(new { status = "PENDING", existingEvent = true }) });
+        await db.SaveChangesAsync(token);
     }
 
     private static AdminSystemMetric Metric(string code, string label, long count, string severity, string path) => new(code, label, count, severity, path);

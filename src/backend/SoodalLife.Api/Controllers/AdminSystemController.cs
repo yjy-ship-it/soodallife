@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SoodalLife.Api.Features.Admin;
 using SoodalLife.Api.Features.Authentication;
+using System.Security.Claims;
 
 namespace SoodalLife.Api.Controllers;
 
@@ -17,6 +18,18 @@ public sealed class AdminSystemController(AdminSystemService service) : Controll
     [HttpGet("system/status")]
     public Task<ActionResult<AdminSystemStatusResponse>> Status(CancellationToken token) =>
         Execute(() => service.GetSystemStatusAsync(token));
+
+    [HttpPost("system/outbox/{id:guid}/retry")]
+    public async Task<ActionResult> RetryOutbox(Guid id, CancellationToken token)
+    {
+        try
+        {
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actor)) return Unauthorized();
+            await service.RequestOutboxRetryAsync(id, actor, token);
+            return NoContent();
+        }
+        catch (AdminSystemException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }
+    }
 
     private async Task<ActionResult<T>> Execute<T>(Func<Task<T>> action)
     {

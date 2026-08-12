@@ -583,3 +583,36 @@ public sealed class OutboxEvent
     public long? CreatedByUserId { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
+
+public sealed class ScheduledJobLease
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string JobName { get; set; } = string.Empty;
+    public string ConfigurationStatusCode { get; set; } = "DISABLED";
+    public string? LeaseOwner { get; set; }
+    public DateTime? LeaseExpiresAt { get; set; }
+    public DateTime? LastStartedAt { get; set; }
+    public DateTime? LastSucceededAt { get; set; }
+    public DateTime? LastFailedAt { get; set; }
+    public string? LastErrorCode { get; set; }
+    public DateTime? NextScheduledAt { get; set; }
+    public int ProcessingCount { get; set; }
+    public int FailedCount { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ScheduledJobRun
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string JobName { get; set; } = string.Empty;
+    public string InstanceId { get; set; } = string.Empty;
+    public string StatusCode { get; set; } = "RUNNING";
+    public DateTime StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public int ProcessedCount { get; set; }
+    public int FailedCount { get; set; }
+    public string? ErrorCode { get; set; }
+}

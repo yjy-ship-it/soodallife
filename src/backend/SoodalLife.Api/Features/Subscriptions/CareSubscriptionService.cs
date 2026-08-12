@@ -15,6 +15,21 @@ public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradi
     private const int RollingWindowDays=90;
     private static readonly string[] Frequencies=["WEEKLY","BIWEEKLY","MONTHLY","QUARTERLY","HALF_YEARLY"];
 
+    public async Task<int> GenerateRollingWindows(CancellationToken token)
+    {
+        var now = DateTime.UtcNow;
+        var rows = await (from contract in db.SubscriptionContracts
+                          join rule in db.SubscriptionRecurrenceRules on contract.SubscriptionRequestId equals rule.SubscriptionRequestId
+                          join provider in db.ProviderProfiles on contract.ProviderProfileId equals provider.Id
+                          where contract.StatusCode == "ACTIVE"
+                          select new { Contract = contract, Rule = rule, provider.UserId }).ToListAsync(token);
+        var before = await db.SubscriptionVisitSchedules.CountAsync(token);
+        foreach (var row in rows)
+            await GenerateVisits(row.Contract, row.Rule, row.Contract.UpdatedByUserId ?? row.Contract.CreatedByUserId ?? row.UserId, now, token);
+        await db.SaveChangesAsync(token);
+        return await db.SubscriptionVisitSchedules.CountAsync(token) - before;
+    }
+
     public async Task<IReadOnlyList<SubscriptionServiceItem>> GetEligibleServices(CancellationToken token)
     {
         var today=DateOnly.FromDateTime(DateTime.UtcNow);

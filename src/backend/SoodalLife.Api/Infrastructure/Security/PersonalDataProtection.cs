@@ -11,6 +11,19 @@ public sealed class PrivacyProtectionOptions
     public const string SectionName = "PrivacyProtection";
     public bool DualWriteEnabled { get; set; }
     public string? SearchHashKey { get; set; }
+    public bool EncryptedReadEnabled { get; set; }
+    public int BackfillBatchSize { get; set; } = 200;
+}
+
+public interface IPersonalDataReader
+{
+    string? Read(byte[]? encrypted, string? plaintext);
+}
+
+public sealed class EncryptedFirstPersonalDataReader(IPersonalDataProtector protector, IOptions<PrivacyProtectionOptions> options) : IPersonalDataReader
+{
+    public string? Read(byte[]? encrypted, string? plaintext) =>
+        options.Value.EncryptedReadEnabled && encrypted is { Length: > 0 } ? protector.Unprotect(encrypted) : plaintext;
 }
 
 public static class PersonalDataNormalizer

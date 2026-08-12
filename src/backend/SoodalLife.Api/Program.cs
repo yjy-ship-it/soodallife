@@ -20,6 +20,7 @@ using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Emergency;
 using SoodalLife.Api.Features.Chat;
 using SoodalLife.Api.Features.CustomerAccounts;
+using SoodalLife.Api.Features.Automation;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
@@ -37,8 +38,10 @@ builder.Services.AddDataProtection().SetApplicationName("SoodalLife");
 builder.Services.Configure<PrivacyProtectionOptions>(builder.Configuration.GetSection(PrivacyProtectionOptions.SectionName));
 builder.Services.AddSingleton<SoodalLife.Api.Infrastructure.Security.IPersonalDataProtector, DataProtectionPersonalDataProtector>();
 builder.Services.AddSingleton<IPersonalDataSearchHasher, HmacPersonalDataSearchHasher>();
+builder.Services.AddSingleton<IPersonalDataReader, EncryptedFirstPersonalDataReader>();
 builder.Services.AddSingleton<IPrivacyContract, PrivacyContract>();
 builder.Services.AddSingleton<PersonalDataProtectionInterceptor>();
+builder.Services.AddSingleton<PersonalDataReadInterceptor>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<CustomerAccountService>();
@@ -105,6 +108,18 @@ builder.Services.AddScoped<ProviderEmergencyAvailabilityService>();
 builder.Services.AddScoped<EmergencyWorkflowService>();
 builder.Services.AddScoped<NotificationManagementService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.Configure<AutomationOptions>(builder.Configuration.GetSection(AutomationOptions.SectionName));
+builder.Services.AddScoped<OutboxProcessor>();
+builder.Services.AddScoped<PrivacyBackfillService>();
+builder.Services.AddScoped<ScheduledJobRunner>();
+builder.Services.AddScoped<IAutomationJob, OutboxAutomationJob>();
+builder.Services.AddScoped<IAutomationJob, PasswordResetExpiryJob>();
+builder.Services.AddScoped<IAutomationJob, SubscriptionVisitGeneratorJob>();
+builder.Services.AddScoped<IAutomationJob, EmergencyExpiryJob>();
+builder.Services.AddScoped<IAutomationJob>(_ => new NotConfiguredAutomationJob("PRIVACY_RETENTION_SCAN"));
+builder.Services.AddScoped<IAutomationJob>(_ => new NotConfiguredAutomationJob("FILE_RETENTION_SCAN"));
+builder.Services.AddScoped<IAutomationJob>(_ => new NotConfiguredAutomationJob("VERIFICATION_EXPIRY_SCAN"));
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<OperationsAutomationWorker>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<INotificationChannelSender,WebNotificationChannelSender>();
 builder.Services.AddSingleton<INotificationChannelSender,UnavailableExternalNotificationChannelSender>();
@@ -134,12 +149,12 @@ if (!builder.Environment.IsEnvironment("Testing"))
     }
 
     builder.Services.AddDbContext<SoodalLifeDbContext>((services, options) =>
-        options.UseSqlServer(connectionString).AddInterceptors(services.GetRequiredService<PersonalDataProtectionInterceptor>()));
+        options.UseSqlServer(connectionString).AddInterceptors(services.GetRequiredService<PersonalDataProtectionInterceptor>(), services.GetRequiredService<PersonalDataReadInterceptor>()));
 }
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() && !args.Contains("--privacy-backfill", StringComparer.OrdinalIgnoreCase))
 {
     app.MapOpenApi();
 
@@ -163,6 +178,18 @@ if (importArgumentIndex >= 0)
     await using var scope = app.Services.CreateAsyncScope();
     var importer = scope.ServiceProvider.GetRequiredService<CatalogReferenceDataImporter>();
     await importer.ImportAsync(args[importArgumentIndex + 1], includeDevelopmentAreas: true);
+    return;
+}
+
+if (args.Contains("--privacy-backfill", StringComparer.OrdinalIgnoreCase))
+{
+    if (!app.Environment.IsDevelopment()) throw new InvalidOperationException("Privacy backfill is restricted to the Development environment.");
+    await using var scope = app.Services.CreateAsyncScope();
+    var service = scope.ServiceProvider.GetRequiredService<PrivacyBackfillService>();
+    if (!service.IsReady) throw new InvalidOperationException("Privacy backfill requires the existing secure Data Protection key ring and HMAC key.");
+    _ = await service.ValidatePreconditionsAsync(CancellationToken.None);
+    PrivacyBackfillResult result;
+    do { result = await service.BackfillBatchAsync(CancellationToken.None); } while (result.UpdatedCount > 0);
     return;
 }
 

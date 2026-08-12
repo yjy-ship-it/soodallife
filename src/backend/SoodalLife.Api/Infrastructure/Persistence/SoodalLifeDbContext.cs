@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Infrastructure.Security;
 
 namespace SoodalLife.Api.Infrastructure.Persistence;
 
@@ -95,6 +96,8 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<DisputeResolution> DisputeResolutions => Set<DisputeResolution>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<ScheduledJobLease> ScheduledJobLeases => Set<ScheduledJobLease>();
+    public DbSet<ScheduledJobRun> ScheduledJobRuns => Set<ScheduledJobRun>();
     public DbSet<AdvertisingPlacement> AdvertisingPlacements => Set<AdvertisingPlacement>();
     public DbSet<AdvertisingCampaign> AdvertisingCampaigns => Set<AdvertisingCampaign>();
     public DbSet<AdvertisingCampaignPlacement> AdvertisingCampaignPlacements => Set<AdvertisingCampaignPlacement>();
@@ -189,6 +192,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureInteriorProjectEventsAreAppendOnly();
         EnsureNotificationHistoryIsAppendOnly();
         EnsureEmergencyProgressEventsAreAppendOnly();
+        EnsureScheduledJobRunsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -203,6 +207,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureInteriorProjectEventsAreAppendOnly();
         EnsureNotificationHistoryIsAppendOnly();
         EnsureEmergencyProgressEventsAreAppendOnly();
+        EnsureScheduledJobRunsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -210,6 +215,8 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<AuditLog>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("감사로그는 수정하거나 삭제할 수 없습니다.");
+        foreach (var entry in ChangeTracker.Entries<AuditLog>().Where(entry => entry.State == EntityState.Added))
+            SecurityTextSanitizer.Sanitize(entry.Entity);
     }
 
     private void EnsureWalletLedgerIsAppendOnly()
@@ -262,5 +269,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     {
         if (ChangeTracker.Entries<EmergencyProgressEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("긴급출동 진행 이벤트는 수정하거나 삭제할 수 없습니다. 정정은 새 이벤트로 기록해 주세요.");
+    }
+
+    private void EnsureScheduledJobRunsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<ScheduledJobRun>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Scheduled job run history is append-only.");
     }
 }
