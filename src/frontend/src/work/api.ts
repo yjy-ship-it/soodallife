@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { AppointmentChange, CompletionConfirmation, CompletionEvidence, CustomerAfterService, CustomerDispute, CustomerReport, CustomerReportType, RatingItem, ReviewResponse, ServiceHistoryDetail, ServiceHistoryItem, TransactionAppointment, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
+import type { AppointmentChange, CompletionConfirmation, CompletionEvidence, CustomerAfterService, CustomerDispute, CustomerReport, CustomerReportType, RatingItem, ReviewResponse, ServiceHistoryDetail, ServiceHistoryItem, TransactionAppointment, TransactionCancellation, WorkCompletionRevision, WorkTransactionDetail, WorkTransactionListItem } from './types'
 
 async function read<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -10,8 +10,13 @@ async function read<T>(response: Response): Promise<T> {
   return await response.json() as T
 }
 export const getAppointment = (id: string) => fetch(`/api/v1/transactions/${id}/appointment`, { credentials: 'include' }).then(read<TransactionAppointment | null>)
-export const createAppointment = (id:string,scheduledStartAt:string,scheduledEndAt:string|null,estimatedDurationMinutes:number|null,customerMemo:string|null)=>json('POST',`/api/v1/customers/me/transactions/${id}/appointment`,{scheduledStartAt,scheduledEndAt,estimatedDurationMinutes,customerMemo}).then(read<TransactionAppointment>)
-export const requestAppointmentChange=(id:string,requestedStartAt:string,requestedEndAt:string|null,reason:string)=>json('POST',`/api/v1/customers/me/transactions/${id}/appointment-change-requests`,{requestedStartAt,requestedEndAt,reason,idempotencyKey:crypto.randomUUID()}).then(read<AppointmentChange>)
+export const proposeAppointment = (id:string,scheduledStartAt:string,scheduledEndAt:string|null,estimatedDurationMinutes:number|null,memo:string|null)=>json('POST',`/api/v1/transactions/${id}/appointment-proposals`,{scheduledStartAt,scheduledEndAt,estimatedDurationMinutes,memo,idempotencyKey:crypto.randomUUID()}).then(read<TransactionAppointment>)
+export const decideAppointment=(id:string,decision:'APPROVE'|'REJECT',reason:string|null,rowVersion:string)=>json('POST',`/api/v1/transactions/${id}/appointment/decision`,{decision,reason,idempotencyKey:crypto.randomUUID(),rowVersion}).then(read<TransactionAppointment>)
+export const requestAppointmentChange=(id:string,requestedStartAt:string|null,requestedEndAt:string|null,reason:string,changeType:'RESCHEDULE'|'CANCEL'='RESCHEDULE')=>json('POST',`/api/v1/transactions/${id}/appointment-change-requests`,{requestedStartAt,requestedEndAt,reason,idempotencyKey:crypto.randomUUID(),changeType}).then(read<AppointmentChange>)
+export const decideAppointmentChange=(id:string,requestId:string,decision:'APPROVE'|'REJECT',note:string|null,rowVersion:string)=>json('POST',`/api/v1/transactions/${id}/appointment-change-requests/${requestId}/decision`,{decision,note,idempotencyKey:crypto.randomUUID(),rowVersion}).then(read<AppointmentChange>)
+export const getCancellationRequests=(id:string)=>fetch(`/api/v1/transactions/${id}/cancellation-requests`,{credentials:'include'}).then(read<TransactionCancellation[]>)
+export const requestTransactionCancellation=(id:string,reason:string)=>json('POST',`/api/v1/transactions/${id}/cancellation-requests`,{reason,idempotencyKey:crypto.randomUUID()}).then(read<TransactionCancellation>)
+export const decideTransactionCancellation=(id:string,requestId:string,decision:'APPROVE'|'REJECT',note:string|null,rowVersion:string)=>json('POST',`/api/v1/transactions/${id}/cancellation-requests/${requestId}/decision`,{decision,note,idempotencyKey:crypto.randomUUID(),rowVersion}).then(read<TransactionCancellation>)
 export const getRatingItems=()=>fetch('/api/v1/customers/me/review-rating-items',{credentials:'include'}).then(read<RatingItem[]>)
 export const createReview=(id:string,bodyText:string,ratings:Array<{ratingItemId:string;ratingValue:number}>,fileIds:string[])=>json('POST',`/api/v1/customers/me/transactions/${id}/review`,{bodyText,ratings,fileIds,idempotencyKey:crypto.randomUUID()}).then(read<ReviewResponse>)
 export async function uploadReviewFile(file:File){const form=new FormData();form.append('file',file);return fetch('/api/v1/customers/me/review-files',{method:'POST',credentials:'include',body:form}).then(read<{fileId:string}>)}

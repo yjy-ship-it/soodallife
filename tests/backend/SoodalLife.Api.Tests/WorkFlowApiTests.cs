@@ -24,6 +24,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
         await Login(otherProvider, factory.AreaMismatchProviderCredential); await Login(otherCustomer, factory.OtherCustomerCredential);
         var transactionId = await ArrangeTransaction(provider, customer);
+        await ConfirmAppointment(customer, provider, transactionId);
 
         var started = await (await provider.PostAsync($"/api/v1/transactions/{transactionId}/start", null)).Content.ReadFromJsonAsync<WorkTransactionDetail>();
         Assert.Equal("IN_PROGRESS", started!.Status);
@@ -87,28 +88,38 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
     }
 
     [Fact]
-    public async Task CustomerAppointment_Create_Read_AndChangeRemainRequested()
+    public async Task Appointment_Proposal_Decision_ChangeDecision_AndHistory_AreMutual()
     {
         using var provider = Client(); using var customer = Client();
         await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
         var transactionId = await ArrangeTransaction(provider, customer);
         var start = DateTime.UtcNow.AddDays(3); var end = start.AddHours(2);
-        var created = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment", new
-        { scheduledStartAt = start, scheduledEndAt = end, estimatedDurationMinutes = 120, customerMemo = "Please call before arrival." });
+        var created = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new
+        { scheduledStartAt = start, scheduledEndAt = end, estimatedDurationMinutes = 120, memo = "Please call before arrival.", idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
         var appointment = (await created.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
         Assert.Equal("PROPOSED", appointment.Status); Assert.False(appointment.IsConfirmed);
         Assert.Equal(HttpStatusCode.OK, (await provider.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
+        var approvedResponse = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment/decision", new
+        { decision = "APPROVE", reason = (string?)null, idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = appointment.RowVersion });
+        Assert.Equal(HttpStatusCode.OK, approvedResponse.StatusCode);
+        var approved = (await approvedResponse.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        Assert.True(approved.IsConfirmed); Assert.Equal(2, approved.Events.Count);
         var key = $"change-{Guid.NewGuid():N}";
-        var change = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        var change = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests", new
         { requestedStartAt = start.AddDays(1), requestedEndAt = end.AddDays(1), reason = "Customer schedule changed.", idempotencyKey = key });
         var value = (await change.Content.ReadFromJsonAsync<AppointmentChangeResponse>())!;
         Assert.Equal("REQUESTED", value.Status);
-        var repeated = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        var repeated = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests", new
         { requestedStartAt = start.AddDays(1), requestedEndAt = end.AddDays(1), reason = "Customer schedule changed.", idempotencyKey = key });
         Assert.Equal(value.Id, (await repeated.Content.ReadFromJsonAsync<AppointmentChangeResponse>())!.Id);
         var refreshed = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
-        Assert.Equal("PROPOSED", refreshed.Status); Assert.Single(refreshed.Changes); Assert.Equal("REQUESTED", refreshed.Changes[0].Status);
+        Assert.Equal("CONFIRMED", refreshed.Status); Assert.Single(refreshed.Changes); Assert.Equal("REQUESTED", refreshed.Changes[0].Status);
+        var changeDecision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests/{value.Id}/decision", new
+        { decision = "APPROVE", note = "Agreed", idempotencyKey = $"change-decision-{Guid.NewGuid():N}", rowVersion = value.RowVersion });
+        Assert.Equal(HttpStatusCode.OK, changeDecision.StatusCode);
+        var changed = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        Assert.Equal(start.AddDays(1).Date, changed.ScheduledStartAt.Date); Assert.Contains(changed.Events, x => x.EventType == "APPOINTMENT_CHANGED");
     }
 
     [Fact]
@@ -118,13 +129,63 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
         await Login(otherProvider, factory.AreaMismatchProviderCredential); await Login(otherCustomer, factory.OtherCustomerCredential);
         var transactionId = await ArrangeTransaction(provider, customer);
-        var create = await customer.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment", new
-        { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = (int?)null, customerMemo = (string?)null });
+        var create = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new
+        { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = (int?)null, memo = (string?)null, idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
         Assert.Equal(HttpStatusCode.OK, create.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await provider.PostAsJsonAsync($"/api/v1/customers/me/transactions/{transactionId}/appointment-change-requests", new
+        Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests", new
         { requestedStartAt = DateTime.UtcNow.AddDays(4), requestedEndAt = (DateTime?)null, reason = "Not allowed", idempotencyKey = Guid.NewGuid().ToString("N") })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ProviderProposal_CustomerRejectAndApprove_AppointmentCancellation_PreservesTransaction()
+    {
+        using var provider = Client(); using var customer = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var transactionId = await ArrangeTransaction(provider, customer); var start = DateTime.UtcNow.AddDays(4);
+        var proposedResponse = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = start, scheduledEndAt = start.AddHours(2), estimatedDurationMinutes = 120, memo = "Provider proposal", idempotencyKey = $"provider-proposal-{Guid.NewGuid():N}" });
+        var proposed = (await proposedResponse.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!; Assert.True(proposed.CanRespond == false);
+        var customerView = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/appointment")).Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!; Assert.True(customerView.CanRespond);
+        var rejectedResponse = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment/decision", new { decision = "REJECT", reason = "Different day", idempotencyKey = $"reject-{Guid.NewGuid():N}", rowVersion = customerView.RowVersion });
+        Assert.Equal("REJECTED", (await rejectedResponse.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!.Status);
+        var secondResponse = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = start.AddDays(1), scheduledEndAt = start.AddDays(1).AddHours(2), estimatedDurationMinutes = 120, memo = "Counter proposal", idempotencyKey = $"provider-proposal-{Guid.NewGuid():N}" });
+        var second = (await secondResponse.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        var approved = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment/decision", new { decision = "APPROVE", reason = (string?)null, idempotencyKey = $"approve-{Guid.NewGuid():N}", rowVersion = second.RowVersion }); Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
+        var cancellation = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests", new { requestedStartAt = (DateTime?)null, requestedEndAt = (DateTime?)null, reason = "No longer available", idempotencyKey = $"appointment-cancel-{Guid.NewGuid():N}", changeType = "CANCEL" });
+        var cancellationRow = (await cancellation.Content.ReadFromJsonAsync<AppointmentChangeResponse>())!;
+        var cancellationDecision = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-change-requests/{cancellationRow.Id}/decision", new { decision = "APPROVE", note = "Agreed", idempotencyKey = $"appointment-cancel-decision-{Guid.NewGuid():N}", rowVersion = cancellationRow.RowVersion }); Assert.Equal(HttpStatusCode.OK, cancellationDecision.StatusCode);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var tx = await db.Transactions.SingleAsync(x => x.PublicId == transactionId); Assert.Equal("CREATED", tx.StatusCode);
+        var appointment = await db.TransactionAppointments.SingleAsync(x => x.TransactionId == tx.Id); Assert.Equal("CANCELLED", appointment.StatusCode); Assert.Contains(await db.TransactionAppointmentEvents.Where(x => x.TransactionAppointmentId == appointment.Id).Select(x => x.EventTypeCode).ToListAsync(), x => x == "APPOINTMENT_CANCELLED");
+    }
+
+    [Fact]
+    public async Task TransactionCancellation_BeforeStart_RequiresCounterparty_AndDoesNotRestoreFee()
+    {
+        using var provider = Client(); using var customer = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var transactionId = await ArrangeTransaction(provider, customer); var requested = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests", new { reason = "Schedule no longer works", idempotencyKey = $"cancel-{Guid.NewGuid():N}" });
+        Assert.Equal(HttpStatusCode.OK, requested.StatusCode); var row = (await requested.Content.ReadFromJsonAsync<TransactionCancellationResponse>())!; Assert.Equal("REQUESTED", row.Status); Assert.Equal("NOT_EVALUATED", row.FeeRestoreStatus);
+        var self = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests/{row.Id}/decision", new { decision = "APPROVE", note = (string?)null, idempotencyKey = $"self-{Guid.NewGuid():N}", rowVersion = row.RowVersion }); Assert.Equal(HttpStatusCode.Conflict, self.StatusCode);
+        var decided = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests/{row.Id}/decision", new { decision = "APPROVE", note = "Agreed", idempotencyKey = $"approve-{Guid.NewGuid():N}", rowVersion = row.RowVersion }); Assert.Equal(HttpStatusCode.OK, decided.StatusCode);
+        var providerDetail = (await (await provider.GetAsync($"/api/v1/providers/me/transactions/{transactionId}")).Content.ReadFromJsonAsync<WorkTransactionDetail>())!; Assert.Null(providerDetail.CustomerPhone); Assert.Null(providerDetail.DetailAddress);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var tx = await db.Transactions.SingleAsync(x => x.PublicId == transactionId); Assert.Equal("CANCELLED", tx.StatusCode); Assert.False(await db.FeeRestores.AnyAsync(x => x.FeeChargeId == db.FeeCharges.Where(f => f.TransactionId == tx.Id).Select(f => f.Id).FirstOrDefault()));
+        Assert.True(await db.OutboxEvents.AnyAsync(x => x.AggregatePublicId == transactionId && x.EventType == "TRANSACTION_CANCELLED"));
+    }
+
+    [Fact]
+    public async Task Cancellation_AfterWorkStart_RequiresAdminReview_AndCannotBeFinalizedByParty()
+    {
+        using var provider = Client(); using var customer = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var transactionId = await ArrangeTransaction(provider, customer); await ConfirmAppointment(customer, provider, transactionId); Assert.Equal(HttpStatusCode.OK, (await provider.PostAsync($"/api/v1/transactions/{transactionId}/start", null)).StatusCode);
+        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests", new { reason = "Work must stop", idempotencyKey = $"cancel-{Guid.NewGuid():N}" }); var row = (await response.Content.ReadFromJsonAsync<TransactionCancellationResponse>())!; Assert.Equal("ADMIN_REVIEW_REQUIRED", row.Status);
+        var decision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests/{row.Id}/decision", new { decision = "APPROVE", note = (string?)null, idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = row.RowVersion }); Assert.Equal(HttpStatusCode.Conflict, decision.StatusCode);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal("IN_PROGRESS", (await db.Transactions.SingleAsync(x => x.PublicId == transactionId)).StatusCode);
+    }
+
+    private async Task ConfirmAppointment(HttpClient customer, HttpClient provider, Guid transactionId)
+    {
+        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = 60, memo = (string?)null, idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
+        var appointment = (await response.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
+        var approved = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment/decision", new { decision = "APPROVE", reason = (string?)null, idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = appointment.RowVersion }); Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
     }
 
     private async Task<Guid> ArrangeTransaction(HttpClient provider, HttpClient customer)

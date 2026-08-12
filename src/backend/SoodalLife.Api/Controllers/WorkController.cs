@@ -34,17 +34,43 @@ public sealed class WorkController(WorkService workService, TransactionAppointme
     public Task<ActionResult<TransactionAppointmentResponse?>> Appointment(Guid transactionId, CancellationToken token) =>
         Execute(() => appointmentService.GetAsync(User, transactionId, token));
 
-    [Authorize(Roles = RoleCodes.Customer)]
-    [HttpPost("customers/me/transactions/{transactionId:guid}/appointment")]
-    public Task<ActionResult<TransactionAppointmentResponse>> CreateAppointment(
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/appointment-proposals")]
+    public Task<ActionResult<TransactionAppointmentResponse>> ProposeAppointment(
         Guid transactionId, CreateTransactionAppointmentInput input, CancellationToken token) =>
-        Execute(() => appointmentService.CreateAsync(User, transactionId, input, token));
+        Execute(() => appointmentService.ProposeAsync(User, transactionId, input, token));
 
-    [Authorize(Roles = RoleCodes.Customer)]
-    [HttpPost("customers/me/transactions/{transactionId:guid}/appointment-change-requests")]
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/appointment/decision")]
+    public Task<ActionResult<TransactionAppointmentResponse>> DecideAppointment(
+        Guid transactionId, DecideAppointmentInput input, CancellationToken token) =>
+        Execute(() => appointmentService.DecideProposalAsync(User, transactionId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/appointment-change-requests")]
     public Task<ActionResult<AppointmentChangeResponse>> RequestAppointmentChange(
         Guid transactionId, RequestAppointmentChangeInput input, CancellationToken token) =>
         Execute(() => appointmentService.RequestChangeAsync(User, transactionId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/appointment-change-requests/{requestId:guid}/decision")]
+    public Task<ActionResult<AppointmentChangeResponse>> DecideAppointmentChange(Guid transactionId, Guid requestId,
+        DecideAppointmentChangeInput input, CancellationToken token) => Execute(() => appointmentService.DecideChangeAsync(User, transactionId, requestId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpGet("transactions/{transactionId:guid}/cancellation-requests")]
+    public Task<ActionResult<IReadOnlyList<TransactionCancellationResponse>>> Cancellations(Guid transactionId, CancellationToken token) =>
+        Execute(() => appointmentService.GetCancellationsAsync(User, transactionId, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/cancellation-requests")]
+    public Task<ActionResult<TransactionCancellationResponse>> RequestCancellation(Guid transactionId,
+        RequestTransactionCancellationInput input, CancellationToken token) => Execute(() => appointmentService.RequestCancellationAsync(User, transactionId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/cancellation-requests/{requestId:guid}/decision")]
+    public Task<ActionResult<TransactionCancellationResponse>> DecideCancellation(Guid transactionId, Guid requestId,
+        DecideTransactionCancellationInput input, CancellationToken token) => Execute(() => appointmentService.DecideCancellationAsync(User, transactionId, requestId, input, token));
 
     [Authorize(Roles = RoleCodes.Provider)]
     [HttpPost("transactions/{transactionId:guid}/start")]

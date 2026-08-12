@@ -66,6 +66,8 @@ public sealed class WorkService(
         var transaction = await OwnedProviderTransactionAsync(identity.ProfileId, transactionId, cancellationToken);
         if (transaction.StatusCode == "IN_PROGRESS") return await BuildDetailAsync(transaction, true, cancellationToken);
         if (transaction.StatusCode != "CREATED") throw Conflict("TRANSACTION_STATE_CONFLICT", "현재 상태에서는 작업을 시작할 수 없습니다.");
+        if (!await db.TransactionAppointments.AsNoTracking().AnyAsync(item => item.TransactionId == transaction.Id && item.StatusCode == "CONFIRMED", cancellationToken))
+            throw Conflict("CONFIRMED_APPOINTMENT_REQUIRED", "상호 승인된 일정이 있어야 작업을 시작할 수 있습니다.");
         var now = DateTime.UtcNow;
         transaction.StatusCode = "IN_PROGRESS";
         transaction.StartedAt = now;
@@ -408,6 +410,7 @@ public sealed class WorkService(
         var confirmations = await db.CustomerConfirmations.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderBy(x => x.ConfirmedAt).ToListAsync(cancellationToken);
         var timeline = new List<WorkTimelineItem> { new("QUOTE_ACCEPTED", "견적 채택 · 거래 생성", transaction.CreatedAt, transaction.StatusCode == "CREATED") };
         if (transaction.StartedAt.HasValue) timeline.Add(new("WORK_STARTED", "작업 시작", transaction.StartedAt.Value, transaction.StatusCode == "IN_PROGRESS"));
+        if (transaction.CancelledAt.HasValue) timeline.Add(new("TRANSACTION_CANCELLED", "거래 취소", transaction.CancelledAt.Value, transaction.StatusCode == "CANCELLED"));
         timeline.AddRange(revisionResponses.Where(x => x.Status != "DRAFT").Select(x => new WorkTimelineItem("COMPLETION_SUBMITTED", $"작업완료 자료 {x.RevisionNo}차 제출", x.RecordedAt, transaction.StatusCode == "COMPLETION_SUBMITTED" && x.Id == revisionResponse?.Id)));
         timeline.AddRange(confirmations.Select(x => new WorkTimelineItem(x.ResultCode, x.ResultCode == "COMPLETED" ? "고객 완료 확인" : x.ResultCode == "REVISION_REQUESTED" ? "고객 보완 요청" : "분쟁 전환", x.ConfirmedAt, false)));
         var afterService = await db.AfterServiceCases.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderByDescending(x => x.ReceivedAt)
@@ -416,8 +419,9 @@ public sealed class WorkService(
             .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
         var review = await db.Reviews.AsNoTracking().Where(x => x.TransactionId == transaction.Id)
             .Select(x => new { x.PublicId, x.VisibilityStatusCode }).SingleOrDefaultAsync(cancellationToken);
+        var exposeCustomerContact = !providerView || transaction.StatusCode != "CANCELLED";
         return new WorkTransactionDetail(transaction.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
-            baseData.Request.Title, baseData.Request.Description, baseData.CustomerPhone, baseData.Request.DetailAddress,
+            baseData.Request.Title, baseData.Request.Description, exposeCustomerContact ? baseData.CustomerPhone : null, exposeCustomerContact ? baseData.Request.DetailAddress : null,
             baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
             transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse,
             revisionResponses, timeline.OrderBy(x => x.OccurredAt).ToArray(), afterService, dispute,
