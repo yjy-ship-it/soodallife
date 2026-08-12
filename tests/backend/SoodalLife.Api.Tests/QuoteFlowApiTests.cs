@@ -105,6 +105,14 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         var transaction = await db.Transactions.SingleAsync(item => item.PublicId == accepted.TransactionId);
         Assert.Equal("CREATED", transaction.StatusCode);
         Assert.Equal(460m, transaction.AgreedAmount);
+        var chatRoom = await db.ChatRooms.SingleAsync(item => item.ResourceTypeCode == "TRANSACTION" && item.ResourcePublicId == transaction.PublicId);
+        var chatParticipants = await db.ChatParticipants.Where(item => item.ChatRoomId == chatRoom.Id).ToListAsync();
+        Assert.Equal(2, chatParticipants.Count);
+        Assert.Contains(chatParticipants, item => item.ParticipantRoleCode == "CUSTOMER");
+        Assert.Contains(chatParticipants, item => item.ParticipantRoleCode == "PROVIDER");
+        var unselectedProviderProfileId = await db.Quotes.Where(item => item.PublicId == otherDraft.Id).Select(item => item.ProviderProfileId).SingleAsync();
+        var unselectedProviderUserId = await db.ProviderProfiles.Where(item => item.Id == unselectedProviderProfileId).Select(item => item.UserId).SingleAsync();
+        Assert.DoesNotContain(chatParticipants, item => item.UserId == unselectedProviderUserId);
         Assert.True(JsonDocument.Parse(transaction.QuoteSnapshotJson).RootElement.TryGetProperty("items", out var snapshotItems));
         Assert.Equal(2, snapshotItems.GetArrayLength());
         Assert.Single(await db.Transactions.Where(item => item.ServiceRequestId == transaction.ServiceRequestId).ToListAsync());

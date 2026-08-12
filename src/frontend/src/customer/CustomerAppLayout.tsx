@@ -33,6 +33,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
   const pathname = window.location.pathname
   const isCustomer = user?.roles.includes('CUSTOMER') ?? false
   const [unreadCount, setUnreadCount] = useState(0)
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
   const [online, setOnline] = useState(navigator.onLine)
 
   useEffect(() => { const update = () => setOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
@@ -42,6 +43,13 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
     fetch('/api/v1/notifications/unread-count', { credentials: 'include' })
       .then(response => response.ok ? response.json() as Promise<{ count: number }> : Promise.reject())
       .then(value => setUnreadCount(value.count)).catch(() => setUnreadCount(0))
+  }, [isCustomer, pathname])
+
+  useEffect(() => {
+    if (!isCustomer) return
+    fetch('/api/v1/chat/unread-count', { credentials: 'include' })
+      .then(response => response.ok ? response.json() as Promise<{ count: number }> : Promise.reject())
+      .then(value => setChatUnreadCount(value.count)).catch(() => setChatUnreadCount(0))
   }, [isCustomer, pathname])
 
   const go = (path: string, isPublic: boolean) => {
@@ -62,6 +70,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
             <button type="button" onClick={() => navigate('/support')}>고객센터</button>
           </nav>
           <div className="customerHeaderActions">
+            {isCustomer && <button className="customerLoginButton" type="button" onClick={() => navigate('/customer/messages')}>메시지{chatUnreadCount > 0 ? ` ${chatUnreadCount > 99 ? '99+' : chatUnreadCount}` : ''}</button>}
             <button className="headerLocation" type="button" disabled title="지역 선택 기능 준비 중">지역 선택</button>
             <button className="headerIconButton" type="button" onClick={() => navigate('/services/search')} aria-label="서비스 검색"><Icon name="search" /></button>
             {isCustomer && <button className="headerIconButton notificationBell" type="button" onClick={() => navigate('/customer/notifications')} aria-label={`알림 ${unreadCount}개`}><Icon name="bell" />{unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}</button>}

@@ -158,6 +158,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<InteriorContractChange> InteriorContractChanges => Set<InteriorContractChange>();
     public DbSet<InteriorDefect> InteriorDefects => Set<InteriorDefect>();
     public DbSet<InteriorProjectEvent> InteriorProjectEvents => Set<InteriorProjectEvent>();
+    public DbSet<ChatRoom> ChatRooms => Set<ChatRoom>();
+    public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatMessageRead> ChatMessageReads => Set<ChatMessageRead>();
+    public DbSet<ChatAttachment> ChatAttachments => Set<ChatAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

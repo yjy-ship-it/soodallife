@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Wallet;
+using SoodalLife.Api.Features.Chat;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Quotes;
@@ -14,7 +15,8 @@ namespace SoodalLife.Api.Features.Quotes;
 public sealed class QuoteService(
     SoodalLifeDbContext dbContext,
     ProviderTradingEligibilityService eligibilityService,
-    ProviderWalletService walletService)
+    ProviderWalletService walletService,
+    ChatService chatService)
 {
     private const decimal MaximumAmount = 999_999_999_999_999m;
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> AcceptanceLocks = new();
@@ -441,6 +443,7 @@ public sealed class QuoteService(
             };
             dbContext.Transactions.Add(transactionRecord);
             await dbContext.SaveChangesAsync(cancellationToken);
+            await chatService.EnsureTransactionRoomAsync(transactionRecord, now, cancellationToken);
             WalletOperationResponse debit;
             try
             {

@@ -63,6 +63,7 @@ import {
   CustomerProgressPage,
 } from '../customer/CustomerCarePages'
 import { CustomerInteriorHomePage, CustomerInteriorProjectPage, CustomerInteriorProjectsPage, NewCustomerInteriorProjectPage } from '../customer/CustomerInteriorPages'
+import { ChatRoomListPage, ChatRoomPage } from '../chat/ChatPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -144,6 +145,8 @@ function ApplicationRoutes() {
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const providerAfterServiceMatch = pathname.match(/^\/provider\/after-services\/([0-9a-f-]+)$/i)
   const providerDisputeMatch = pathname.match(/^\/provider\/disputes\/([0-9a-f-]+)$/i)
+  const providerChatMatch = pathname.match(/^\/provider\/messages\/([0-9a-f-]+)$/i)
+  const customerChatMatch = pathname.match(/^\/customer\/messages\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
   const customerDisputeMatch = pathname.match(/^\/customer\/disputes\/([0-9a-f-]+)$/i)
   const customerHistoryMatch = pathname.match(/^\/customer\/service-history\/([0-9a-f-]+)$/i)
@@ -170,6 +173,8 @@ function ApplicationRoutes() {
     if (pathname === '/customer/consents') return <CustomerConsentsPage />
     if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
     if (pathname === '/customer/notifications') return <CustomerNotificationCenterPage />
+    if (pathname === '/customer/messages') return <ChatRoomListPage audience="customer" />
+    if (customerChatMatch) return <ChatRoomPage audience="customer" id={customerChatMatch[1]} />
     if (pathname === '/customer/progress') return <CustomerProgressPage />
     if (pathname === '/customer/care/request/new') return <NewCustomerCareRequestPage />
     if (pathname === '/customer/care/requests') return <CustomerCareRequestsPage />
@@ -238,6 +243,8 @@ function ApplicationRoutes() {
     if (pathname === '/provider/documents') return <ProviderDocumentsPage />
     if (pathname === '/provider/approval') return <ProviderApprovalPage />
     if (pathname === '/provider/notifications') return <CustomerNotificationCenterPage />
+    if (pathname === '/provider/messages') return <ChatRoomListPage audience="provider" />
+    if (providerChatMatch) return <ChatRoomPage audience="provider" id={providerChatMatch[1]} />
     if (pathname === '/provider/matched-requests') return <ProviderMatchedRequestListPage />
     if (providerRequestMatch) return <ProviderMatchedRequestDetailPage requestId={providerRequestMatch[1]} />
     if (pathname === '/provider/work') return <WorkTransactionListPage audience="provider" />

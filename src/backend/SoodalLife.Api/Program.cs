@@ -17,6 +17,7 @@ using SoodalLife.Api.Features.Subscriptions;
 using SoodalLife.Api.Features.Interior;
 using SoodalLife.Api.Features.Notifications;
 using SoodalLife.Api.Features.FilePrivacy;
+using SoodalLife.Api.Features.Chat;
 using SoodalLife.Api.Features.CustomerAccounts;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
@@ -96,6 +97,8 @@ builder.Services.AddScoped<SubscriptionBillingService>();
 builder.Services.AddScoped<InteriorProjectService>();
 builder.Services.AddScoped<CustomerInteriorService>();
 builder.Services.AddScoped<NotificationManagementService>();
+builder.Services.AddScoped<ChatService>();
+builder.Services.AddSignalR();
 builder.Services.AddSingleton<INotificationChannelSender,WebNotificationChannelSender>();
 builder.Services.AddSingleton<INotificationChannelSender,UnavailableExternalNotificationChannelSender>();
 
@@ -162,6 +165,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
 
