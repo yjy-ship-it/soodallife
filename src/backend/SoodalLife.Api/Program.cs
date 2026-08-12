@@ -109,6 +109,7 @@ builder.Services.AddScoped<ProviderEmergencyAvailabilityService>();
 builder.Services.AddScoped<EmergencyWorkflowService>();
 builder.Services.AddScoped<NotificationManagementService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<IChatResourceAuthorizationResolver, ChatResourceAuthorizationResolver>();
 builder.Services.Configure<AutomationOptions>(builder.Configuration.GetSection(AutomationOptions.SectionName));
 builder.Services.AddScoped<OutboxProcessor>();
 builder.Services.AddScoped<PrivacyBackfillService>();

@@ -17,42 +17,52 @@ public sealed class ChatService(
     SoodalLifeDbContext db,
     IPrivateFileStorage storage,
     IFilePrivacyContract filePrivacy,
+    IChatResourceAuthorizationResolver authorizationResolver,
     IHubContext<ChatHub> hub,
     ILogger<ChatService> logger)
 {
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> RoomLocks = new();
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> RoomLocks = new();
     private const int PageMaximum = 50;
     private const long FileMaximum = 10 * 1024 * 1024;
 
     public async Task<ChatRoom> EnsureTransactionRoomAsync(TransactionRecord transaction, DateTime now, CancellationToken token)
     {
-        var roomLock = RoomLocks.GetOrAdd(transaction.PublicId, _ => new SemaphoreSlim(1, 1));
+        var authorization = await authorizationResolver.ResolveAsync(ChatResourceTypes.Transaction, transaction.PublicId, "DIRECT", token)
+            ?? throw NotFound();
+        return await EnsureResourceRoomAsync(authorization, now, token);
+    }
+
+    private async Task<ChatRoom> EnsureResourceRoomAsync(ChatResourceAuthorization authorization, DateTime now, CancellationToken token)
+    {
+        var lockKey = $"{authorization.ResourceTypeCode}:{authorization.ResourceId:N}:{authorization.RoomTypeCode}";
+        var roomLock = RoomLocks.GetOrAdd(lockKey, _ => new SemaphoreSlim(1, 1));
         await roomLock.WaitAsync(token);
         try
         {
-            var tracked = db.ChatRooms.Local.FirstOrDefault(x => x.ResourceTypeCode == "TRANSACTION" &&
-                x.ResourcePublicId == transaction.PublicId && x.RoomTypeCode == "DIRECT");
-            var room = tracked ?? await db.ChatRooms.SingleOrDefaultAsync(x => x.ResourceTypeCode == "TRANSACTION" &&
-                x.ResourcePublicId == transaction.PublicId && x.RoomTypeCode == "DIRECT", token);
-            var customerUserId = await db.CustomerProfiles.Where(x => x.Id == transaction.CustomerProfileId)
-                .Select(x => x.UserId).SingleAsync(token);
-            var providerUserId = await db.ProviderProfiles.Where(x => x.Id == transaction.ProviderProfileId)
-                .Select(x => x.UserId).SingleAsync(token);
+            var tracked = db.ChatRooms.Local.FirstOrDefault(x => x.ResourceTypeCode == authorization.ResourceTypeCode &&
+                x.ResourcePublicId == authorization.ResourceId && x.RoomTypeCode == authorization.RoomTypeCode);
+            var room = tracked ?? await db.ChatRooms.SingleOrDefaultAsync(x => x.ResourceTypeCode == authorization.ResourceTypeCode &&
+                x.ResourcePublicId == authorization.ResourceId && x.RoomTypeCode == authorization.RoomTypeCode, token);
             if (room is null)
             {
+                if (!authorization.CanCreateRoom)
+                    throw Conflict("CHAT_ROOM_CREATION_POLICY_REQUIRED", "종료된 업무의 신규 채팅방 생성 정책이 확정되지 않았습니다.");
                 room = new ChatRoom
                 {
-                    ResourceTypeCode = "TRANSACTION", ResourcePublicId = transaction.PublicId, RoomTypeCode = "DIRECT",
+                    ResourceTypeCode = authorization.ResourceTypeCode, ResourcePublicId = authorization.ResourceId,
+                    RoomTypeCode = authorization.RoomTypeCode,
                     StatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now,
                 };
                 db.ChatRooms.Add(room);
-                await db.SaveChangesAsync(token);
+                try { await db.SaveChangesAsync(token); }
+                catch (DbUpdateException) when (db.Database.IsRelational())
+                {
+                    db.Entry(room).State = EntityState.Detached;
+                    room = await db.ChatRooms.SingleAsync(x => x.ResourceTypeCode == authorization.ResourceTypeCode &&
+                        x.ResourcePublicId == authorization.ResourceId && x.RoomTypeCode == authorization.RoomTypeCode, token);
+                }
             }
-            var existingUsers = (await db.ChatParticipants.AsNoTracking().Where(x => x.ChatRoomId == room.Id)
-                .Select(x => x.UserId).ToListAsync(token)).ToHashSet();
-            if (!existingUsers.Contains(customerUserId)) db.ChatParticipants.Add(Participant(room.Id, customerUserId, "CUSTOMER", now));
-            if (!existingUsers.Contains(providerUserId)) db.ChatParticipants.Add(Participant(room.Id, providerUserId, "PROVIDER", now));
-            if (db.ChangeTracker.Entries<ChatParticipant>().Any(x => x.State == EntityState.Added)) await db.SaveChangesAsync(token);
+            await SynchronizeParticipants(room, authorization, now, token);
             return room;
         }
         finally
@@ -64,36 +74,62 @@ public sealed class ChatService(
     public async Task<ChatRoomDetail> EnsureForTransactionAsync(ClaimsPrincipal principal, Guid transactionId, CancellationToken token)
     {
         var identity = await Identity(principal, token);
-        var transaction = await AuthorizedTransaction(identity.UserId, transactionId, token);
-        var room = await EnsureTransactionRoomAsync(transaction, DateTime.UtcNow, token);
+        var authorization = await AuthorizedResource(ChatResourceTypes.Transaction, transactionId, "DIRECT", identity.UserId, token);
+        var room = await EnsureResourceRoomAsync(authorization, DateTime.UtcNow, token);
         return await Detail(room.PublicId, principal, token);
     }
 
-    public async Task<IReadOnlyList<ChatRoomListItem>> Mine(ClaimsPrincipal principal, CancellationToken token)
+    public async Task<ChatRoomDetail> EnsureForResourceAsync(ClaimsPrincipal principal, string resourceType, Guid resourceId, string roomType, CancellationToken token)
     {
         var identity = await Identity(principal, token);
-        var rows = (await AuthorizedRooms(identity.UserId).ToListAsync(token))
-            .OrderByDescending(x => x.Room.UpdatedAt).Take(200).ToList();
+        var authorization = await AuthorizedResource(resourceType, resourceId, roomType, identity.UserId, token);
+        var room = await EnsureResourceRoomAsync(authorization, DateTime.UtcNow, token);
+        return await Detail(room.PublicId, principal, token);
+    }
+
+    public async Task<ChatRoomDetail> EnsureForSubscriptionVisitAsync(ClaimsPrincipal principal, Guid visitId, CancellationToken token)
+    {
+        var contractId = await (from visit in db.SubscriptionVisitSchedules.AsNoTracking()
+                                join contract in db.SubscriptionContracts.AsNoTracking() on visit.SubscriptionContractId equals contract.Id
+                                where visit.PublicId == visitId select (Guid?)contract.PublicId).SingleOrDefaultAsync(token) ?? throw NotFound();
+        return await EnsureForResourceAsync(principal, ChatResourceTypes.Subscription, contractId, "DIRECT", token);
+    }
+
+    public async Task<IReadOnlyList<ChatRoomListItem>> Mine(ClaimsPrincipal principal, string? resourceType, int page, int pageSize, CancellationToken token)
+    {
+        var identity = await Identity(principal, token);
+        var normalizedType = string.IsNullOrWhiteSpace(resourceType) ? null : resourceType.Trim().ToUpperInvariant();
+        if (normalizedType is not null && normalizedType is not (ChatResourceTypes.Transaction or ChatResourceTypes.Subscription or ChatResourceTypes.Interior or ChatResourceTypes.AfterService))
+            throw Bad("CHAT_RESOURCE_TYPE_INVALID", "지원하지 않는 채팅 업무 유형입니다.");
+        var safePage = Math.Max(1, page); var safeSize = Math.Clamp(pageSize, 1, 200);
+        var rows = (await AuthorizedRooms(identity.UserId, null, token, normalizedType, Math.Min(1000, safePage * safeSize)))
+            .Skip((safePage - 1) * safeSize).Take(safeSize).ToList();
         var result = new List<ChatRoomListItem>(rows.Count);
         foreach (var row in rows)
         {
-            var last = await db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == row.Room.Id)
+            var last = await db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == row.Room.Id && x.CreatedAt >= row.Participant.AccessStartedAt)
                 .OrderByDescending(x => x.Id).FirstOrDefaultAsync(token);
-            var unread = await UnreadInRoom(row.Room.Id, identity.UserId, token);
-            result.Add(new(row.Room.PublicId, row.Transaction.PublicId, row.Room.StatusCode,
-                row.CounterpartyRole, row.CounterpartyName, row.ServiceName, TransactionNumber(row.Transaction.PublicId),
+            var unread = await UnreadInRoom(row.Room.Id, identity.UserId, row.Participant.AccessStartedAt, token);
+            result.Add(new(row.Room.PublicId, row.Authorization.ResourceTypeCode, row.Authorization.ResourceId,
+                row.Authorization.ResourceTypeCode == ChatResourceTypes.Transaction ? row.Authorization.ResourceId : null,
+                row.Authorization.RoomTypeCode, row.Room.StatusCode, row.CounterpartyRole, row.CounterpartyName,
+                row.Authorization.ServiceName, row.Authorization.ResourceNumber,
                 Preview(last), last?.CreatedAt, unread));
         }
         return result.OrderByDescending(x => x.LastMessageAt ?? DateTime.MinValue).ToList();
     }
 
+    public Task<IReadOnlyList<ChatRoomListItem>> Mine(ClaimsPrincipal principal, CancellationToken token) =>
+        Mine(principal, null, 1, 200, token);
+
     public async Task<ChatRoomDetail> Detail(Guid roomId, ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Identity(principal, token);
-        var row = await AuthorizedRooms(identity.UserId, roomId).SingleOrDefaultAsync(token)
-            ?? throw NotFound();
-        return new(row.Room.PublicId, row.Transaction.PublicId, row.Room.StatusCode, row.CounterpartyRole,
-            row.CounterpartyName, row.ServiceName, TransactionNumber(row.Transaction.PublicId),
+        var row = (await AuthorizedRooms(identity.UserId, roomId, token)).SingleOrDefault() ?? throw NotFound();
+        return new(row.Room.PublicId, row.Authorization.ResourceTypeCode, row.Authorization.ResourceId,
+            row.Authorization.ResourceTypeCode == ChatResourceTypes.Transaction ? row.Authorization.ResourceId : null,
+            row.Authorization.RoomTypeCode, row.Room.StatusCode, row.CounterpartyRole,
+            row.CounterpartyName, row.Authorization.ServiceName, row.Authorization.ResourceNumber,
             Convert.ToBase64String(row.Room.RowVersion));
     }
 
@@ -106,7 +142,7 @@ public sealed class ChatService(
         if (before.HasValue)
             beforeId = await db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.PublicId == before)
                 .Select(x => (long?)x.Id).SingleOrDefaultAsync(token) ?? throw NotFound();
-        var query = db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id);
+        var query = db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.CreatedAt >= access.Participant.AccessStartedAt);
         if (beforeId.HasValue) query = query.Where(x => x.Id < beforeId);
         var rows = await query.OrderByDescending(x => x.Id).Take(take + 1).ToListAsync(token);
         var hasMore = rows.Count > take;
@@ -184,12 +220,12 @@ public sealed class ChatService(
     {
         var identity = await Identity(principal, token);
         var access = await Access(roomId, identity.UserId, token);
-        var target = await db.ChatMessages.AsNoTracking().SingleOrDefaultAsync(x => x.ChatRoomId == access.Room.Id && x.PublicId == input.MessageId, token)
+        var target = await db.ChatMessages.AsNoTracking().SingleOrDefaultAsync(x => x.ChatRoomId == access.Room.Id && x.PublicId == input.MessageId && x.CreatedAt >= access.Participant.AccessStartedAt, token)
             ?? throw NotFound();
         var existing = await db.ChatMessageReads.Where(x => x.ChatRoomId == access.Room.Id && x.UserId == identity.UserId && x.ChatMessageId <= target.Id)
             .Select(x => x.ChatMessageId).ToListAsync(token);
         var existingIds = existing.ToHashSet();
-        var ids = await db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.Id <= target.Id &&
+        var ids = await db.ChatMessages.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.Id <= target.Id && x.CreatedAt >= access.Participant.AccessStartedAt &&
                 !db.ChatParticipants.Any(p => p.Id == x.SenderParticipantId && p.UserId == identity.UserId))
             .Select(x => x.Id).ToListAsync(token);
         var now = DateTime.UtcNow;
@@ -206,10 +242,9 @@ public sealed class ChatService(
     public async Task<ChatUnreadCountResponse> Unread(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Identity(principal, token);
-        var roomIds = (await AuthorizedRooms(identity.UserId).ToListAsync(token)).Select(x => x.Room.Id).ToArray();
-        var count = await db.ChatMessages.AsNoTracking().CountAsync(message => roomIds.Contains(message.ChatRoomId) &&
-            !db.ChatParticipants.Any(p => p.Id == message.SenderParticipantId && p.UserId == identity.UserId) &&
-            !db.ChatMessageReads.Any(read => read.ChatMessageId == message.Id && read.UserId == identity.UserId), token);
+        var rooms = await AuthorizedRooms(identity.UserId, null, token, null, 1000);
+        var count = 0;
+        foreach (var room in rooms) count += await UnreadInRoom(room.Room.Id, identity.UserId, room.Participant.AccessStartedAt, token);
         return new(count);
     }
 
@@ -220,7 +255,7 @@ public sealed class ChatService(
         var row = await (from attachment in db.ChatAttachments.AsNoTracking()
                          join message in db.ChatMessages.AsNoTracking() on attachment.ChatMessageId equals message.Id
                          join file in db.Files.AsNoTracking() on attachment.FileId equals file.Id
-                         where attachment.PublicId == attachmentId && message.ChatRoomId == access.Room.Id
+                         where attachment.PublicId == attachmentId && message.ChatRoomId == access.Room.Id && message.CreatedAt >= access.Participant.AccessStartedAt
                          select new { attachment, message, file }).SingleOrDefaultAsync(token) ?? throw NotFound();
         StoredFile published;
         if (row.file.UploadedByUserId == identity.UserId) published = row.file;
@@ -240,35 +275,82 @@ public sealed class ChatService(
         catch (ChatBusinessException) { return false; }
     }
 
-    private IQueryable<AuthorizedRoomRow> AuthorizedRooms(long userId, Guid? roomId = null) =>
-        from room in db.ChatRooms.AsNoTracking()
-        join participant in db.ChatParticipants.AsNoTracking() on room.Id equals participant.ChatRoomId
-        join transaction in db.Transactions.AsNoTracking() on room.ResourcePublicId equals transaction.PublicId
-        join customer in db.CustomerProfiles.AsNoTracking() on transaction.CustomerProfileId equals customer.Id
-        join provider in db.ProviderProfiles.AsNoTracking() on transaction.ProviderProfileId equals provider.Id
-        join category in db.ServiceCategories.AsNoTracking() on transaction.CategoryId equals category.Id
-        where (!roomId.HasValue || room.PublicId == roomId.Value) && room.ResourceTypeCode == "TRANSACTION" && room.RoomTypeCode == "DIRECT" && participant.UserId == userId &&
-              participant.StatusCode == "ACTIVE" && participant.AccessStartedAt <= DateTime.UtcNow &&
-              (participant.AccessEndedAt == null || participant.AccessEndedAt > DateTime.UtcNow) &&
-              (customer.UserId == userId || provider.UserId == userId)
-        select new AuthorizedRoomRow(room, participant, transaction, category.Name,
-            customer.UserId == userId ? "PROVIDER" : "CUSTOMER",
-            customer.UserId == userId ? provider.BusinessName : customer.DisplayName);
+    private async Task<List<AuthorizedRoomRow>> AuthorizedRooms(long userId, Guid? roomId, CancellationToken token, string? resourceType = null, int limit = 200)
+    {
+        var now = DateTime.UtcNow;
+        var candidates = await (from room in db.ChatRooms.AsNoTracking()
+                                join participant in db.ChatParticipants.AsNoTracking() on room.Id equals participant.ChatRoomId
+                                where (!roomId.HasValue || room.PublicId == roomId.Value) && (resourceType == null || room.ResourceTypeCode == resourceType) && participant.UserId == userId &&
+                                      participant.StatusCode == "ACTIVE" && participant.AccessStartedAt <= now &&
+                                      (participant.AccessEndedAt == null || participant.AccessEndedAt > now)
+                                orderby room.UpdatedAt descending
+                                select new { Room = room, Participant = participant }).Take(limit).ToListAsync(token);
+        var rows = new List<AuthorizedRoomRow>(candidates.Count);
+        foreach (var candidate in candidates)
+        {
+            var authorization = await authorizationResolver.ResolveAsync(candidate.Room.ResourceTypeCode, candidate.Room.ResourcePublicId, candidate.Room.RoomTypeCode, token);
+            if (authorization is null || userId != authorization.CustomerUserId && userId != authorization.ProviderUserId) continue;
+            var counterpartyRole = userId == authorization.CustomerUserId ? "PROVIDER" : "CUSTOMER";
+            var counterpartyUserId = userId == authorization.CustomerUserId ? authorization.ProviderUserId : authorization.CustomerUserId;
+            var counterpartyName = counterpartyRole == "PROVIDER"
+                ? await db.ProviderProfiles.AsNoTracking().Where(x => x.UserId == counterpartyUserId).Select(x => x.BusinessName).SingleAsync(token)
+                : await db.CustomerProfiles.AsNoTracking().Where(x => x.UserId == counterpartyUserId).Select(x => x.DisplayName).SingleAsync(token);
+            rows.Add(new(candidate.Room, candidate.Participant, authorization, counterpartyRole, counterpartyName));
+        }
+        return rows;
+    }
 
     private async Task<RoomAccess> Access(Guid roomId, long userId, CancellationToken token)
     {
-        var row = await AuthorizedRooms(userId, roomId).SingleOrDefaultAsync(token) ?? throw NotFound();
+        var row = (await AuthorizedRooms(userId, roomId, token)).SingleOrDefault() ?? throw NotFound();
         var room = await db.ChatRooms.SingleAsync(x => x.Id == row.Room.Id, token);
         var participant = await db.ChatParticipants.SingleAsync(x => x.Id == row.Participant.Id, token);
+        await SynchronizeParticipants(room, row.Authorization, DateTime.UtcNow, token);
         return new(room, participant);
     }
 
-    private async Task<TransactionRecord> AuthorizedTransaction(long userId, Guid transactionId, CancellationToken token) =>
-        await (from transaction in db.Transactions
-               join customer in db.CustomerProfiles on transaction.CustomerProfileId equals customer.Id
-               join provider in db.ProviderProfiles on transaction.ProviderProfileId equals provider.Id
-               where transaction.PublicId == transactionId && (customer.UserId == userId || provider.UserId == userId)
-               select transaction).SingleOrDefaultAsync(token) ?? throw NotFound();
+    private async Task<ChatResourceAuthorization> AuthorizedResource(string type, Guid id, string roomType, long userId, CancellationToken token)
+    {
+        var authorization = await authorizationResolver.ResolveAsync(type, id, roomType, token) ?? throw NotFound();
+        if (userId != authorization.CustomerUserId && userId != authorization.ProviderUserId) throw NotFound();
+        return authorization;
+    }
+
+    private async Task SynchronizeParticipants(ChatRoom room, ChatResourceAuthorization authorization, DateTime now, CancellationToken token)
+    {
+        var desired = new Dictionary<long, (string Role, DateTime StartedAt)>
+        {
+            [authorization.CustomerUserId] = ("CUSTOMER", authorization.CustomerAccessStartedAt),
+            [authorization.ProviderUserId] = ("PROVIDER", authorization.ProviderAccessStartedAt),
+        };
+        var existing = await db.ChatParticipants.Where(x => x.ChatRoomId == room.Id).ToListAsync(token);
+        foreach (var participant in existing)
+        {
+            if (!desired.TryGetValue(participant.UserId, out var value))
+            {
+                if (participant.StatusCode == "ACTIVE") { participant.StatusCode = "ENDED"; participant.AccessEndedAt = now; }
+                continue;
+            }
+            desired.Remove(participant.UserId);
+            if (participant.StatusCode != "ACTIVE")
+            {
+                participant.StatusCode = "ACTIVE";
+                participant.ParticipantRoleCode = value.Role;
+                participant.AccessStartedAt = now > value.StartedAt ? now : value.StartedAt;
+                participant.AccessEndedAt = null;
+                participant.JoinedAt = now;
+            }
+            else if (authorization.ResourceTypeCode == ChatResourceTypes.Subscription && participant.ParticipantRoleCode == "PROVIDER" &&
+                     value.StartedAt > participant.AccessStartedAt)
+            {
+                participant.AccessStartedAt = value.StartedAt;
+                participant.JoinedAt = value.StartedAt;
+            }
+        }
+        foreach (var entry in desired)
+            db.ChatParticipants.Add(Participant(room.Id, entry.Key, entry.Value.Role, entry.Value.StartedAt > now ? now : entry.Value.StartedAt));
+        await db.SaveChangesAsync(token);
+    }
 
     private async Task<ChatMessageResponse> PersistMessage(RoomAccess access, string type, string? body, string key, StoredFile? file, long userId, CancellationToken token)
     {
@@ -282,6 +364,7 @@ public sealed class ChatService(
             Body = body, IdempotencyKey = key.Trim(), CreatedAt = now,
         };
         db.ChatMessages.Add(message);
+        access.Room.UpdatedAt = now;
         try
         {
             await db.SaveChangesAsync(token);
@@ -292,10 +375,18 @@ public sealed class ChatService(
                     ChatMessageId = message.Id, FileId = file.Id, CreatedAt = now, CreatedByUserId = userId,
                 });
             }
+            var recipient = await db.ChatParticipants.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.UserId != userId && x.StatusCode == "ACTIVE")
+                .Select(x => new { x.UserId, x.ParticipantRoleCode }).SingleAsync(token);
             db.OutboxEvents.Add(new OutboxEvent
             {
                 AggregateType = "ChatRoom", AggregatePublicId = access.Room.PublicId, EventType = "CHAT.MESSAGE.CREATED",
-                PayloadJson = JsonSerializer.Serialize(new { roomId = access.Room.PublicId, messageId = message.PublicId, messageType = type }),
+                PayloadJson = JsonSerializer.Serialize(new
+                {
+                    recipientUserId = recipient.UserId, roomId = access.Room.PublicId, messageId = message.PublicId, messageType = type,
+                    resourceType = access.Room.ResourceTypeCode, resourceId = access.Room.ResourcePublicId,
+                    targetRoute = recipient.ParticipantRoleCode == "CUSTOMER"
+                        ? $"/customer/messages/{access.Room.PublicId}" : $"/provider/messages/{access.Room.PublicId}",
+                }),
                 StatusCode = "PENDING", OccurredAt = now, AvailableAt = now, IdempotencyKey = $"chat-message-created:{message.PublicId:N}",
                 CreatedByUserId = userId,
             });
@@ -360,8 +451,8 @@ public sealed class ChatService(
         catch (Exception exception) { logger.LogWarning(exception, "Chat realtime delivery failed for room {RoomId}; the saved message remains authoritative.", roomId); }
     }
 
-    private async Task<int> UnreadInRoom(long roomId, long userId, CancellationToken token) =>
-        await db.ChatMessages.AsNoTracking().CountAsync(message => message.ChatRoomId == roomId &&
+    private async Task<int> UnreadInRoom(long roomId, long userId, DateTime accessStartedAt, CancellationToken token) =>
+        await db.ChatMessages.AsNoTracking().CountAsync(message => message.ChatRoomId == roomId && message.CreatedAt >= accessStartedAt &&
             !db.ChatParticipants.Any(p => p.Id == message.SenderParticipantId && p.UserId == userId) &&
             !db.ChatMessageReads.Any(read => read.ChatMessageId == message.Id && read.UserId == userId), token);
 
@@ -416,7 +507,6 @@ public sealed class ChatService(
     }
 
     private static string SafeName(StoredFile file) => Path.GetFileName(file.OriginalFileName);
-    private static string TransactionNumber(Guid id) => $"TR-{id.ToString("N")[..10].ToUpperInvariant()}";
     private static string? Preview(ChatMessage? message) => message is null ? null : message.MessageTypeCode == "FILE" ? "파일을 보냈습니다." : message.Body?.Length > 80 ? message.Body[..80] : message.Body;
     public static string Group(Guid roomId) => $"chat-room:{roomId:N}";
     private static ChatBusinessException NotFound() => new("CHAT_ROOM_NOT_FOUND", "채팅방을 찾을 수 없습니다.", 404);
@@ -426,6 +516,6 @@ public sealed class ChatService(
     private sealed record UserIdentity(long UserId);
     private sealed record RoomAccess(ChatRoom Room, ChatParticipant Participant);
     private sealed record ValidatedFile(string Name, string ContentType, string Extension, string Sha256);
-    private sealed record AuthorizedRoomRow(ChatRoom Room, ChatParticipant Participant, TransactionRecord Transaction,
-        string ServiceName, string CounterpartyRole, string CounterpartyName);
+    private sealed record AuthorizedRoomRow(ChatRoom Room, ChatParticipant Participant, ChatResourceAuthorization Authorization,
+        string CounterpartyRole, string CounterpartyName);
 }

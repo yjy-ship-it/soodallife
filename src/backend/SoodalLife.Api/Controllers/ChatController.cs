@@ -9,13 +9,35 @@ namespace SoodalLife.Api.Controllers;
 public sealed class ChatController(ChatService service) : ControllerBase
 {
     [HttpGet("rooms")]
-    public Task<ActionResult<IReadOnlyList<ChatRoomListItem>>> Rooms(CancellationToken token) => Run(() => service.Mine(User, token));
+    public Task<ActionResult<IReadOnlyList<ChatRoomListItem>>> Rooms([FromQuery] string? resourceType, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 30, CancellationToken token = default) => Run(() => service.Mine(User, resourceType, page, pageSize, token));
 
     [HttpGet("rooms/{id:guid}")]
     public Task<ActionResult<ChatRoomDetail>> Room(Guid id, CancellationToken token) => Run(() => service.Detail(id, User, token));
 
     [HttpGet("transactions/{id:guid}/room")]
     public Task<ActionResult<ChatRoomDetail>> TransactionRoom(Guid id, CancellationToken token) => Run(() => service.EnsureForTransactionAsync(User, id, token));
+
+    [HttpGet("subscriptions/{id:guid}/room")]
+    public Task<ActionResult<ChatRoomDetail>> SubscriptionRoom(Guid id, CancellationToken token) =>
+        Run(() => service.EnsureForResourceAsync(User, ChatResourceTypes.Subscription, id, "DIRECT", token));
+
+    [HttpGet("subscription-visits/{id:guid}/room")]
+    public Task<ActionResult<ChatRoomDetail>> SubscriptionVisitRoom(Guid id, CancellationToken token) =>
+        Run(() => service.EnsureForSubscriptionVisitAsync(User, id, token));
+
+    [HttpGet("interiors/{id:guid}/room")]
+    public Task<ActionResult<ChatRoomDetail>> InteriorRoom(Guid id, [FromQuery] string role = "PRIMARY_CONTRACTOR", CancellationToken token = default)
+    {
+        var normalized = role.Trim().ToUpperInvariant();
+        if (normalized is not ("PRIMARY_CONTRACTOR" or "SITE_SURVEY"))
+            return Task.FromResult<ActionResult<ChatRoomDetail>>(BadRequest(new { code = "CHAT_INTERIOR_ROLE_INVALID", message = "지원하지 않는 인테리어 채팅 역할입니다." }));
+        return Run(() => service.EnsureForResourceAsync(User, ChatResourceTypes.Interior, id, normalized, token));
+    }
+
+    [HttpGet("after-services/{id:guid}/room")]
+    public Task<ActionResult<ChatRoomDetail>> AfterServiceRoom(Guid id, CancellationToken token) =>
+        Run(() => service.EnsureForResourceAsync(User, ChatResourceTypes.AfterService, id, "DIRECT", token));
 
     [HttpGet("rooms/{id:guid}/messages")]
     public Task<ActionResult<ChatMessagePage>> Messages(Guid id, [FromQuery] Guid? before, [FromQuery] int pageSize = 30, CancellationToken token = default) =>

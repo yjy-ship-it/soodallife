@@ -1,12 +1,14 @@
 namespace SoodalLife.Api.Features.Chat;
 
 public sealed record ChatRoomListItem(
-    Guid Id, Guid TransactionId, string StatusCode, string CounterpartyRoleCode, string CounterpartyDisplayName,
-    string ServiceName, string TransactionNumber, string? LastMessagePreview, DateTime? LastMessageAt, int UnreadCount);
+    Guid Id, string ResourceTypeCode, Guid ResourceId, Guid? TransactionId, string RoomTypeCode,
+    string StatusCode, string CounterpartyRoleCode, string CounterpartyDisplayName,
+    string ServiceName, string ResourceNumber, string? LastMessagePreview, DateTime? LastMessageAt, int UnreadCount);
 
 public sealed record ChatRoomDetail(
-    Guid Id, Guid TransactionId, string StatusCode, string CounterpartyRoleCode, string CounterpartyDisplayName,
-    string ServiceName, string TransactionNumber, string RowVersion);
+    Guid Id, string ResourceTypeCode, Guid ResourceId, Guid? TransactionId, string RoomTypeCode,
+    string StatusCode, string CounterpartyRoleCode, string CounterpartyDisplayName,
+    string ServiceName, string ResourceNumber, string RowVersion);
 
 public sealed record ChatAttachmentResponse(
     Guid Id, string FileName, string ContentType, long SizeBytes, bool Available, string? DownloadUrl, string PublicationStatus);

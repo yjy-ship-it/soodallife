@@ -3,6 +3,7 @@ import { useAuthentication } from '../auth/AuthenticationContext'
 import { navigate } from '../auth/routing'
 import { BrandLogo } from '../components/BrandLogo'
 import { ServiceFooter } from '../components/ServiceFooter'
+import { BusinessChatShortcut } from '../chat/BusinessChatShortcut'
 import './provider.css'
 
 const desktop = [
@@ -28,7 +29,7 @@ export function ProviderAppLayout({ children, actions }: PropsWithChildren<{ act
       <nav className="providerDesktopNav" aria-label="공급자 주요 메뉴">{desktop.map(([path, label]) => <button className={isActive(pathname, path) ? 'isActive' : ''} key={path} onClick={() => navigate(path)}>{label}</button>)}</nav>
       <div className="providerHeaderActions"><button className="providerBell" onClick={() => navigate('/provider/messages')} aria-label={`읽지 않은 메시지 ${chatUnread}개`}>메시지{chatUnread > 0 && <span>{chatUnread > 99 ? '99+' : chatUnread}</span>}</button><button className="providerBell" onClick={() => navigate('/provider/notifications')} aria-label={`읽지 않은 알림 ${unread}개`}>알림{unread > 0 && <span>{unread > 99 ? '99+' : unread}</span>}</button><button onClick={() => navigate('/roles')}>{user?.loginId}</button><button onClick={() => void signOut()}>로그아웃</button></div>
     </div></header>
-    <main id="provider-main" className="providerMain">{actions}{children}</main>
+    <main id="provider-main" className="providerMain">{actions}<BusinessChatShortcut />{children}</main>
     <ServiceFooter variant="provider" />
     <nav className="providerBottomNav" aria-label="모바일 공급자 메뉴">{mobile.map(([path, label]) => <button key={path} className={isActive(pathname, path) ? 'isActive' : ''} onClick={() => navigate(path)}><span aria-hidden="true">{label === '홈' ? '⌂' : label === '마이' ? '○' : label === '메시지' ? '✉' : '·'}</span>{label}{label === '메시지' && chatUnread > 0 && <b className="providerNavBadge">{chatUnread > 99 ? '99+' : chatUnread}</b>}</button>)}</nav>
   </div>

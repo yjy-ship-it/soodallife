@@ -20,8 +20,8 @@ internal sealed class ChatRoomConfiguration() : EntityConfiguration<ChatRoom>("c
         b.HasIndex(x => x.StatusCode);
         b.ToTable("chat_rooms", t =>
         {
-            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION')");
-            t.HasCheckConstraint("CK_chat_rooms_room_type", "[room_type] IN ('DIRECT')");
+            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION','SUBSCRIPTION','INTERIOR','AFTER_SERVICE')");
+            t.HasCheckConstraint("CK_chat_rooms_room_type", "[room_type] IN ('DIRECT','PRIMARY_CONTRACTOR','SITE_SURVEY')");
             t.HasCheckConstraint("CK_chat_rooms_status", "[status_code] IN ('ACTIVE','READ_ONLY','CLOSED')");
         });
     }
