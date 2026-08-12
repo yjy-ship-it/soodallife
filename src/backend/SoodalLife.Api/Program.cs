@@ -91,6 +91,7 @@ builder.Services.AddScoped<ProviderAftercareService>();
 builder.Services.AddScoped<CustomerReportService>();
 builder.Services.AddScoped<CareSubscriptionService>();
 builder.Services.AddScoped<CustomerCareSubscriptionService>();
+builder.Services.AddScoped<ProviderCareService>();
 builder.Services.AddSingleton<ISubscriptionVisitVerificationAdapter, NotIntegratedSubscriptionVisitVerificationAdapter>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();
