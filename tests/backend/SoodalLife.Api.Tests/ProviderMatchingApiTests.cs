@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +10,7 @@ using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Providers;
 using SoodalLife.Api.Features.ServiceRequests;
+using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
@@ -58,6 +61,13 @@ public sealed class ProviderMatchingApiTests(AuthenticationWebApplicationFactory
         using var customerClient = CreateClient();
         await LoginAsync(customerClient, factory.Credentials[RoleCodes.Customer]);
         var created = await CreateValidRequestAsync(customerClient);
+        using var uploadForm = new MultipartFormDataContent();
+        using var uploadContent = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x01]);
+        uploadContent.Headers.ContentType = new("image/jpeg");
+        uploadForm.Add(uploadContent, "file", "phone-010-1234-5678.jpg");
+        var uploadedResponse = await customerClient.PostAsync($"/api/v1/requests/{created.Id}/files", uploadForm);
+        Assert.Equal(HttpStatusCode.OK, uploadedResponse.StatusCode);
+        var uploaded = (await uploadedResponse.Content.ReadFromJsonAsync<ServiceRequestFileResponse>())!;
         var publishResponse = await customerClient.PostAsync($"/api/v1/requests/{created.Id}/publish", null);
         Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
         var published = (await publishResponse.Content.ReadFromJsonAsync<PublishServiceRequestResponse>())!;
@@ -81,6 +91,72 @@ public sealed class ProviderMatchingApiTests(AuthenticationWebApplicationFactory
         Assert.Equal("VIEWED", detail.DispatchStatus);
         Assert.Null(detail.DetailAddress);
         Assert.Null(detail.CustomerPhone);
+        Assert.Empty(detail.Files);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await providerClient.GetAsync($"/api/v1/requests/{created.Id}/files/{uploaded.Id}")).StatusCode);
+
+        Guid derivativePublicId;
+        using (var privacyScope = factory.Services.CreateScope())
+        {
+            var db = privacyScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var original = await db.Files.SingleAsync(file => file.PublicId == uploaded.Id);
+            original.MalwareScanStatusCode = "CLEAN";
+            original.PrivacyInspectionStatusCode = "SAFE";
+            await db.SaveChangesAsync();
+        }
+        var safeDetail = await providerClient.GetFromJsonAsync<ProviderMatchedRequestDetail>($"/api/v1/providers/me/matched-requests/{created.Id}");
+        var safePublished = Assert.Single(safeDetail!.Files);
+        Assert.Equal("attachment-1.jpg", safePublished.FileName);
+        Assert.Equal("PRIVACY_SAFE_ORIGINAL", safePublished.PublicationMode);
+        Assert.Equal(HttpStatusCode.OK, (await providerClient.GetAsync(safePublished.DownloadUrl)).StatusCode);
+
+        using (var privacyScope = factory.Services.CreateScope())
+        {
+            var db = privacyScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var storage = privacyScope.ServiceProvider.GetRequiredService<IPrivateFileStorage>();
+            var original = await db.Files.SingleAsync(file => file.PublicId == uploaded.Id);
+            original.PrivacyInspectionStatusCode = "SENSITIVE_DETECTED";
+            original.SanitizationStatusCode = "COMPLETED";
+            var storageKey = $"tests/privacy/{Guid.NewGuid():N}.jpg";
+            var derived = new StoredFile
+            {
+                PurposeCode = "REQUEST_ANSWER",
+                StorageContainer = "development-private",
+                StorageKey = storageKey,
+                StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(storageKey)),
+                OriginalFileName = "sanitized-output.jpg",
+                ContentType = "image/jpeg",
+                SizeBytes = 4,
+                Sha256Hex = Convert.ToHexString(SHA256.HashData([0xFF, 0xD8, 0xFF, 0x02])).ToLowerInvariant(),
+                StatusCode = "ACTIVE",
+                MalwareScanStatusCode = "CLEAN",
+                CreatedAt = DateTime.UtcNow,
+            };
+            db.Files.Add(derived);
+            await db.SaveChangesAsync();
+            db.FileDerivatives.Add(new StoredFileDerivative
+            {
+                OriginalFileId = original.Id,
+                DerivedFileId = derived.Id,
+                DerivativeTypeCode = "PRIVACY_SANITIZED",
+                AdapterVersion = "TEST-ONLY",
+                CreatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+            await storage.SaveAsync(storageKey, new MemoryStream([0xFF, 0xD8, 0xFF, 0x02]), default);
+            derivativePublicId = derived.PublicId;
+        }
+        var sanitizedDetailResponse = await providerClient.GetAsync($"/api/v1/providers/me/matched-requests/{created.Id}");
+        var sanitizedJson = await sanitizedDetailResponse.Content.ReadAsStringAsync();
+        var sanitizedDetail = await sanitizedDetailResponse.Content.ReadFromJsonAsync<ProviderMatchedRequestDetail>();
+        var sanitizedPublished = Assert.Single(sanitizedDetail!.Files);
+        Assert.Equal(derivativePublicId, sanitizedPublished.Id);
+        Assert.Equal("PRIVACY_SANITIZED_DERIVATIVE", sanitizedPublished.PublicationMode);
+        Assert.DoesNotContain("phone-010-1234-5678.jpg", sanitizedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("storageKey", sanitizedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await providerClient.GetAsync($"/api/v1/requests/{created.Id}/files/{uploaded.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await providerClient.GetAsync(sanitizedPublished.DownloadUrl)).StatusCode);
 
         await AssertCandidateOutcomesAsync(created.Id);
 

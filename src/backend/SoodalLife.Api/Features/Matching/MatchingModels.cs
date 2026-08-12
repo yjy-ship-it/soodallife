@@ -38,7 +38,10 @@ public sealed record ProviderMatchedRequestFile(
     string FileName,
     string ContentType,
     long SizeBytes,
-    string ScanStatus,
+    string MalwareScanStatus,
+    string PrivacyInspectionStatus,
+    string SanitizationStatus,
+    string PublicationMode,
     string DownloadUrl);
 
 public sealed record ProviderMatchedRequestDetail(

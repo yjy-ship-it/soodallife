@@ -115,6 +115,29 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
     }
 
     [Fact]
+    public async Task RequestFile_OwnerCanDownload_ButOtherCustomerCannot_AndStatusesAreSeparated()
+    {
+        using var owner = CreateClient();
+        await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]);
+        var draft = await CreateValidRequestAsync(owner);
+        using var form = new MultipartFormDataContent();
+        using var content = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x01]);
+        content.Headers.ContentType = new("image/jpeg");
+        form.Add(content, "file", "customer-private.jpg");
+        var uploaded = await owner.PostAsync($"/api/v1/requests/{draft.Id}/files", form);
+        Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+        var file = (await uploaded.Content.ReadFromJsonAsync<ServiceRequestFileResponse>())!;
+        Assert.Equal("NOT_INTEGRATED", file.MalwareScanStatus);
+        Assert.Equal("NOT_INTEGRATED", file.PrivacyInspectionStatus);
+        Assert.Equal("WITHHELD_PRIVACY_PROTECTION_PENDING", file.ProviderVisibilityStatus);
+        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(file.DownloadUrl)).StatusCode);
+
+        using var other = CreateClient();
+        await LoginAsync(other, factory.OtherCustomerCredential);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(file.DownloadUrl)).StatusCode);
+    }
+
+    [Fact]
     public async Task RequestFile_OverTenMegabytes_IsRejected()
     {
         using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);

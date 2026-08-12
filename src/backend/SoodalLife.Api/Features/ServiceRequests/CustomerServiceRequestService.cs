@@ -9,6 +9,7 @@ using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Work;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.ServiceRequests;
@@ -16,7 +17,8 @@ namespace SoodalLife.Api.Features.ServiceRequests;
 public sealed class CustomerServiceRequestService(
     SoodalLifeDbContext db,
     RequestMatchingService matchingService,
-    IPrivateFileStorage fileStorage)
+    IPrivateFileStorage fileStorage,
+    ServiceRequestFilePrivacyResolver filePrivacyResolver)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     private static readonly IReadOnlyDictionary<string, FileRule> AllowedFiles =
@@ -228,6 +230,9 @@ public sealed class CustomerServiceRequestService(
             Sha256Hex = Convert.ToHexString(validated.Hash).ToLowerInvariant(),
             StatusCode = "PENDING",
             ScanResultText = "NOT_INTEGRATED",
+            MalwareScanStatusCode = FilePrivacyCodes.NotIntegrated,
+            PrivacyInspectionStatusCode = FilePrivacyCodes.NotIntegrated,
+            SanitizationStatusCode = FilePrivacyCodes.NotIntegrated,
             UploadedByUserId = identity.UserId,
             CreatedAt = now,
         };
@@ -292,7 +297,10 @@ public sealed class CustomerServiceRequestService(
         var row = await (from link in db.ServiceRequestFiles.AsNoTracking()
                          join file in db.Files.AsNoTracking() on link.FileId equals file.Id
                          join request in db.ServiceRequests.AsNoTracking() on link.ServiceRequestId equals request.Id
-                         where request.PublicId == requestId && file.PublicId == fileId && file.StatusCode == "ACTIVE"
+                         where request.PublicId == requestId && file.StatusCode == "ACTIVE" &&
+                               (file.PublicId == fileId || db.FileDerivatives.Any(relation =>
+                                   relation.OriginalFileId == file.Id && relation.DerivedFileId == db.Files
+                                       .Where(derived => derived.PublicId == fileId).Select(derived => derived.Id).FirstOrDefault()))
                          select new { Link = link, File = file, Request = request }).SingleOrDefaultAsync(token)
             ?? throw NotFound("REQUEST_FILE_NOT_FOUND", "요청 파일을 찾을 수 없습니다.", "fileId");
 
@@ -301,6 +309,7 @@ public sealed class CustomerServiceRequestService(
                                   where customer.Id == row.Request.CustomerProfileId && user.PublicId == userPublicId
                                   select customer.Id).AnyAsync(token);
         var providerAllowed = false;
+        ProviderPublishedRequestFile? providerPublished = null;
         if (!customerOwns && principal.IsInRole(RoleCodes.Provider))
         {
             var providerId = await (from provider in db.ProviderProfiles.AsNoTracking()
@@ -315,12 +324,21 @@ public sealed class CustomerServiceRequestService(
                 var fieldAllowed = !row.Link.FieldDefinitionId.HasValue || await db.CategoryFieldDefinitions.AsNoTracking().AnyAsync(
                     x => x.Id == row.Link.FieldDefinitionId && x.ProviderVisibilityCode == "FULL" && x.PreAcceptMaskingCode == "NONE", token);
                 providerAllowed = relationAllowed && fieldAllowed;
+                if (providerAllowed)
+                {
+                    providerPublished = await filePrivacyResolver.ResolveDownloadAsync(
+                        row.Request.Id, providerId.Value, fileId, token);
+                    providerAllowed = providerPublished is not null;
+                }
             }
         }
 
         if (!customerOwns && !providerAllowed)
             throw NotFound("REQUEST_FILE_NOT_FOUND", "요청 파일을 찾을 수 없습니다.", "fileId");
-        return (await fileStorage.OpenReadAsync(row.File.StorageKey, token), row.File.ContentType, row.File.OriginalFileName);
+        if (customerOwns)
+            return (await fileStorage.OpenReadAsync(row.File.StorageKey, token), row.File.ContentType, row.File.OriginalFileName);
+        return (await fileStorage.OpenReadAsync(providerPublished!.StorageKey, token),
+            providerPublished.ContentType, providerPublished.FileName);
     }
 
     public async Task<IReadOnlyList<ServiceRequestListItemResponse>> GetMineAsync(ClaimsPrincipal principal, CancellationToken token)
@@ -594,8 +612,18 @@ public sealed class CustomerServiceRequestService(
 
     private static ServiceRequestFileResponse FileResponse(ServiceRequestFile link, StoredFile file, Guid? fieldId, Guid requestPublicId) => new(
         file.PublicId, fieldId, link.PurposeCode, file.OriginalFileName, file.ContentType, file.SizeBytes,
-        file.ScanResultText == "NOT_INTEGRATED" ? "NOT_INTEGRATED" : "UNKNOWN", link.DisplayOrder,
+        file.ScanResultText == "NOT_INTEGRATED" ? "NOT_INTEGRATED" : "UNKNOWN",
+        file.MalwareScanStatusCode ?? "LEGACY_UNSCANNED",
+        file.PrivacyInspectionStatusCode ?? "LEGACY_UNSCANNED",
+        file.SanitizationStatusCode ?? "LEGACY_UNSCANNED",
+        ProviderVisibility(file), link.DisplayOrder,
         $"/api/v1/requests/{requestPublicId}/files/{file.PublicId}");
+
+    private static string ProviderVisibility(StoredFile file) =>
+        file.MalwareScanStatusCode == FilePrivacyCodes.Clean &&
+        (file.PrivacyInspectionStatusCode == FilePrivacyCodes.Safe || file.SanitizationStatusCode == FilePrivacyCodes.SanitizationCompleted)
+            ? "ELIGIBLE_FOR_SERVER_RESOLUTION"
+            : "WITHHELD_PRIVACY_PROTECTION_PENDING";
 
     private async Task<ServiceRequest> OwnedRequestAsync(long customerId, Guid requestId, CancellationToken token) =>
         await db.ServiceRequests.SingleOrDefaultAsync(x => x.PublicId == requestId && x.CustomerProfileId == customerId, token)

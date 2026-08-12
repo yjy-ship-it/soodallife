@@ -58,6 +58,10 @@ public sealed record ServiceRequestFileResponse(
     string ContentType,
     long SizeBytes,
     string ScanStatus,
+    string MalwareScanStatus,
+    string PrivacyInspectionStatus,
+    string SanitizationStatus,
+    string ProviderVisibilityStatus,
     int DisplayOrder,
     string DownloadUrl);
 

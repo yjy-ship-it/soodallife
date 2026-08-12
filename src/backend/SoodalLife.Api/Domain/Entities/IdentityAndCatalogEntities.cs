@@ -701,11 +701,31 @@ public sealed class StoredFile
     public string Sha256Hex { get; set; } = string.Empty;
     public string StatusCode { get; set; } = "PENDING";
     public string? ScanResultText { get; set; }
+    public string? MalwareScanStatusCode { get; set; }
+    public string? PrivacyInspectionStatusCode { get; set; }
+    public DateTime? PrivacyInspectedAt { get; set; }
+    public string? PrivacyAdapterVersion { get; set; }
+    public string? PrivacyDetectionTypesJson { get; set; }
+    public string? PrivacyInspectionErrorCode { get; set; }
+    public string? SanitizationStatusCode { get; set; }
+    public DateTime? SanitizationCompletedAt { get; set; }
     public DateTime? ActivatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
     public long? UploadedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class StoredFileDerivative
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long OriginalFileId { get; set; }
+    public long DerivedFileId { get; set; }
+    public string DerivativeTypeCode { get; set; } = "PRIVACY_SANITIZED";
+    public string? AdapterVersion { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
 }
 
 public sealed class ProviderDocument

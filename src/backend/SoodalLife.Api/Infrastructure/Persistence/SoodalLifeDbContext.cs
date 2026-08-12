@@ -42,6 +42,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ProviderServiceApprovalEvent> ProviderServiceApprovalEvents => Set<ProviderServiceApprovalEvent>();
     public DbSet<ProviderServiceArea> ProviderServiceAreas => Set<ProviderServiceArea>();
     public DbSet<StoredFile> Files => Set<StoredFile>();
+    public DbSet<StoredFileDerivative> FileDerivatives => Set<StoredFileDerivative>();
     public DbSet<ProviderDocument> ProviderDocuments => Set<ProviderDocument>();
     public DbSet<ProviderServiceRequirementVerification> ProviderServiceRequirementVerifications => Set<ProviderServiceRequirementVerification>();
     public DbSet<ProviderWallet> ProviderWallets => Set<ProviderWallet>();

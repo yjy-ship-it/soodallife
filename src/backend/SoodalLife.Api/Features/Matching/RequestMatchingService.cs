@@ -4,10 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Features.FilePrivacy;
 
 namespace SoodalLife.Api.Features.Matching;
 
-public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, ProviderTradingEligibilityService eligibilityService)
+public sealed class RequestMatchingService(
+    SoodalLifeDbContext dbContext,
+    ProviderTradingEligibilityService eligibilityService,
+    ServiceRequestFilePrivacyResolver filePrivacyResolver)
 {
     public async Task<MatchAndDispatchResult> MatchAndDispatchAsync(Guid requestPublicId, CancellationToken cancellationToken)
     {
@@ -254,21 +258,12 @@ public sealed class RequestMatchingService(SoodalLifeDbContext dbContext, Provid
                 !visible);
         }).ToArray();
         var desiredAt = answers.FirstOrDefault(item => item.Field.FieldKey == "desired_date")?.Answer.ValueDateTime;
-        var files = await (from link in dbContext.ServiceRequestFiles.AsNoTracking()
-                           join file in dbContext.Files.AsNoTracking() on link.FileId equals file.Id
-                           join field in dbContext.CategoryFieldDefinitions.AsNoTracking() on link.FieldDefinitionId equals field.Id into fieldGroup
-                           from field in fieldGroup.DefaultIfEmpty()
-                           where link.ServiceRequestId == row.Request.Id && file.StatusCode == "ACTIVE" &&
-                                 (field == null || field.ProviderVisibilityCode == "FULL" && field.PreAcceptMaskingCode == "NONE")
-                           orderby link.DisplayOrder
-                           select new ProviderMatchedRequestFile(
-                               file.PublicId,
-                               file.OriginalFileName,
-                               file.ContentType,
-                               file.SizeBytes,
-                               file.ScanResultText == "NOT_INTEGRATED" ? "NOT_INTEGRATED" : "UNKNOWN",
-                               $"/api/v1/requests/{row.Request.PublicId}/files/{file.PublicId}"))
-            .ToListAsync(cancellationToken);
+        var publishedFiles = await filePrivacyResolver.GetPublishedAsync(row.Request.Id, providerId, cancellationToken);
+        var files = publishedFiles.Select(file => new ProviderMatchedRequestFile(
+            file.PublicId, file.FileName, file.ContentType, file.SizeBytes,
+            file.MalwareScanStatus, file.PrivacyInspectionStatus, file.SanitizationStatus,
+            file.PublicationMode, $"/api/v1/requests/{row.Request.PublicId}/files/{file.PublicId}"))
+            .ToArray();
 
         return new ProviderMatchedRequestDetail(
             row.Request.PublicId,

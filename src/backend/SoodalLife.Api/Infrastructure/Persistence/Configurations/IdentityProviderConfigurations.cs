@@ -256,6 +256,14 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         Mapping.String(b, nameof(StoredFile.Sha256Hex), "sha256_hex", 64, unicode: false, fixedLength: true);
         Mapping.String(b, nameof(StoredFile.StatusCode), "status_code", 20, unicode: false, defaultValue: "PENDING");
         Mapping.String(b, nameof(StoredFile.ScanResultText), "scan_result_text", 1000, nullable: true);
+        Mapping.String(b, nameof(StoredFile.MalwareScanStatusCode), "malware_scan_status_code", 30, nullable: true, unicode: false);
+        Mapping.String(b, nameof(StoredFile.PrivacyInspectionStatusCode), "privacy_inspection_status_code", 30, nullable: true, unicode: false);
+        Mapping.DateTime(b, nameof(StoredFile.PrivacyInspectedAt), "privacy_inspected_at", nullable: true);
+        Mapping.String(b, nameof(StoredFile.PrivacyAdapterVersion), "privacy_adapter_version", 100, nullable: true, unicode: false);
+        Mapping.String(b, nameof(StoredFile.PrivacyDetectionTypesJson), "privacy_detection_types_json", null, nullable: true);
+        Mapping.String(b, nameof(StoredFile.PrivacyInspectionErrorCode), "privacy_inspection_error_code", 100, nullable: true, unicode: false);
+        Mapping.String(b, nameof(StoredFile.SanitizationStatusCode), "sanitization_status_code", 30, nullable: true, unicode: false);
+        Mapping.DateTime(b, nameof(StoredFile.SanitizationCompletedAt), "sanitization_completed_at", nullable: true);
         Mapping.DateTime(b, nameof(StoredFile.ActivatedAt), "activated_at", nullable: true);
         Mapping.DateTime(b, nameof(StoredFile.DeletedAt), "deleted_at", nullable: true);
         Mapping.NullableLong(b, nameof(StoredFile.UploadedByUserId), "uploaded_by_user_id");
@@ -267,6 +275,9 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         b.HasIndex(x => x.ContentType);
         b.HasIndex(x => x.Sha256Hex);
         b.HasIndex(x => x.StatusCode);
+        b.HasIndex(x => x.MalwareScanStatusCode);
+        b.HasIndex(x => x.PrivacyInspectionStatusCode);
+        b.HasIndex(x => x.SanitizationStatusCode);
         b.HasIndex(x => x.UploadedByUserId);
         b.HasIndex(x => x.CreatedAt);
         b.ToTable("files", t =>
@@ -274,6 +285,33 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
             t.HasCheckConstraint("CK_files_size_bytes", "[size_bytes] >= 0");
             t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE')");
             t.HasCheckConstraint("CK_files_status", "[status_code] IN ('PENDING','ACTIVE','QUARANTINED','DELETED')");
+            t.HasCheckConstraint("CK_files_malware_scan_status", "[malware_scan_status_code] IS NULL OR [malware_scan_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','CLEAN','INFECTED','FAILED')");
+            t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");
+            t.HasCheckConstraint("CK_files_sanitization_status", "[sanitization_status_code] IS NULL OR [sanitization_status_code] IN ('NOT_INTEGRATED','NOT_REQUIRED','PENDING','PROCESSING','COMPLETED','FAILED')");
+        });
+    }
+}
+
+internal sealed class StoredFileDerivativeConfiguration() : EntityConfiguration<StoredFileDerivative>("file_derivatives")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<StoredFileDerivative> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(StoredFileDerivative.OriginalFileId), "original_file_id");
+        Mapping.Long(b, nameof(StoredFileDerivative.DerivedFileId), "derived_file_id");
+        Mapping.String(b, nameof(StoredFileDerivative.DerivativeTypeCode), "derivative_type_code", 40, unicode: false);
+        Mapping.String(b, nameof(StoredFileDerivative.AdapterVersion), "adapter_version", 100, nullable: true, unicode: false);
+        Mapping.CreatedAudit(b);
+        Mapping.Fk<StoredFileDerivative, StoredFile>(b, nameof(StoredFileDerivative.OriginalFileId));
+        Mapping.Fk<StoredFileDerivative, StoredFile>(b, nameof(StoredFileDerivative.DerivedFileId));
+        Mapping.Fk<StoredFileDerivative, User>(b, nameof(StoredFileDerivative.CreatedByUserId));
+        b.HasIndex(x => x.OriginalFileId);
+        b.HasIndex(x => x.DerivedFileId).IsUnique();
+        b.HasIndex(x => new { x.OriginalFileId, x.DerivativeTypeCode });
+        b.ToTable("file_derivatives", t =>
+        {
+            t.HasCheckConstraint("CK_file_derivatives_type", "[derivative_type_code] IN ('PRIVACY_SANITIZED')");
+            t.HasCheckConstraint("CK_file_derivatives_distinct", "[original_file_id] <> [derived_file_id]");
         });
     }
 }
