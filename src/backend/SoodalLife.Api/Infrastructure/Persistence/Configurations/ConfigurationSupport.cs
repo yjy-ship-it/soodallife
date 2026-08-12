@@ -46,6 +46,17 @@ internal static class Mapping
         if (defaultValue.HasValue) p.HasDefaultValue(defaultValue.Value);
     }
 
+    public static void NullableShort<TEntity>(EntityTypeBuilder<TEntity> builder, string property, string column)
+        where TEntity : class => builder.Property<short?>(property).HasColumnName(column).HasColumnType("smallint").IsRequired(false);
+
+    public static void Binary<TEntity>(EntityTypeBuilder<TEntity> builder, string property, string column, int? length = null)
+        where TEntity : class
+    {
+        var storeType = length.HasValue ? $"binary({length.Value})" : "varbinary(max)";
+        var p = builder.Property<byte[]?>(property).HasColumnName(column).HasColumnType(storeType).IsRequired(false);
+        if (length.HasValue) p.HasMaxLength(length.Value).IsFixedLength();
+    }
+
     public static void Bool<TEntity>(EntityTypeBuilder<TEntity> builder, string property, string column, bool? defaultValue = null)
         where TEntity : class
     {

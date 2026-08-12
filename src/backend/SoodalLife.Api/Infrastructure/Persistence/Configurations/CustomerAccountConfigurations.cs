@@ -79,6 +79,10 @@ internal sealed class CustomerAddressConfiguration() : EntityConfiguration<Custo
         Mapping.String(b, nameof(CustomerAddress.PostalCode), "postal_code", 10);
         Mapping.String(b, nameof(CustomerAddress.RoadAddress), "road_address", 500);
         Mapping.String(b, nameof(CustomerAddress.DetailAddress), "detail_address", 500);
+        Mapping.Binary(b, nameof(CustomerAddress.RecipientNameEncrypted), "recipient_name_encrypted");
+        Mapping.Binary(b, nameof(CustomerAddress.RoadAddressEncrypted), "road_address_encrypted");
+        Mapping.Binary(b, nameof(CustomerAddress.DetailAddressEncrypted), "detail_address_encrypted");
+        Mapping.NullableShort(b, nameof(CustomerAddress.PrivacyProtectionVersion), "privacy_protection_version");
         Mapping.NullableLong(b, nameof(CustomerAddress.AdministrativeAreaId), "administrative_area_id");
         Mapping.Decimal(b, nameof(CustomerAddress.Latitude), "latitude", nullable: true, precision: 10, scale: 7);
         Mapping.Decimal(b, nameof(CustomerAddress.Longitude), "longitude", nullable: true, precision: 10, scale: 7);

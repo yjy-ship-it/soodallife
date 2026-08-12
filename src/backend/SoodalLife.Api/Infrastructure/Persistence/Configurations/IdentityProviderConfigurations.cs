@@ -15,6 +15,11 @@ internal sealed class UserConfiguration() : EntityConfiguration<User>("users")
         Mapping.String(b, nameof(User.Email), "email", 320, nullable: true);
         Mapping.String(b, nameof(User.NormalizedEmail), "normalized_email", 320, nullable: true);
         Mapping.String(b, nameof(User.Phone), "phone", 32, nullable: true);
+        Mapping.Binary(b, nameof(User.EmailEncrypted), "email_encrypted");
+        Mapping.Binary(b, nameof(User.EmailSearchHash), "email_search_hash", 32);
+        Mapping.Binary(b, nameof(User.PhoneEncrypted), "phone_encrypted");
+        Mapping.Binary(b, nameof(User.PhoneSearchHash), "phone_search_hash", 32);
+        Mapping.NullableShort(b, nameof(User.PrivacyProtectionVersion), "privacy_protection_version");
         Mapping.String(b, nameof(User.EmailVerificationStatusCode), "email_verification_status_code", 30, unicode: false, defaultValue: "NOT_INTEGRATED");
         Mapping.String(b, nameof(User.PhoneVerificationStatusCode), "phone_verification_status_code", 30, unicode: false, defaultValue: "NOT_INTEGRATED");
         Mapping.String(b, nameof(User.StatusCode), "status_code", 20, unicode: false, defaultValue: "ACTIVE");
@@ -24,6 +29,8 @@ internal sealed class UserConfiguration() : EntityConfiguration<User>("users")
         b.HasIndex(x => x.Email);
         b.HasIndex(x => x.NormalizedEmail).IsUnique().HasFilter("[normalized_email] IS NOT NULL");
         b.HasIndex(x => x.Phone);
+        b.HasIndex(x => x.EmailSearchHash).IsUnique().HasFilter("[email_search_hash] IS NOT NULL");
+        b.HasIndex(x => x.PhoneSearchHash).HasFilter("[phone_search_hash] IS NOT NULL");
         b.HasIndex(x => x.StatusCode);
         b.HasIndex(x => x.CreatedAt);
         b.ToTable("users", t =>

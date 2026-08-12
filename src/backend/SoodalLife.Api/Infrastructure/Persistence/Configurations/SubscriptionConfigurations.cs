@@ -27,6 +27,7 @@ internal sealed class SubscriptionRequestConfiguration() : EntityConfiguration<S
         Mapping.NullableLong(b,nameof(SubscriptionRequest.CareProductId),"care_product_id"); Mapping.Long(b,nameof(SubscriptionRequest.AdministrativeAreaId),"administrative_area_id");
         Mapping.String(b,nameof(SubscriptionRequest.RequestTypeCode),"request_type_code",20,unicode:false); Mapping.String(b,nameof(SubscriptionRequest.RequestedScopeText),"requested_scope_text",4000);
         Mapping.Date(b,nameof(SubscriptionRequest.PreferredStartDate),"preferred_start_date"); Mapping.String(b,nameof(SubscriptionRequest.DetailAddress),"detail_address",500,nullable:true);
+        Mapping.Binary(b,nameof(SubscriptionRequest.DetailAddressEncrypted),"detail_address_encrypted"); Mapping.NullableShort(b,nameof(SubscriptionRequest.PrivacyProtectionVersion),"privacy_protection_version");
         Mapping.String(b,nameof(SubscriptionRequest.StatusCode),"status_code",30,unicode:false); Mapping.NullableLong(b,nameof(SubscriptionRequest.SelectedApplicationId),"selected_application_id"); Mapping.FullAudit(b);
         Mapping.Fk<SubscriptionRequest,CustomerProfile>(b,nameof(SubscriptionRequest.CustomerProfileId)); Mapping.Fk<SubscriptionRequest,ServiceCategory>(b,nameof(SubscriptionRequest.ServiceCategoryId));
         Mapping.Fk<SubscriptionRequest,CareProduct>(b,nameof(SubscriptionRequest.CareProductId)); Mapping.Fk<SubscriptionRequest,AdministrativeArea>(b,nameof(SubscriptionRequest.AdministrativeAreaId));

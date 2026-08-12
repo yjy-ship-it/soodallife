@@ -10,6 +10,11 @@ public sealed class User
     public string? Email { get; set; }
     public string? NormalizedEmail { get; set; }
     public string? Phone { get; set; }
+    public byte[]? EmailEncrypted { get; set; }
+    public byte[]? EmailSearchHash { get; set; }
+    public byte[]? PhoneEncrypted { get; set; }
+    public byte[]? PhoneSearchHash { get; set; }
+    public short? PrivacyProtectionVersion { get; set; }
     public string EmailVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
     public string PhoneVerificationStatusCode { get; set; } = "NOT_INTEGRATED";
     public string StatusCode { get; set; } = "ACTIVE";
@@ -116,6 +121,10 @@ public sealed class CustomerAddress
     public string PostalCode { get; set; } = string.Empty;
     public string RoadAddress { get; set; } = string.Empty;
     public string DetailAddress { get; set; } = string.Empty;
+    public byte[]? RecipientNameEncrypted { get; set; }
+    public byte[]? RoadAddressEncrypted { get; set; }
+    public byte[]? DetailAddressEncrypted { get; set; }
+    public short? PrivacyProtectionVersion { get; set; }
     public long? AdministrativeAreaId { get; set; }
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }

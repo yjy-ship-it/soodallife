@@ -14,6 +14,8 @@ internal sealed class ServiceRequestConfiguration() : EntityConfiguration<Servic
         Mapping.Long(b, nameof(ServiceRequest.CategoryPolicyId), "category_policy_id");
         Mapping.NullableLong(b, nameof(ServiceRequest.AdministrativeAreaId), "administrative_area_id");
         Mapping.String(b, nameof(ServiceRequest.DetailAddress), "detail_address", 500, nullable: true);
+        Mapping.Binary(b, nameof(ServiceRequest.DetailAddressEncrypted), "detail_address_encrypted");
+        Mapping.NullableShort(b, nameof(ServiceRequest.PrivacyProtectionVersion), "privacy_protection_version");
         Mapping.String(b, nameof(ServiceRequest.Title), "title", 200);
         Mapping.String(b, nameof(ServiceRequest.Description), "description", null, nullable: true);
         Mapping.String(b, nameof(ServiceRequest.StatusCode), "status_code", 20, unicode: false, defaultValue: "DRAFT");

@@ -17,6 +17,7 @@ namespace SoodalLife.Api.Tests;
 public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"authentication-tests-{Guid.NewGuid():N}";
+    private readonly string _privacyHashKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
     public IReadOnlyDictionary<string, TestCredential> Credentials { get; } =
         RoleCodes.All.ToDictionary(
@@ -44,13 +45,16 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:SoodalLife"] = "Server=(local);Database=authentication-tests;Trusted_Connection=True;",
+                ["PrivacyProtection:DualWriteEnabled"] = "true",
+                ["PrivacyProtection:SearchHashKey"] = _privacyHashKey,
             });
         });
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<SoodalLifeDbContext>>();
             services.RemoveAll<SoodalLifeDbContext>();
-            services.AddDbContext<SoodalLifeDbContext>(options => options.UseInMemoryDatabase(_databaseName));
+            services.AddDbContext<SoodalLifeDbContext>((provider, options) => options.UseInMemoryDatabase(_databaseName)
+                .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>()));
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }

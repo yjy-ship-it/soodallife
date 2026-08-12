@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
@@ -19,6 +20,7 @@ using SoodalLife.Api.Features.CustomerAccounts;
 using SoodalLife.Api.Infrastructure.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Serialization;
+using SoodalLife.Api.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +30,12 @@ builder.Logging.AddConsole();
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter()));
 builder.Services.AddOpenApi();
+builder.Services.AddDataProtection().SetApplicationName("SoodalLife");
+builder.Services.Configure<PrivacyProtectionOptions>(builder.Configuration.GetSection(PrivacyProtectionOptions.SectionName));
+builder.Services.AddSingleton<SoodalLife.Api.Infrastructure.Security.IPersonalDataProtector, DataProtectionPersonalDataProtector>();
+builder.Services.AddSingleton<IPersonalDataSearchHasher, HmacPersonalDataSearchHasher>();
+builder.Services.AddSingleton<IPrivacyContract, PrivacyContract>();
+builder.Services.AddSingleton<PersonalDataProtectionInterceptor>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<CustomerAccountService>();
@@ -109,8 +117,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
             "Connection string 'SoodalLife' is not configured. Configure it through User Secrets or an environment variable.");
     }
 
-    builder.Services.AddDbContext<SoodalLifeDbContext>(options =>
-        options.UseSqlServer(connectionString));
+    builder.Services.AddDbContext<SoodalLifeDbContext>((services, options) =>
+        options.UseSqlServer(connectionString).AddInterceptors(services.GetRequiredService<PersonalDataProtectionInterceptor>()));
 }
 
 var app = builder.Build();

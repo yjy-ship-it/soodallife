@@ -35,6 +35,8 @@ public sealed class SubscriptionRequest
     public string RequestedScopeText { get; set; } = string.Empty;
     public DateOnly PreferredStartDate { get; set; }
     public string? DetailAddress { get; set; }
+    public byte[]? DetailAddressEncrypted { get; set; }
+    public short? PrivacyProtectionVersion { get; set; }
     public string StatusCode { get; set; } = "OPEN";
     public long? SelectedApplicationId { get; set; }
     public DateTime CreatedAt { get; set; }

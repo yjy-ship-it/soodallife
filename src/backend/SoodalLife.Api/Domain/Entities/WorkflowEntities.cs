@@ -9,6 +9,8 @@ public sealed class ServiceRequest
     public long CategoryPolicyId { get; set; }
     public long? AdministrativeAreaId { get; set; }
     public string? DetailAddress { get; set; }
+    public byte[]? DetailAddressEncrypted { get; set; }
+    public short? PrivacyProtectionVersion { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string StatusCode { get; set; } = "DRAFT";
