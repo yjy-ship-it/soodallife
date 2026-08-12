@@ -62,7 +62,8 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
             $"/api/v1/requests/{request.Id}/quotes",
             QuoteInput("비교 견적", 10m, 90m, 40m, $"quote-{Guid.NewGuid():N}")))
             .Content.ReadFromJsonAsync<QuoteDetailResponse>())!;
-        await secondProvider.PostAsync($"/api/v1/quotes/{otherDraft.Id}/submit", null);
+        var otherSubmit = await secondProvider.PostAsync($"/api/v1/quotes/{otherDraft.Id}/submit", null);
+        Assert.True(otherSubmit.IsSuccessStatusCode, await otherSubmit.Content.ReadAsStringAsync());
 
         var listResponse = await customer.GetAsync($"/api/v1/requests/{request.Id}/quotes");
         var listJson = await listResponse.Content.ReadAsStringAsync();
@@ -157,11 +158,23 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         var link = await (from user in db.Users join profile in db.ProviderProfiles on user.Id equals profile.UserId
                           join service in db.ProviderServiceCategories on profile.Id equals service.ProviderProfileId
                           where user.LoginId == credential.LoginId && service.CategoryId == serviceId select service).SingleAsync();
-        if (!await db.ProviderServiceApprovals.AnyAsync(item => item.ProviderServiceCategoryId == link.Id))
+        var approval = await db.ProviderServiceApprovals.SingleOrDefaultAsync(item => item.ProviderServiceCategoryId == link.Id);
+        if (approval is null)
             db.ProviderServiceApprovals.Add(new() { ProviderServiceCategoryId = link.Id, ApprovalStatusCode = "APPROVED", ApprovalRequestedAt = DateTime.UtcNow, ApprovalDecidedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        else
+        {
+            approval.ApprovalStatusCode = "APPROVED";
+            approval.ApprovalDecidedAt = DateTime.UtcNow;
+        }
         var assignment = await db.CategoryProviderRequirementAssignments.SingleAsync(item => item.IsActive);
-        if (!await db.ProviderServiceRequirementVerifications.AnyAsync(item => item.ProviderServiceCategoryId == link.Id && item.RequirementAssignmentId == assignment.Id))
+        var verification = await db.ProviderServiceRequirementVerifications.SingleOrDefaultAsync(item => item.ProviderServiceCategoryId == link.Id && item.RequirementAssignmentId == assignment.Id);
+        if (verification is null)
             db.ProviderServiceRequirementVerifications.Add(new() { ProviderServiceCategoryId = link.Id, RequirementAssignmentId = assignment.Id, VerificationStatusCode = "APPROVED", VerifiedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        else
+        {
+            verification.VerificationStatusCode = "APPROVED";
+            verification.VerifiedAt = DateTime.UtcNow;
+        }
         await db.SaveChangesAsync();
     }
 

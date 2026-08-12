@@ -22,6 +22,10 @@ public sealed class ProvidersController(ProviderConfigurationService providerSer
     public Task<ActionResult> Dashboard(CancellationToken token) =>
         Run(async () => await providerService.GetDashboardAsync(User, token));
 
+    [HttpGet("operations-dashboard")]
+    public Task<ActionResult> OperationsDashboard(CancellationToken token) =>
+        Run(async () => await providerService.GetOperationsDashboardAsync(User, token));
+
     [HttpGet("service-categories")]
     public async Task<ActionResult<IReadOnlyList<ProviderServiceCategoryResponse>>> GetServiceCategories(CancellationToken cancellationToken) =>
         Ok(await providerService.GetServiceCategoriesAsync(User, cancellationToken));

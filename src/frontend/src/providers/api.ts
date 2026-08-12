@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { MatchedRequestDetail, MatchedRequestListItem, ProviderDashboard, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
+import type { MatchedRequestDetail, MatchedRequestListItem, ProviderDashboard, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
 
 export class ProviderApiError extends Error {
   readonly status: number
@@ -21,6 +21,7 @@ const request = <T,>(path: string, init?: RequestInit) => fetch(path, { credenti
 export const getProviderProfile = () => request<ProviderProfile>('/api/v1/providers/me')
 export const updateProviderProfile = (value: Partial<ProviderProfile>) => request<ProviderProfile>('/api/v1/providers/me', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
 export const getProviderDashboard = () => request<ProviderDashboard>('/api/v1/providers/me/onboarding-dashboard')
+export const getProviderOperationsDashboard = () => request<ProviderOperationsDashboard>('/api/v1/providers/me/operations-dashboard')
 export const getProviderServices = () => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories')
 export const replaceProviderServices = (categoryIds: string[]) => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories', {
   method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryIds }),

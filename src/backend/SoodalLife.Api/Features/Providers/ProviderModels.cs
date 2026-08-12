@@ -99,6 +99,18 @@ public sealed record ProviderOnboardingDashboardResponse(
     IReadOnlyList<string> NextActions,
     string? RejectionReason);
 
+public sealed record ProviderOperationsDashboardResponse(
+    int NewMatchedRequestCount,
+    int SubmittedQuoteCount,
+    int WaitingSelectionQuoteCount,
+    int SelectedTransactionCount,
+    int AppointmentActionRequiredCount,
+    int TodayAppointmentCount,
+    int InProgressWorkCount,
+    int WaitingCompletionConfirmationCount,
+    int RevisionRequestedCount,
+    int UnreadNotificationCount);
+
 public sealed record ProviderLegalDocumentResponse(Guid Id, Guid VersionId, string Code, string RequirementCode,
     string Title, string Content, int Version, DateTime EffectiveFrom, DateTime? EffectiveTo, bool IsPlaceholder);
 public sealed record ProviderConsentInput(Guid LegalDocumentVersionId, bool Agreed);

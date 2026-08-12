@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { AcceptQuoteResult, CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, SaveQuoteRevisionInput } from './types'
+import type { AcceptQuoteResult, CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, QuoteListItem, SaveQuoteRevisionInput } from './types'
 
 export class QuoteApiError extends Error {
   readonly status: number
@@ -35,6 +35,8 @@ export async function getProviderQuote(requestId: string): Promise<QuoteDetail |
   if (response.status === 404) return null
   return readJson<QuoteDetail>(response)
 }
+export const getProviderQuotes = () =>
+  fetch('/api/v1/providers/me/quotes', { credentials: 'include' }).then(readJson<QuoteListItem[]>)
 
 export const createProviderQuote = (requestId: string, input: SaveQuoteRevisionInput) =>
   json('POST', `/api/v1/requests/${requestId}/quotes`, input).then(readJson<QuoteDetail>)

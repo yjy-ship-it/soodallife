@@ -424,6 +424,47 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
             areaCount, requirements.Count, requirements.Count(x => x.ProviderDocumentId != null), requirements.Count(x => x.VerificationStatusCode == "APPROVED"), actions, rejection);
     }
 
+    public async Task<ProviderOperationsDashboardResponse> GetOperationsDashboardAsync(
+        ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var now = DateTime.UtcNow;
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+        var transactionIds = dbContext.Transactions.AsNoTracking()
+            .Where(x => x.ProviderProfileId == identity.Profile.Id)
+            .Select(x => x.Id);
+        var appointmentIds = dbContext.TransactionAppointments.AsNoTracking()
+            .Where(x => transactionIds.Contains(x.TransactionId)).Select(x => x.Id);
+
+        var newRequests = await dbContext.RequestDispatches.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "AVAILABLE" && x.ExpiresAt > now, token);
+        var submittedQuotes = await dbContext.Quotes.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.SubmittedAt != null, token);
+        var waitingSelectionQuotes = await dbContext.Quotes.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "SUBMITTED", token);
+        var selectedTransactions = await dbContext.Transactions.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode != "CANCELLED", token);
+        var appointmentActions = await dbContext.TransactionAppointments.AsNoTracking().CountAsync(
+            x => transactionIds.Contains(x.TransactionId) && x.StatusCode == "PROPOSED" && x.CreatedByUserId != identity.UserId, token);
+        appointmentActions += await dbContext.TransactionAppointmentChangeRequests.AsNoTracking().CountAsync(
+            x => appointmentIds.Contains(x.TransactionAppointmentId) && x.StatusCode == "REQUESTED" && x.RequestedByUserId != identity.UserId, token);
+        var todayAppointments = await dbContext.TransactionAppointments.AsNoTracking().CountAsync(
+            x => transactionIds.Contains(x.TransactionId) && x.StatusCode == "CONFIRMED" &&
+                 x.ScheduledStartAt >= today && x.ScheduledStartAt < tomorrow, token);
+        var inProgress = await dbContext.Transactions.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "IN_PROGRESS", token);
+        var waitingConfirmation = await dbContext.Transactions.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "COMPLETION_SUBMITTED", token);
+        var revisions = await dbContext.Transactions.AsNoTracking().CountAsync(
+            x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "REVISION_REQUESTED", token);
+        var unread = await dbContext.Notifications.AsNoTracking().CountAsync(
+            x => x.RecipientUserId == identity.UserId && x.ReadAt == null, token);
+
+        return new(newRequests, submittedQuotes, waitingSelectionQuotes, selectedTransactions, appointmentActions,
+            todayAppointments, inProgress, waitingConfirmation, revisions, unread);
+    }
+
     public async Task ResubmitServiceAsync(ClaimsPrincipal principal, Guid categoryId, CancellationToken token)
     {
         var identity = await GetIdentityAsync(principal, token);

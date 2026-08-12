@@ -57,6 +57,39 @@ public sealed class QuoteService(
         return quote is null ? null : await BuildDetailAsync(quote, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<QuoteListItemResponse>> GetProviderQuotesAsync(
+        ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        var identity = await GetProviderIdentityAsync(principal, cancellationToken);
+        var providerName = await dbContext.ProviderProfiles.AsNoTracking()
+            .Where(x => x.Id == identity.ProviderId).Select(x => x.BusinessName)
+            .SingleAsync(cancellationToken);
+        var rows = await (from quote in dbContext.Quotes.AsNoTracking()
+                          join request in dbContext.ServiceRequests.AsNoTracking() on quote.ServiceRequestId equals request.Id
+                          join category in dbContext.ServiceCategories.AsNoTracking() on request.CategoryId equals category.Id
+                          join middle in dbContext.ServiceCategories.AsNoTracking() on category.ParentId equals middle.Id
+                          join major in dbContext.ServiceCategories.AsNoTracking() on middle.ParentId equals major.Id
+                          where quote.ProviderProfileId == identity.ProviderId
+                          orderby quote.UpdatedAt descending
+                          select new { Quote = quote, RequestId = request.PublicId, request.Title,
+                              CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name })
+            .ToListAsync(cancellationToken);
+        var result = new List<QuoteListItemResponse>(rows.Count);
+        foreach (var row in rows)
+        {
+            var revision = await LatestRevisionAsync(row.Quote.Id, cancellationToken);
+            if (revision is null) continue;
+            var transactionId = await dbContext.Transactions.AsNoTracking()
+                .Where(x => x.AcceptedQuoteRevisionId == revision.Id).Select(x => (Guid?)x.PublicId)
+                .SingleOrDefaultAsync(cancellationToken);
+            result.Add(new(row.Quote.PublicId, row.RequestId, row.Title, row.CategoryPath,
+                providerName, row.Quote.StatusCode, revision.TotalAmount, revision.CurrencyCode,
+                row.Quote.SubmittedAt, revision.RevisionNo, revision.ValidUntil,
+                row.Quote.StatusCode == "ACCEPTED", transactionId));
+        }
+        return result;
+    }
+
     public async Task<QuoteDetailResponse> CreateQuoteAsync(
         ClaimsPrincipal principal,
         Guid requestPublicId,

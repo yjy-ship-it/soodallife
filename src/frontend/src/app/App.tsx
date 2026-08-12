@@ -7,7 +7,8 @@ import { LoginPage } from '../pages/LoginPage'
 import { AccessDeniedPage, RoleHomePage, RoleSelectionPage } from '../pages/RolePages'
 import { CustomerRequestDetailPage, CustomerRequestListPage, NewCustomerRequestPage } from '../pages/CustomerRequestPages'
 import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMatchedRequestListPage, ProviderServiceSettingsPage } from '../pages/ProviderPages'
-import { ProviderApprovalPage, ProviderDocumentsPage, ProviderHomePage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
+import { ProviderApprovalPage, ProviderDocumentsPage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
+import { ProviderOperationsHomePage, ProviderQuoteListPage } from '../providers/ProviderOperations'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
@@ -226,7 +227,8 @@ function ApplicationRoutes() {
     if (customerReportMatch) return <CustomerReportsPage id={customerReportMatch[1]} />
     if (pathname === '/provider/services') return <ProviderServiceSettingsPage />
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
-    if (pathname === '/provider') return <ProviderHomePage />
+    if (pathname === '/provider') return <ProviderOperationsHomePage />
+    if (pathname === '/provider/quotes') return <ProviderQuoteListPage />
     if (pathname === '/provider/onboarding') return <ProviderProfilePage />
     if (pathname === '/provider/documents') return <ProviderDocumentsPage />
     if (pathname === '/provider/approval') return <ProviderApprovalPage />

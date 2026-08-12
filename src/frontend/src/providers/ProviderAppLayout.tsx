@@ -6,8 +6,8 @@ import { ServiceFooter } from '../components/ServiceFooter'
 import './provider.css'
 
 const desktop = [
-  ['/provider', '홈'], ['/provider/onboarding', '가입 프로필'], ['/provider/services', '서비스 관리'],
-  ['/provider/areas', '활동지역'], ['/provider/documents', '증빙·자격'], ['/provider/approval', '승인상태'],
+  ['/provider', '홈'], ['/provider/matched-requests', '받은 요청'], ['/provider/quotes', '내 견적'],
+  ['/provider/work', '거래·작업'], ['/provider/onboarding', '마이수달'],
 ] as const
 const mobile = [['/provider', '홈'], ['/provider/matched-requests', '요청'], ['/provider/work', '진행'], ['/provider/schedule', '일정'], ['/provider/onboarding', '마이수달']] as const
 
@@ -26,6 +26,6 @@ export function ProviderAppLayout({ children, actions }: PropsWithChildren<{ act
     </div></header>
     <main id="provider-main" className="providerMain">{actions}{children}</main>
     <ServiceFooter variant="provider" />
-    <nav className="providerBottomNav" aria-label="모바일 공급자 메뉴">{mobile.map(([path, label]) => { const enabled = ['/provider', '/provider/onboarding'].includes(path); const active = pathname === path; return <button key={path} className={active ? 'isActive' : ''} disabled={!enabled} title={!enabled ? '다음 개발 단계에서 제공됩니다.' : undefined} onClick={() => enabled && navigate(path)}><span aria-hidden="true">{label === '홈' ? '⌂' : label === '마이수달' ? '○' : '·'}</span>{label}</button> })}</nav>
+    <nav className="providerBottomNav" aria-label="모바일 공급자 메뉴">{mobile.map(([path, label]) => { const target = path === '/provider/schedule' ? '/provider/work' : path; const active = pathname === target; return <button key={path} className={active ? 'isActive' : ''} onClick={() => navigate(target)}><span aria-hidden="true">{label === '홈' ? '⌂' : label === '마이수달' ? '○' : '·'}</span>{label}</button> })}</nav>
   </div>
 }

@@ -19,6 +19,42 @@ public sealed class ProviderMatchingApiTests(AuthenticationWebApplicationFactory
     : IClassFixture<AuthenticationWebApplicationFactory>
 {
     [Fact]
+    public async Task ProviderOperationsDashboard_UsesProviderOwnedData_AndRejectsCustomer()
+    {
+        using var provider = CreateClient();
+        await LoginAsync(provider, factory.Credentials[RoleCodes.Provider]);
+        var dashboard = await provider.GetAsync("/api/v1/providers/me/operations-dashboard");
+        Assert.Equal(HttpStatusCode.OK, dashboard.StatusCode);
+        var body = await dashboard.Content.ReadAsStringAsync();
+        Assert.Contains("newMatchedRequestCount", body);
+        Assert.DoesNotContain("wallet", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("feeCharge", body, StringComparison.OrdinalIgnoreCase);
+
+        using var customer = CreateClient();
+        await LoginAsync(customer, factory.Credentials[RoleCodes.Customer]);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await customer.GetAsync("/api/v1/providers/me/operations-dashboard")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ProviderQuoteList_IsObjectScoped_AndDoesNotExposeCompetingQuotes()
+    {
+        using var provider = CreateClient();
+        await LoginAsync(provider, factory.Credentials[RoleCodes.Provider]);
+        var response = await provider.GetAsync("/api/v1/providers/me/quotes");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("customerPhone", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("detailAddress", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("storageKey", body, StringComparison.OrdinalIgnoreCase);
+
+        using var customer = CreateClient();
+        await LoginAsync(customer, factory.Credentials[RoleCodes.Customer]);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await customer.GetAsync("/api/v1/providers/me/quotes")).StatusCode);
+    }
+
+    [Fact]
     public async Task ProviderConfiguration_MatchingDispatchAndInbox_WorkEndToEnd()
     {
         using var providerClient = CreateClient();

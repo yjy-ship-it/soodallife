@@ -57,6 +57,9 @@ export interface QuoteDetail {
 
 export interface QuoteListItem {
   id: string
+  requestId: string
+  requestTitle: string
+  categoryPath: string
   providerName: string
   status: string
   totalAmount: number
@@ -65,6 +68,7 @@ export interface QuoteListItem {
   revisionNo: number
   validUntil: string
   isSelected: boolean
+  transactionId: string | null
 }
 
 export interface RatingAverage { itemId: string; itemCode: string; itemName: string; averageValue: number; ratingCount: number; minValue: number; maxValue: number }

@@ -10,6 +10,11 @@ namespace SoodalLife.Api.Controllers;
 public sealed class QuotesController(QuoteService quoteService) : ControllerBase
 {
     [Authorize(Roles = RoleCodes.Provider)]
+    [HttpGet("providers/me/quotes")]
+    public Task<ActionResult<IReadOnlyList<QuoteListItemResponse>>> GetMine(CancellationToken cancellationToken) =>
+        Execute(() => quoteService.GetProviderQuotesAsync(User, cancellationToken));
+
+    [Authorize(Roles = RoleCodes.Provider)]
     [HttpGet("providers/me/requests/{requestId:guid}/quote")]
     public async Task<ActionResult<QuoteDetailResponse>> GetMine(Guid requestId, CancellationToken cancellationToken)
     {

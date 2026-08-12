@@ -8,13 +8,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Infrastructure.Security;
 
 namespace SoodalLife.Api.Features.Work;
 
 public sealed class WorkService(
     SoodalLifeDbContext db,
     CompletionPolicyEvaluator policyEvaluator,
-    IPrivateFileStorage fileStorage)
+    IPrivateFileStorage fileStorage,
+    IPrivacyContract privacyContract)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     private static readonly IReadOnlyDictionary<string, (string Extension, byte[][] Signatures)> AllowedImages =
@@ -419,9 +421,17 @@ public sealed class WorkService(
             .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
         var review = await db.Reviews.AsNoTracking().Where(x => x.TransactionId == transaction.Id)
             .Select(x => new { x.PublicId, x.VisibilityStatusCode }).SingleOrDefaultAsync(cancellationToken);
-        var exposeCustomerContact = !providerView || transaction.StatusCode != "CANCELLED";
+        var assignedProvider = providerView && transaction.StatusCode != "CANCELLED";
+        var phoneDecision = privacyContract.Decide(
+            providerView ? PrivacyAudience.SelectedProvider : PrivacyAudience.CustomerSelf,
+            PrivacyField.Phone, assignedProvider);
+        var addressDecision = privacyContract.Decide(
+            providerView ? PrivacyAudience.SelectedProvider : PrivacyAudience.CustomerSelf,
+            PrivacyField.DetailAddress, assignedProvider);
         return new WorkTransactionDetail(transaction.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
-            baseData.Request.Title, baseData.Request.Description, exposeCustomerContact ? baseData.CustomerPhone : null, exposeCustomerContact ? baseData.Request.DetailAddress : null,
+            baseData.Request.Title, baseData.Request.Description,
+            phoneDecision.CanAccess ? baseData.CustomerPhone : null,
+            addressDecision.CanAccess ? baseData.Request.DetailAddress : null,
             baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
             transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse,
             revisionResponses, timeline.OrderBy(x => x.OccurredAt).ToArray(), afterService, dispute,

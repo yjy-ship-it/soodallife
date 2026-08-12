@@ -34,6 +34,7 @@ export interface ProviderRequirement { verificationId: string; assignmentId: str
 export interface ProviderDocumentType { id: string; code: string; name: string; description: string | null }
 export interface ProviderDocument { id: string; fileId: string; documentTypeCode: string; documentTypeName: string; originalFileName: string; sizeBytes: number; contentType: string; verificationStatus: string; malwareStatus: string; issuedAt: string | null; expiresAt: string | null; publicNote: string | null; createdAt: string }
 export interface ProviderDashboard { approvalStatus: string; activityStatus: string; registeredServiceCount: number; approvedServiceCount: number; pendingServiceCount: number; rejectedServiceCount: number; activeAreaCount: number; requiredEvidenceCount: number; submittedEvidenceCount: number; approvedEvidenceCount: number; nextActions: string[]; rejectionReason: string | null }
+export interface ProviderOperationsDashboard { newMatchedRequestCount:number; submittedQuoteCount:number; waitingSelectionQuoteCount:number; selectedTransactionCount:number; appointmentActionRequiredCount:number; todayAppointmentCount:number; inProgressWorkCount:number; waitingCompletionConfirmationCount:number; revisionRequestedCount:number; unreadNotificationCount:number }
 export interface ProviderLegalDocument { id: string; versionId: string; code: string; requirementCode: string; title: string; content: string; version: number; effectiveFrom: string; effectiveTo: string | null; isPlaceholder: boolean }
 
 export interface ProviderArea {
@@ -66,11 +67,15 @@ export interface MatchedRequestAnswer {
   value: unknown
   isMasked: boolean
 }
+export interface MatchedRequestFile { id:string; fileName:string; contentType:string; sizeBytes:number; malwareScanStatus:string; privacyInspectionStatus:string; sanitizationStatus:string; publicationMode:string; downloadUrl:string }
 
 export interface MatchedRequestDetail extends MatchedRequestListItem {
   title: string
   description: string | null
   isUrgent: boolean
   expiresAt: string
+  customerPhone: string | null
+  detailAddress: string | null
   answers: MatchedRequestAnswer[]
+  files: MatchedRequestFile[]
 }

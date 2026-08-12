@@ -73,6 +73,9 @@ public sealed record QuoteDetailResponse(
 
 public sealed record QuoteListItemResponse(
     Guid Id,
+    Guid RequestId,
+    string RequestTitle,
+    string CategoryPath,
     string ProviderName,
     string Status,
     decimal TotalAmount,
@@ -80,7 +83,8 @@ public sealed record QuoteListItemResponse(
     DateTime? SubmittedAt,
     int RevisionNo,
     DateTime ValidUntil,
-    bool IsSelected);
+    bool IsSelected,
+    Guid? TransactionId);
 
 public sealed record CustomerRatingAverageResponse(
     Guid ItemId,
