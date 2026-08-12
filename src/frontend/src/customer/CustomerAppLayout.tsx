@@ -58,7 +58,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
           <nav className="customerDesktopNav" aria-label="고객 주요 메뉴">
             <button type="button" onClick={() => navigate('/services')}>서비스</button>
             <button type="button" onClick={() => navigate('/care')}>수달 케어</button>
-            <button type="button" onClick={() => navigate('/services/search?q=인테리어')}>수달 인테리어</button>
+            <button type="button" onClick={() => navigate('/interior')}>수달 인테리어</button>
             <button type="button" onClick={() => navigate('/support')}>고객센터</button>
           </nav>
           <div className="customerHeaderActions">

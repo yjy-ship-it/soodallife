@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SoodalLife.Api.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using SoodalLife.Api.Infrastructure.Persistence;
 namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SoodalLifeDbContext))]
-    partial class SoodalLifeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811233431_20260812100000_LinkInteriorProjectsToAfterServiceCases")]
+    partial class _20260812100000_LinkInteriorProjectsToAfterServiceCases
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -439,6 +439,7 @@ public sealed class AfterServiceCase
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public long? TransactionId { get; set; }
     public long? SubscriptionVisitScheduleId { get; set; }
+    public long? InteriorProjectId { get; set; }
     public long CustomerProfileId { get; set; }
     public long ProviderProfileId { get; set; }
     public long? ReportedByUserId { get; set; }

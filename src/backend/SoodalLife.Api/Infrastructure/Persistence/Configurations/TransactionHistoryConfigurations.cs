@@ -305,6 +305,7 @@ internal sealed class AfterServiceCaseConfiguration() : EntityConfiguration<Afte
         Mapping.PublicId(b);
         Mapping.NullableLong(b, nameof(AfterServiceCase.TransactionId), "transaction_id");
         Mapping.NullableLong(b, nameof(AfterServiceCase.SubscriptionVisitScheduleId), "subscription_visit_schedule_id");
+        Mapping.NullableLong(b, nameof(AfterServiceCase.InteriorProjectId), "interior_project_id");
         Mapping.Long(b, nameof(AfterServiceCase.CustomerProfileId), "customer_profile_id");
         Mapping.Long(b, nameof(AfterServiceCase.ProviderProfileId), "provider_profile_id");
         Mapping.NullableLong(b, nameof(AfterServiceCase.ReportedByUserId), "reported_by_user_id");
@@ -332,12 +333,14 @@ internal sealed class AfterServiceCaseConfiguration() : EntityConfiguration<Afte
         Mapping.FullAudit(b);
         Mapping.Fk<AfterServiceCase, TransactionRecord>(b, nameof(AfterServiceCase.TransactionId));
         Mapping.Fk<AfterServiceCase, SubscriptionVisitSchedule>(b, nameof(AfterServiceCase.SubscriptionVisitScheduleId));
+        Mapping.Fk<AfterServiceCase, InteriorProject>(b, nameof(AfterServiceCase.InteriorProjectId));
         Mapping.Fk<AfterServiceCase, CustomerProfile>(b, nameof(AfterServiceCase.CustomerProfileId));
         Mapping.Fk<AfterServiceCase, ProviderProfile>(b, nameof(AfterServiceCase.ProviderProfileId));
         Mapping.Fk<AfterServiceCase, User>(b, nameof(AfterServiceCase.ReportedByUserId));
         Mapping.Fk<AfterServiceCase, User>(b, nameof(AfterServiceCase.AssignedAdminUserId));
         b.HasIndex(x => x.TransactionId);
         b.HasIndex(x => x.SubscriptionVisitScheduleId);
+        b.HasIndex(x => x.InteriorProjectId);
         b.HasIndex(x => x.CustomerProfileId);
         b.HasIndex(x => x.ProviderProfileId);
         b.HasIndex(x => x.ReportedByUserId);
@@ -350,7 +353,7 @@ internal sealed class AfterServiceCaseConfiguration() : EntityConfiguration<Afte
         b.HasIndex(x => new { x.ProviderProfileId, x.StatusCode, x.ReceivedAt });
         b.HasIndex(x => x.DueAt);
         b.HasIndex(x => x.LastActionAt);
-        b.ToTable("after_service_cases", t => { t.HasCheckConstraint("CK_after_service_cases_source", "([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL)"); t.HasCheckConstraint("CK_after_service_cases_status", "[status_code] IN ('RECEIVED','PROVIDER_CONFIRMED','VISIT_SCHEDULED','IN_PROGRESS','RESOLVED','UNRESOLVED_CLOSED','CONVERTED_TO_DISPUTE')"); });
+        b.ToTable("after_service_cases", t => { t.HasCheckConstraint("CK_after_service_cases_source", "([transaction_id] IS NOT NULL AND [subscription_visit_schedule_id] IS NULL AND [interior_project_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NOT NULL AND [interior_project_id] IS NULL) OR ([transaction_id] IS NULL AND [subscription_visit_schedule_id] IS NULL AND [interior_project_id] IS NOT NULL)"); t.HasCheckConstraint("CK_after_service_cases_status", "[status_code] IN ('RECEIVED','PROVIDER_CONFIRMED','VISIT_SCHEDULED','IN_PROGRESS','RESOLVED','UNRESOLVED_CLOSED','CONVERTED_TO_DISPUTE')"); });
     }
 }
 

@@ -80,6 +80,7 @@ builder.Services.AddScoped<CustomerCareSubscriptionService>();
 builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, SubscriptionSettlementFeeCalculator>();
 builder.Services.AddScoped<SubscriptionBillingService>();
 builder.Services.AddScoped<InteriorProjectService>();
+builder.Services.AddScoped<CustomerInteriorService>();
 builder.Services.AddScoped<NotificationManagementService>();
 builder.Services.AddSingleton<INotificationChannelSender,WebNotificationChannelSender>();
 builder.Services.AddSingleton<INotificationChannelSender,UnavailableExternalNotificationChannelSender>();

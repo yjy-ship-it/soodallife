@@ -143,13 +143,14 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
     {
         var identity = await Customer(principal, token);
         var after = await db.AfterServiceCases.SingleOrDefaultAsync(x => x.PublicId == id && x.CustomerProfileId == identity.ProfileId, token) ?? throw NotFound("AFTER_SERVICE_NOT_FOUND", "A/S를 찾을 수 없습니다.");
-        if (!after.TransactionId.HasValue) throw Invalid("AFTER_SERVICE_SOURCE_UNSUPPORTED", "일반 거래 A/S만 이 화면에서 분쟁으로 전환할 수 있습니다.", 409);
         var existing = await db.DisputeCases.AsNoTracking().SingleOrDefaultAsync(x => x.AfterServiceCaseId == after.Id, token);
-        if (existing is not null) return await BuildDispute(existing.Id, identity.ProfileId, token);
-        var transaction = await db.Transactions.SingleAsync(x => x.Id == after.TransactionId.Value, token);
+        if (existing is not null) return await BuildDispute(existing.Id, identity.UserId, token);
+        var transaction = after.TransactionId.HasValue ? await db.Transactions.SingleAsync(x => x.Id == after.TransactionId.Value, token) : null;
+        var interior = after.InteriorProjectId.HasValue ? await db.InteriorProjects.SingleAsync(x => x.Id == after.InteriorProjectId.Value && x.CustomerProfileId == identity.ProfileId, token) : null;
+        if (transaction is null && interior is null) throw Invalid("AFTER_SERVICE_SOURCE_UNSUPPORTED", "분쟁으로 전환할 A/S 원본을 확인할 수 없습니다.", 409);
         var providerUser = await db.ProviderProfiles.Where(x => x.Id == after.ProviderProfileId).Select(x => x.UserId).SingleAsync(token);
         var now = DateTime.UtcNow; var key = Required(input.IdempotencyKey, 100);
-        var dispute = new DisputeCase { TransactionId = transaction.Id, AfterServiceCaseId = after.Id, ApplicantUserId = identity.UserId,
+        var dispute = new DisputeCase { TransactionId = transaction?.Id, InteriorProjectId = interior?.Id, AfterServiceCaseId = after.Id, ApplicantUserId = identity.UserId,
             CounterpartyUserId = providerUser, Subject = Required(input.Subject, 200), Description = ComposeDispute(input.Reason, input.RequestedResolution),
             StatusCode = "OPEN", ReceivedAt = now, LastActionAt = now, CreatedAt = now, CreatedByUserId = identity.UserId, UpdatedAt = now, UpdatedByUserId = identity.UserId };
         db.DisputeCases.Add(dispute); await db.SaveChangesAsync(token);
@@ -157,14 +158,16 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var previousStatus = after.StatusCode;
         after.StatusCode = "CONVERTED_TO_DISPUTE"; after.ConvertedToDisputeAt = now; after.LastActionAt = now; after.UpdatedAt = now; after.UpdatedByUserId = identity.UserId;
         db.AfterServiceActions.Add(new AfterServiceAction { AfterServiceCaseId = after.Id, FromStatusCode = previousStatus, ToStatusCode = "CONVERTED_TO_DISPUTE", ActionTypeCode = "DISPUTE_CONVERSION", ActionNote = "고객 요청으로 분쟁 전환", OccurredAt = now, ActorUserId = identity.UserId, IdempotencyKey = $"after-service-dispute:{after.PublicId:N}" });
-        AddOutbox("AfterService", after.PublicId, "AFTER_SERVICE_DISPUTE_CONVERTED", providerUser, transaction.PublicId, after.PublicId, identity.UserId, now);
-        await db.SaveChangesAsync(token); return await BuildDispute(dispute.Id, identity.ProfileId, token);
+        if (transaction is not null) AddOutbox("AfterService", after.PublicId, "AFTER_SERVICE_DISPUTE_CONVERTED", providerUser, transaction.PublicId, after.PublicId, identity.UserId, now);
+        else db.OutboxEvents.Add(new OutboxEvent { AggregateType = "AfterService", AggregatePublicId = after.PublicId, EventType = "AFTER_SERVICE_DISPUTE_CONVERTED", PayloadJson = JsonSerializer.Serialize(new { recipientUserId = providerUser, interiorProjectId = interior!.PublicId, sourceId = after.PublicId }), StatusCode = "PENDING", OccurredAt = now, AvailableAt = now, IdempotencyKey = $"after-service-dispute-converted:{after.PublicId:N}", CreatedByUserId = identity.UserId });
+        await db.SaveChangesAsync(token); return await BuildDispute(dispute.Id, identity.UserId, token);
     }
 
     private async Task<CustomerAfterServiceResponse> Build(long id, long userId, long? customerProfileId, bool isAdmin, CancellationToken token)
     {
         var item = await db.AfterServiceCases.AsNoTracking().SingleAsync(x => x.Id == id, token);
-        var transactionId = await db.Transactions.AsNoTracking().Where(x => x.Id == item.TransactionId).Select(x => x.PublicId).SingleAsync(token);
+        var transactionId = await db.Transactions.AsNoTracking().Where(x => x.Id == item.TransactionId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
+        var interiorProjectId = await db.InteriorProjects.AsNoTracking().Where(x => x.Id == item.InteriorProjectId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var historyId = await db.ServiceHistoryEntries.AsNoTracking().Where(x => x.TransactionId == item.TransactionId && x.EventTypeCode == "COMPLETION").OrderByDescending(x => x.OccurredAt).Select(x => (Guid?)x.PublicId).FirstOrDefaultAsync(token);
         var disputeId = await db.DisputeCases.AsNoTracking().Where(x => x.AfterServiceCaseId == item.Id).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var actionRows = await db.AfterServiceActions.AsNoTracking().Where(x => x.AfterServiceCaseId == id).OrderBy(x => x.OccurredAt).ToListAsync(token);
@@ -174,21 +177,23 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var files = await (from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id
                            where link.AfterServiceCaseId == id && file.StatusCode == "ACTIVE" orderby link.CreatedAt
                            select new AfterServiceEvidenceResponse(file.PublicId, file.OriginalFileName, file.ContentType, file.SizeBytes, link.RoleCode, link.Description, $"/api/v1/after-services/{item.PublicId}/files/{file.PublicId}")).ToListAsync(token);
-        return new(item.PublicId, transactionId, historyId, item.Subject, item.Description, item.RequestDetails, item.StatusCode,
+        return new(item.PublicId, transactionId, interiorProjectId, historyId, item.Subject, item.Description, item.RequestDetails, item.StatusCode,
             AfterServiceDisplay(item.StatusCode), item.ReceivedAt, item.WarrantyStartDate, item.WarrantyEndDate, item.IsWithinWarranty,
             Warranty(item.WarrantyEndDate), item.DueAt, item.ProviderConfirmedAt, item.ProviderResponseText, item.VisitRequired,
             item.StartedAt, item.CompletedAt, item.ResolutionSummary, item.UnresolvedReason, item.RecurrenceOccurred, disputeId, timeline, files);
     }
 
-    private async Task<CustomerDisputeResponse> BuildDispute(long id, long customerId, CancellationToken token)
+    private async Task<CustomerDisputeResponse> BuildDispute(long id, long customerUserId, CancellationToken token)
     {
-        var row = await (from d in db.DisputeCases.AsNoTracking() join t in db.Transactions.AsNoTracking() on d.TransactionId equals t.Id where d.Id == id && t.CustomerProfileId == customerId select new { d, t }).SingleAsync(token);
-        var split = SplitDispute(row.d.Description);
+        var row = await db.DisputeCases.AsNoTracking().SingleAsync(x => x.Id == id && x.ApplicantUserId == customerUserId, token);
+        var transactionId = await db.Transactions.AsNoTracking().Where(x => x.Id == row.TransactionId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
+        var interiorProjectId = await db.InteriorProjects.AsNoTracking().Where(x => x.Id == row.InteriorProjectId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
+        var split = SplitDispute(row.Description);
         var evidence = await (from e in db.DisputeEvidence.AsNoTracking() join f0 in db.Files.AsNoTracking() on e.FileId equals f0.Id into fs from f in fs.DefaultIfEmpty() where e.DisputeCaseId == id && e.StatusCode == "ACTIVE" orderby e.SubmittedAt select new CustomerDisputeEvidenceResponse(e.PublicId, f == null ? null : f.PublicId, e.SourceTypeCode, e.Description, e.SubmittedAt, f == null ? null : "/api/v1/customers/me/dispute-files/" + f.PublicId)).ToListAsync(token);
         var resolution = await db.DisputeResolutions.AsNoTracking().Where(x => x.DisputeCaseId == id && x.IsCurrent).Select(x => new { x.ResultSummary, x.FollowUpAction }).SingleOrDefaultAsync(token);
         var updates = await db.DisputeActions.AsNoTracking().Where(x => x.DisputeCaseId == id && x.ToStatusCode != null && (x.ActionTypeCode == "CREATED" || x.ActionTypeCode == "STATUS_CHANGE" || x.ActionTypeCode == "RESOLUTION"))
             .OrderBy(x => x.OccurredAt).Select(x => new CustomerDisputeUpdate(DisputeDisplay(x.ToStatusCode!), x.OccurredAt)).ToListAsync(token);
-        return new(row.d.PublicId, row.t.PublicId, row.d.Subject, split.Reason, split.Requested, row.d.StatusCode, DisputeDisplay(row.d.StatusCode), row.d.ReceivedAt, row.d.ResolvedAt, resolution?.ResultSummary, resolution?.FollowUpAction, evidence, updates);
+        return new(row.PublicId, transactionId, interiorProjectId, row.Subject, split.Reason, split.Requested, row.StatusCode, DisputeDisplay(row.StatusCode), row.ReceivedAt, row.ResolvedAt, resolution?.ResultSummary, resolution?.FollowUpAction, evidence, updates);
     }
 
     private async Task<AccessInfo> Access(ClaimsPrincipal principal, Guid id, CancellationToken token)

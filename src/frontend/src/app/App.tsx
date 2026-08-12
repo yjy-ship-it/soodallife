@@ -58,6 +58,7 @@ import {
   CustomerCareVisitsPage,
   CustomerProgressPage,
 } from '../customer/CustomerCarePages'
+import { CustomerInteriorHomePage, CustomerInteriorProjectPage, CustomerInteriorProjectsPage, NewCustomerInteriorProjectPage } from '../customer/CustomerInteriorPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -91,6 +92,7 @@ function ApplicationRoutes() {
   const faqDetailMatch = pathname.match(/^\/faq\/([0-9a-f-]+)$/i)
   if (pathname === '/') return <CustomerHomePage />
   if (pathname === '/care') return <CustomerCareHomePage />
+  if (pathname === '/interior') return <CustomerInteriorHomePage />
   if (pathname === '/services') return <ServiceCatalogPage />
   if (pathname === '/services/search') return <ServiceSearchPage />
   if (serviceDetailMatch) return <ServiceDetailPage id={serviceDetailMatch[1]} />
@@ -131,6 +133,7 @@ function ApplicationRoutes() {
   const customerCareRequestMatch = pathname.match(/^\/customer\/care\/requests\/([0-9a-f-]+)$/i)
   const customerCareContractMatch = pathname.match(/^\/customer\/care\/contracts\/([0-9a-f-]+)$/i)
   const customerCareVisitMatch = pathname.match(/^\/customer\/care\/visits\/([0-9a-f-]+)$/i)
+  const customerInteriorProjectMatch = pathname.match(/^\/customer\/interior\/projects\/([0-9a-f-]+)$/i)
   const providerRequestMatch = pathname.match(/^\/provider\/matched-requests\/([0-9a-f-]+)$/i)
   const providerWorkMatch = pathname.match(/^\/provider\/work\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
@@ -168,6 +171,9 @@ function ApplicationRoutes() {
     if (pathname === '/customer/care/visits') return <CustomerCareVisitsPage />
     if (customerCareVisitMatch) return <CustomerCareVisitsPage id={customerCareVisitMatch[1]} />
     if (pathname === '/customer/care/payments') return <CustomerCarePaymentsPage />
+    if (pathname === '/customer/interior/projects') return <CustomerInteriorProjectsPage />
+    if (pathname === '/customer/interior/projects/new') return <NewCustomerInteriorProjectPage />
+    if (customerInteriorProjectMatch) return <CustomerInteriorProjectPage id={customerInteriorProjectMatch[1]} />
     if (pathname === '/admin' || pathname === '/admin/analytics') return <AdminDashboardPage pathname={pathname} />
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />

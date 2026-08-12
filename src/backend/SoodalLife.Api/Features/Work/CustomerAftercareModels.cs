@@ -22,7 +22,7 @@ public sealed record CreateAfterServiceInput(
 public sealed record AfterServiceEvidenceResponse(Guid FileId, string FileName, string ContentType, long SizeBytes, string? Role, string? Description, string DownloadUrl);
 public sealed record AfterServiceTimelineItem(string Status, string DisplayStatus, string ActionType, string? PublicNote, DateTime? ScheduledAt, DateTime? PerformedAt, DateTime OccurredAt);
 public sealed record CustomerAfterServiceResponse(
-    Guid Id, Guid TransactionId, Guid? ServiceHistoryId, string Subject, string Description, string? RequestDetails,
+    Guid Id, Guid? TransactionId, Guid? InteriorProjectId, Guid? ServiceHistoryId, string Subject, string Description, string? RequestDetails,
     string Status, string DisplayStatus, DateTime ReceivedAt, DateOnly? WarrantyStartDate, DateOnly? WarrantyEndDate,
     bool? IsWithinWarranty, string WarrantyDisplay, DateTime? DueAt, DateTime? ProviderConfirmedAt,
     string? ProviderResponse, bool? VisitRequired, DateTime? StartedAt, DateTime? CompletedAt,

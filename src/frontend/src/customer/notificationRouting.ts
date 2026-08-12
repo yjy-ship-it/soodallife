@@ -8,6 +8,7 @@ export async function safeNotificationTarget(item: CustomerNotification) {
   if (item.targetTypeCode === 'SubscriptionRequest') return `/customer/care/requests/${item.targetPublicId}`
   if (item.targetTypeCode === 'SubscriptionContract') return `/customer/care/contracts/${item.targetPublicId}`
   if (item.targetTypeCode === 'SubscriptionVisitSchedule') return `/customer/care/visits/${item.targetPublicId}`
+  if (item.targetTypeCode === 'InteriorProject') return `/customer/interior/projects/${item.targetPublicId}`
   const routes: Record<string, string> = {
     ServiceRequest: 'requests',
     Transaction: 'transactions',

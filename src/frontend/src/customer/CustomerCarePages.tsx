@@ -5,6 +5,7 @@ import { CustomerAppLayout } from './CustomerAppLayout'
 import { customerAccountApi } from './accountApi'
 import type { CustomerAddress } from './accountTypes'
 import { careApi } from './careApi'
+import { interiorApi } from './interiorApi'
 import type { CareApplication, CareContract, CareHome, CareProduct, CareRequest, CareVisit, CareVisitDetail, PaymentHistory, PaymentMethod, SubscriptionService } from './careTypes'
 import './customerCare.css'
 
@@ -74,5 +75,6 @@ export function CustomerCarePaymentsPage() {
 
 export function CustomerProgressPage() {
   const [home, setHome] = useState<CareHome | null>(null); useEffect(() => { careApi.home().then(setHome).catch(() => undefined) }, [])
-  return <CustomerAppLayout><section className="careHero"><p>MY PROGRESS</p><h1>진행 중인 서비스</h1><span>일반 거래와 수달 케어 구독을 구분하여 확인하세요.</span></section><div className="progressChoices"><button onClick={() => navigate('/customer/transactions')}><span>일반 서비스</span><strong>요청·거래 진행</strong><small>일정, 작업완료, 리뷰와 A/S 확인</small></button><button onClick={() => navigate('/customer/care/contracts')}><span>수달 케어</span><strong>내 구독 {home?.activeContractCount ?? 0}건</strong><small>예정 회차 {home?.upcomingVisitCount ?? 0}건 · 반복일정 관리</small></button></div></CustomerAppLayout>
+  const [interior,setInterior]=useState<Awaited<ReturnType<typeof interiorApi.home>>|null>(null);useEffect(()=>{interiorApi.home().then(setInterior).catch(()=>undefined)},[])
+  return <CustomerAppLayout><section className="careHero"><p>MY PROGRESS</p><h1>진행 중인 서비스</h1><span>일반 거래, 수달 케어, 수달 인테리어를 구분하여 확인하세요.</span></section><div className="progressChoices"><button onClick={() => navigate('/customer/transactions')}><span>일반 서비스</span><strong>요청·거래 진행</strong><small>일정, 작업완료, 리뷰와 A/S 확인</small></button><button onClick={() => navigate('/customer/care/contracts')}><span>수달 케어</span><strong>내 구독 {home?.activeContractCount ?? 0}건</strong><small>예정 회차 {home?.upcomingVisitCount ?? 0}건 · 반복일정 관리</small></button><button onClick={()=>navigate('/customer/interior/projects')}><span>수달 인테리어</span><strong>진행 프로젝트 {interior?.activeProjectCount??0}건</strong><small>실측·계약·공정·검사·하자관리</small></button></div></CustomerAppLayout>
 }
