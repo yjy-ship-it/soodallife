@@ -7,9 +7,9 @@ import './provider.css'
 
 const desktop = [
   ['/provider', '홈'], ['/provider/matched-requests', '받은 요청'], ['/provider/quotes', '내 견적'],
-  ['/provider/work', '거래·작업'], ['/provider/after-services', 'A/S'], ['/provider/disputes', '분쟁'], ['/provider/onboarding', '마이수달'],
+  ['/provider/work', '거래·작업'], ['/provider/after-services', 'A/S'], ['/provider/disputes', '분쟁'], ['/provider/wallet', '충전금'], ['/provider/onboarding', '마이수달'],
 ] as const
-const mobile: ReadonlyArray<readonly [string, string]> = [['/provider', '홈'], ['/provider/matched-requests', '요청'], ['/provider/work', '진행'], ['/provider/after-services', 'A/S·분쟁'], ['/provider/onboarding', '마이수달']]
+const mobile: ReadonlyArray<readonly [string, string]> = [['/provider', '홈'], ['/provider/matched-requests', '요청'], ['/provider/work', '진행'], ['/provider/after-services', 'A/S·분쟁'], ['/provider/wallet', '충전금'], ['/provider/onboarding', '마이수달']]
 
 export function ProviderAppLayout({ children, actions }: PropsWithChildren<{ actions?: ReactNode }>) {
   const { user, logout } = useAuthentication()
@@ -26,6 +26,6 @@ export function ProviderAppLayout({ children, actions }: PropsWithChildren<{ act
     </div></header>
     <main id="provider-main" className="providerMain">{actions}{children}</main>
     <ServiceFooter variant="provider" />
-    <nav className="providerBottomNav" aria-label="모바일 공급자 메뉴">{mobile.map(([path, label]) => { const active = pathname === path || path === '/provider/after-services' && (pathname.startsWith('/provider/after-services/') || pathname.startsWith('/provider/disputes')); return <button key={path} className={active ? 'isActive' : ''} onClick={() => navigate(path)}><span aria-hidden="true">{label === '홈' ? '⌂' : label === '마이수달' ? '○' : '·'}</span>{label}</button> })}</nav>
+    <nav className="providerBottomNav" aria-label="모바일 공급자 메뉴">{mobile.map(([path, label]) => { const active = pathname === path || path === '/provider/after-services' && (pathname.startsWith('/provider/after-services/') || pathname.startsWith('/provider/disputes')); return <button key={path} className={active ? 'isActive' : ''} onClick={() => navigate(path)}><span aria-hidden="true">{label === '홈' ? '⌂' : label === '마이수달' ? '○' : label === '충전금' ? '₩' : '·'}</span>{label}</button> })}</nav>
   </div>
 }

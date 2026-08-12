@@ -6,6 +6,35 @@ public sealed record WalletOperationResponse(Guid WalletId, decimal AvailableBal
     Guid LedgerEntryId, string EntryTypeCode, decimal Amount, decimal BalanceAfter, string RowVersion);
 public sealed record DebitFeeCommand(Guid ProviderId, Guid TransactionId, Guid CategoryFeePolicyId, decimal Amount,
     string IdempotencyKey, string Reason);
+public sealed record ProviderWalletDashboardResponse(
+    Guid WalletId,
+    Guid ProviderId,
+    string CurrencyCode,
+    decimal AvailableBalance,
+    decimal ReservedBalance,
+    string StatusCode,
+    decimal TotalCharged,
+    decimal TotalUsed,
+    decimal TotalRestored,
+    decimal TotalRefunded,
+    IReadOnlyList<ProviderWalletLedgerResponse> RecentLedger,
+    IReadOnlyList<ProviderWalletChargeResponse> Charges,
+    IReadOnlyList<ProviderWalletFeeResponse> FeeCharges,
+    IReadOnlyList<ProviderWalletRefundResponse> Refunds,
+    bool ActualPaymentIntegrated,
+    bool ProviderRefundRequestSupported,
+    bool WithdrawalRefundRequired,
+    string ChargeGuidance,
+    string RefundGuidance,
+    string RowVersion);
+public sealed record ProviderWalletLedgerResponse(Guid Id, DateTime OccurredAt, string EntryTypeCode, decimal Amount,
+    decimal BalanceAfter, string Reason, string? ReferenceType, Guid? ReferenceId, Guid? TransactionId, string? PaymentMethodCode);
+public sealed record ProviderWalletChargeResponse(Guid Id, decimal RequestedAmount, string PaymentMethodCode,
+    string StatusCode, DateTime RequestedAt, DateTime? CompletedAt, string? FailureReason);
+public sealed record ProviderWalletFeeResponse(Guid Id, Guid TransactionId, string ServiceName, decimal FeeAmount,
+    DateTime ChargedAt, string RestoreStatusCode);
+public sealed record ProviderWalletRefundResponse(Guid Id, decimal RequestedAmount, string StatusCode,
+    string RequestReason, DateTime RequestedAt, DateTime? ReviewedAt, DateTime? CompletedAt, string? FailureReason);
 
 public sealed class WalletOperationException(string businessCode, string message, int statusCode = StatusCodes.Status400BadRequest)
     : Exception(message)

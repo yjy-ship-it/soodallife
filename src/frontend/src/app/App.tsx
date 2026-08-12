@@ -10,6 +10,7 @@ import { ProviderAreaSettingsPage, ProviderMatchedRequestDetailPage, ProviderMat
 import { ProviderApprovalPage, ProviderDocumentsPage, ProviderProfilePage, ProviderPublicStartPage, ProviderSignupPage } from '../providers/ProviderOnboardingPages'
 import { ProviderOperationsHomePage, ProviderQuoteListPage } from '../providers/ProviderOperations'
 import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
+import { ProviderWalletPage } from '../providers/ProviderWalletPage'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
@@ -232,6 +233,7 @@ function ApplicationRoutes() {
     if (pathname === '/provider/areas') return <ProviderAreaSettingsPage />
     if (pathname === '/provider') return <ProviderOperationsHomePage />
     if (pathname === '/provider/quotes') return <ProviderQuoteListPage />
+    if (pathname === '/provider/wallet') return <ProviderWalletPage />
     if (pathname === '/provider/onboarding') return <ProviderProfilePage />
     if (pathname === '/provider/documents') return <ProviderDocumentsPage />
     if (pathname === '/provider/approval') return <ProviderApprovalPage />

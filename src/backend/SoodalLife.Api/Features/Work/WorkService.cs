@@ -421,6 +421,11 @@ public sealed class WorkService(
             .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
         var review = await db.Reviews.AsNoTracking().Where(x => x.TransactionId == transaction.Id)
             .Select(x => new { x.PublicId, x.VisibilityStatusCode }).SingleOrDefaultAsync(cancellationToken);
+        var providerFee = providerView
+            ? await db.FeeCharges.AsNoTracking().Where(x => x.TransactionId == transaction.Id)
+                .Select(x => new WorkProviderFeeSummary(x.PublicId, x.FeeAmount, x.ChargedAt, x.RestoreStatusCode))
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
         var assignedProvider = providerView && transaction.StatusCode != "CANCELLED";
         var phoneDecision = privacyContract.Decide(
             providerView ? PrivacyAudience.SelectedProvider : PrivacyAudience.CustomerSelf,
@@ -435,7 +440,7 @@ public sealed class WorkService(
             baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
             transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse,
             revisionResponses, timeline.OrderBy(x => x.OccurredAt).ToArray(), afterService, dispute,
-            new WorkReviewState(review?.PublicId, transaction.StatusCode == "COMPLETED" && review is null, review is not null, review?.VisibilityStatusCode));
+            new WorkReviewState(review?.PublicId, transaction.StatusCode == "COMPLETED" && review is null, review is not null, review?.VisibilityStatusCode), providerFee);
     }
 
     private async Task<WorkCompletionRevisionResponse> BuildRevisionAsync(

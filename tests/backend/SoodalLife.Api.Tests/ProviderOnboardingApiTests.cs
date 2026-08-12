@@ -22,6 +22,10 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ProviderRegistrationResponse>();
         Assert.Equal("PENDING", body!.ApprovalStatus); Assert.Equal("INACTIVE", body.ActivityStatus); Assert.Contains(RoleCodes.Provider, body.Roles);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var profileId = await db.ProviderProfiles.Where(x => x.PublicId == body.ProviderId).Select(x => x.Id).SingleAsync();
+        var wallet = await db.ProviderWallets.SingleAsync(x => x.ProviderProfileId == profileId && x.CurrencyCode == "KRW");
+        Assert.Equal(0, wallet.AvailableBalance); Assert.Equal(0, wallet.ReservedBalance); Assert.Equal("ACTIVE", wallet.StatusCode);
     }
 
     [Fact] public async Task ProviderRegistration_PreservesCustomerRole_WhenRoleIsAdded()
@@ -161,11 +165,11 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.DoesNotContain("userId", json, StringComparison.OrdinalIgnoreCase); Assert.DoesNotContain("storageKey", json, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact] public async Task ProviderOnboarding_DoesNotCreateWalletFeeOrTrustEvents()
+    [Fact] public async Task ProviderOnboarding_CreatesOneZeroWalletButNoLedgerFeeOrTrustEvents()
     {
         long wallets, ledger, fees, trust; using (var scope = factory.Services.CreateScope()) { var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); wallets = await db.ProviderWallets.LongCountAsync(); ledger = await db.WalletLedgerEntries.LongCountAsync(); fees = await db.FeeCharges.LongCountAsync(); trust = await db.TrustScoreEvents.LongCountAsync(); }
         var (client, _) = await RegisterAndLogin(); using (client) { await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } }); await client.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { services = new[] { new { serviceCategoryId = factory.Catalog.ServiceId, administrativeAreaIds = new[] { factory.Catalog.AreaId } } } }); }
-        using var verify = factory.Services.CreateScope(); var current = verify.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal(wallets, await current.ProviderWallets.LongCountAsync()); Assert.Equal(ledger, await current.WalletLedgerEntries.LongCountAsync()); Assert.Equal(fees, await current.FeeCharges.LongCountAsync()); Assert.Equal(trust, await current.TrustScoreEvents.LongCountAsync());
+        using var verify = factory.Services.CreateScope(); var current = verify.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal(wallets + 1, await current.ProviderWallets.LongCountAsync()); Assert.Equal(ledger, await current.WalletLedgerEntries.LongCountAsync()); Assert.Equal(fees, await current.FeeCharges.LongCountAsync()); Assert.Equal(trust, await current.TrustScoreEvents.LongCountAsync());
     }
 
     private async Task<(HttpClient Client, TestCredential Credential)> RegisterAndLogin()

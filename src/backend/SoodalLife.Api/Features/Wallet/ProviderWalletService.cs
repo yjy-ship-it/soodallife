@@ -1,12 +1,71 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Wallet;
 
 public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
 {
+    public async Task<ProviderWalletDashboardResponse> GetDashboardAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userPublicId))
+            throw Error("PROVIDER_IDENTITY_INVALID", "공급자 로그인 정보를 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
+        var row = await (from user in dbContext.Users.AsNoTracking()
+                         join roleLink in dbContext.UserRoles.AsNoTracking() on user.Id equals roleLink.UserId
+                         join role in dbContext.Roles.AsNoTracking() on roleLink.RoleId equals role.Id
+                         join provider in dbContext.ProviderProfiles.AsNoTracking() on user.Id equals provider.UserId
+                         join wallet in dbContext.ProviderWallets.AsNoTracking() on provider.Id equals wallet.ProviderProfileId
+                         where user.PublicId == userPublicId && user.StatusCode == "ACTIVE" && role.Code == RoleCodes.Provider &&
+                               role.IsActive && roleLink.RevokedAt == null && wallet.CurrencyCode == "KRW"
+                         select new { Provider = provider, Wallet = wallet }).SingleOrDefaultAsync(cancellationToken)
+            ?? throw Error("PROVIDER_WALLET_NOT_FOUND", "공급자 Wallet을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+
+        var ledger = await (from entry in dbContext.WalletLedgerEntries.AsNoTracking()
+                            join transaction in dbContext.Transactions.AsNoTracking() on entry.TransactionId equals transaction.Id into transactions
+                            from transaction in transactions.DefaultIfEmpty()
+                            where entry.WalletId == row.Wallet.Id
+                            orderby entry.OccurredAt descending, entry.Id descending
+                            select new ProviderWalletLedgerResponse(entry.PublicId, entry.OccurredAt, entry.EntryTypeCode,
+                                entry.Amount, entry.BalanceAfter, entry.Reason, entry.ReferenceType, entry.ReferencePublicId,
+                                transaction == null ? null : transaction.PublicId, entry.PaymentMethodCode))
+            .Take(100).ToListAsync(cancellationToken);
+        var totals = await dbContext.WalletLedgerEntries.AsNoTracking().Where(value => value.WalletId == row.Wallet.Id)
+            .GroupBy(_ => 1).Select(values => new
+            {
+                Charged = values.Where(value => value.EntryTypeCode == "CHARGE").Sum(value => (decimal?)value.Amount) ?? 0,
+                Used = values.Where(value => value.EntryTypeCode == "USE").Sum(value => (decimal?)value.Amount) ?? 0,
+                Restored = values.Where(value => value.EntryTypeCode == "RESTORE").Sum(value => (decimal?)value.Amount) ?? 0,
+                Refunded = values.Where(value => value.EntryTypeCode == "REFUND").Sum(value => (decimal?)value.Amount) ?? 0,
+            }).SingleOrDefaultAsync(cancellationToken);
+        var charges = await dbContext.WalletChargeRequests.AsNoTracking().Where(value => value.WalletId == row.Wallet.Id)
+            .OrderByDescending(value => value.RequestedAt).Take(50)
+            .Select(value => new ProviderWalletChargeResponse(value.PublicId, value.RequestedAmount, value.PaymentMethodCode,
+                value.StatusCode, value.RequestedAt, value.CompletedAt, value.FailureReason)).ToListAsync(cancellationToken);
+        var fees = await (from fee in dbContext.FeeCharges.AsNoTracking()
+                          join transaction in dbContext.Transactions.AsNoTracking() on fee.TransactionId equals transaction.Id
+                          join category in dbContext.ServiceCategories.AsNoTracking() on transaction.CategoryId equals category.Id
+                          where fee.WalletId == row.Wallet.Id
+                          orderby fee.ChargedAt descending
+                          select new ProviderWalletFeeResponse(fee.PublicId, transaction.PublicId, category.Name, fee.FeeAmount,
+                              fee.ChargedAt, fee.RestoreStatusCode)).Take(100).ToListAsync(cancellationToken);
+        var refunds = await dbContext.WalletRefundRequests.AsNoTracking().Where(value => value.WalletId == row.Wallet.Id)
+            .OrderByDescending(value => value.RequestedAt).Take(50)
+            .Select(value => new ProviderWalletRefundResponse(value.PublicId, value.RequestedAmount, value.StatusCode,
+                value.RequestReason, value.RequestedAt, value.ReviewedAt, value.CompletedAt, value.FailureReason))
+            .ToListAsync(cancellationToken);
+        var refundOpen = refunds.Any(value => value.StatusCode is "REQUESTED" or "APPROVED" or "PROCESSING");
+        return new(row.Wallet.PublicId, row.Provider.PublicId, row.Wallet.CurrencyCode.Trim(), row.Wallet.AvailableBalance,
+            row.Wallet.ReservedBalance, row.Wallet.StatusCode, totals?.Charged ?? 0, Math.Abs(totals?.Used ?? 0),
+            totals?.Restored ?? 0, Math.Abs(totals?.Refunded ?? 0), ledger, charges, fees, refunds,
+            false, false, row.Wallet.AvailableBalance > 0 || row.Wallet.ReservedBalance > 0 || refundOpen,
+            "실제 PG 충전은 아직 연동되지 않았습니다. 개발용 수동 확인은 관리자 전용이며 실제 결제로 표시되지 않습니다.",
+            "일반 잔액 환불 정책은 확정되지 않았습니다. 탈퇴 시 잔여 충전금은 관리자 검토와 환불 절차가 필요합니다.",
+            Convert.ToBase64String(row.Wallet.RowVersion));
+    }
+
     public async Task<WalletBalanceResponse?> GetBalanceAsync(Guid providerId, decimal requiredAmount, CancellationToken cancellationToken)
     {
         if (requiredAmount < 0) throw Error("WALLET_REQUIRED_AMOUNT_INVALID", "확인할 금액은 0원 이상이어야 합니다.");

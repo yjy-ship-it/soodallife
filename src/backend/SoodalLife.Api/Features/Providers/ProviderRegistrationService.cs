@@ -65,6 +65,8 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
             db.ProviderProfiles.Add(profile);
             AddConsents(user.Id, legal, input.Consents, context, now);
             await db.SaveChangesAsync(token);
+            db.ProviderWallets.Add(CreateInitialWallet(profile.Id, user.Id, now));
+            await db.SaveChangesAsync(token);
             if (transaction is not null) await transaction.CommitAsync(token);
             return new(user.PublicId, profile.PublicId, user.LoginId, [RoleCodes.Provider], profile.ApprovalStatusCode, profile.ActivityStatusCode);
         }
@@ -88,17 +90,30 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
         var legal = await ValidateConsentsAsync(input.Consents, token);
         var role = await ProviderRoleAsync(token);
         var now = DateTime.UtcNow;
-        var userRole = await db.UserRoles.SingleOrDefaultAsync(x => x.UserId == user.Id && x.RoleId == role.Id, token);
-        if (userRole is null) db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = now });
-        else { userRole.RevokedAt = null; userRole.RevokedByUserId = null; userRole.GrantedAt = now; }
-        var profile = CreateProfile(user.Id, input.BusinessName, input.RepresentativeName, input.ContactName,
-            businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
-        db.ProviderProfiles.Add(profile);
-        AddConsents(user.Id, legal, input.Consents, context, now);
-        await db.SaveChangesAsync(token);
-        var roles = await (from item in db.UserRoles.AsNoTracking() join itemRole in db.Roles.AsNoTracking() on item.RoleId equals itemRole.Id
-                           where item.UserId == user.Id && item.RevokedAt == null && itemRole.IsActive select itemRole.Code).ToListAsync(token);
-        return new(user.PublicId, profile.PublicId, user.LoginId, roles.OrderBy(x => x).ToArray(), profile.ApprovalStatusCode, profile.ActivityStatusCode);
+        IDbContextTransaction? transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(token) : null;
+        try
+        {
+            var userRole = await db.UserRoles.SingleOrDefaultAsync(x => x.UserId == user.Id && x.RoleId == role.Id, token);
+            if (userRole is null) db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = now });
+            else { userRole.RevokedAt = null; userRole.RevokedByUserId = null; userRole.GrantedAt = now; }
+            var profile = CreateProfile(user.Id, input.BusinessName, input.RepresentativeName, input.ContactName,
+                businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
+            db.ProviderProfiles.Add(profile);
+            AddConsents(user.Id, legal, input.Consents, context, now);
+            await db.SaveChangesAsync(token);
+            db.ProviderWallets.Add(CreateInitialWallet(profile.Id, user.Id, now));
+            await db.SaveChangesAsync(token);
+            if (transaction is not null) await transaction.CommitAsync(token);
+            var roles = await (from item in db.UserRoles.AsNoTracking() join itemRole in db.Roles.AsNoTracking() on item.RoleId equals itemRole.Id
+                               where item.UserId == user.Id && item.RevokedAt == null && itemRole.IsActive select itemRole.Code).ToListAsync(token);
+            return new(user.PublicId, profile.PublicId, user.LoginId, roles.OrderBy(x => x).ToArray(), profile.ApprovalStatusCode, profile.ActivityStatusCode);
+        }
+        catch (DbUpdateException)
+        {
+            if (transaction is not null) await transaction.RollbackAsync(token);
+            throw Conflict("PROVIDER_REGISTRATION_DUPLICATE", "이미 등록된 공급자 역할 또는 Wallet입니다.");
+        }
+        finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
 
     private async Task<List<(LegalDocument Document, LegalDocumentVersion Version)>> ValidateConsentsAsync(IReadOnlyList<ProviderConsentInput>? consents, CancellationToken token)
@@ -138,6 +153,19 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
         BusinessRegistrationNo = businessNo, BusinessAddress = Trim(address, 500), BusinessTypeText = Trim(typeText, 100),
         BusinessItemText = Trim(itemText, 100), Introduction = Trim(introduction, 1000), ApprovalStatusCode = "PENDING",
         ActivityStatusCode = "INACTIVE", CreatedAt = now, CreatedByUserId = actor, UpdatedAt = now, UpdatedByUserId = actor,
+    };
+
+    private static ProviderWallet CreateInitialWallet(long providerProfileId, long actorUserId, DateTime now) => new()
+    {
+        ProviderProfileId = providerProfileId,
+        CurrencyCode = "KRW",
+        AvailableBalance = 0,
+        ReservedBalance = 0,
+        StatusCode = "ACTIVE",
+        CreatedAt = now,
+        CreatedByUserId = actorUserId,
+        UpdatedAt = now,
+        UpdatedByUserId = actorUserId,
     };
 
     private static void ValidateProfile(string businessName, string representativeName, string contactName)

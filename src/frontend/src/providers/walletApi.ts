@@ -1,0 +1,8 @@
+export interface ProviderWalletLedger { id:string; occurredAt:string; entryTypeCode:string; amount:number; balanceAfter:number; reason:string; referenceType:string|null; referenceId:string|null; transactionId:string|null; paymentMethodCode:string|null }
+export interface ProviderWalletCharge { id:string; requestedAmount:number; paymentMethodCode:string; statusCode:string; requestedAt:string; completedAt:string|null; failureReason:string|null }
+export interface ProviderWalletFee { id:string; transactionId:string; serviceName:string; feeAmount:number; chargedAt:string; restoreStatusCode:string }
+export interface ProviderWalletRefund { id:string; requestedAmount:number; statusCode:string; requestReason:string; requestedAt:string; reviewedAt:string|null; completedAt:string|null; failureReason:string|null }
+export interface ProviderWalletDashboard { walletId:string; providerId:string; currencyCode:string; availableBalance:number; reservedBalance:number; statusCode:string; totalCharged:number; totalUsed:number; totalRestored:number; totalRefunded:number; recentLedger:ProviderWalletLedger[]; charges:ProviderWalletCharge[]; feeCharges:ProviderWalletFee[]; refunds:ProviderWalletRefund[]; actualPaymentIntegrated:boolean; providerRefundRequestSupported:boolean; withdrawalRefundRequired:boolean; chargeGuidance:string; refundGuidance:string; rowVersion:string }
+
+async function read<T>(response:Response):Promise<T>{if(response.ok)return response.json() as Promise<T>;const body=await response.json().catch(()=>null) as {message?:string}|null;throw new Error(body?.message??'충전금 정보를 불러오지 못했습니다.')}
+export const getProviderWallet=()=>fetch('/api/v1/providers/me/wallet',{credentials:'include'}).then(read<ProviderWalletDashboard>)

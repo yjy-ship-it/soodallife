@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SoodalLife.Api.Features.Work;
 
 public sealed record WorkTransactionListItem(
@@ -91,11 +93,13 @@ public sealed record WorkTransactionDetail(
     IReadOnlyList<WorkTimelineItem> Timeline,
     WorkRelatedCase? AfterService,
     WorkRelatedCase? Dispute,
-    WorkReviewState Review);
+    WorkReviewState Review,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkProviderFeeSummary? ProviderFee);
 
 public sealed record WorkTimelineItem(string Code, string Label, DateTime OccurredAt, bool IsCurrent);
 public sealed record WorkRelatedCase(Guid Id, string Status, string DisplayStatus, DateTime CreatedAt);
 public sealed record WorkReviewState(Guid? Id, bool CanCreate, bool Exists, string? Status);
+public sealed record WorkProviderFeeSummary(Guid FeeChargeId, decimal FeeAmount, DateTime ChargedAt, string RestoreStatusCode);
 
 public sealed record SaveCompletionDraftInput(
     string WorkSummary,
