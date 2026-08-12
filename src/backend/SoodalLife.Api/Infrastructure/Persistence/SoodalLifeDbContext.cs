@@ -57,6 +57,12 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ServiceRequestFile> ServiceRequestFiles => Set<ServiceRequestFile>();
     public DbSet<DispatchCandidate> DispatchCandidates => Set<DispatchCandidate>();
     public DbSet<RequestDispatch> RequestDispatches => Set<RequestDispatch>();
+    public DbSet<ProviderEmergencySetting> ProviderEmergencySettings => Set<ProviderEmergencySetting>();
+    public DbSet<ProviderEmergencyServiceSetting> ProviderEmergencyServiceSettings => Set<ProviderEmergencyServiceSetting>();
+    public DbSet<ProviderEmergencyAvailabilitySlot> ProviderEmergencyAvailabilitySlots => Set<ProviderEmergencyAvailabilitySlot>();
+    public DbSet<ProviderEmergencyException> ProviderEmergencyExceptions => Set<ProviderEmergencyException>();
+    public DbSet<EmergencyResponse> EmergencyResponses => Set<EmergencyResponse>();
+    public DbSet<EmergencyProgressEvent> EmergencyProgressEvents => Set<EmergencyProgressEvent>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
@@ -182,6 +188,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
         EnsureInteriorProjectEventsAreAppendOnly();
         EnsureNotificationHistoryIsAppendOnly();
+        EnsureEmergencyProgressEventsAreAppendOnly();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -195,6 +202,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
         EnsureSubscriptionAccountingLedgersAreAppendOnly();
         EnsureInteriorProjectEventsAreAppendOnly();
         EnsureNotificationHistoryIsAppendOnly();
+        EnsureEmergencyProgressEventsAreAppendOnly();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -248,5 +256,11 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
             throw new InvalidOperationException("알림 이벤트는 수정하거나 삭제할 수 없습니다. 정정이 필요하면 새 이벤트를 추가해 주세요.");
         if (ChangeTracker.Entries<NotificationDeliveryAttempt>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("알림 발송 시도 이력은 수정하거나 삭제할 수 없습니다. 재시도는 새 이력으로 기록해 주세요.");
+    }
+
+    private void EnsureEmergencyProgressEventsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<EmergencyProgressEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("긴급출동 진행 이벤트는 수정하거나 삭제할 수 없습니다. 정정은 새 이벤트로 기록해 주세요.");
     }
 }

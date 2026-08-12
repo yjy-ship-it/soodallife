@@ -5,13 +5,15 @@ using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Features.FilePrivacy;
+using SoodalLife.Api.Features.Emergency;
 
 namespace SoodalLife.Api.Features.Matching;
 
 public sealed class RequestMatchingService(
     SoodalLifeDbContext dbContext,
     ProviderTradingEligibilityService eligibilityService,
-    ServiceRequestFilePrivacyResolver filePrivacyResolver)
+    ServiceRequestFilePrivacyResolver filePrivacyResolver,
+    IEmergencyAvailabilityResolver emergencyAvailabilityResolver)
 {
     public async Task<MatchAndDispatchResult> MatchAndDispatchAsync(Guid requestPublicId, CancellationToken cancellationToken)
     {
@@ -60,7 +62,10 @@ public sealed class RequestMatchingService(
                 var categoryMatch = evaluation.ServiceRegistered;
                 var areaMatch = evaluation.AreaMatched;
                 var approvalMatch = evaluation.UserAndRoleActive && evaluation.ProviderApprovedAndActive && evaluation.ServiceApproved;
-                var eligible = evaluation.IsEligible;
+                var emergency = request.IsUrgent
+                    ? await emergencyAvailabilityResolver.EvaluateAsync(provider.Id, request.CategoryId, administrativeAreaId, now, cancellationToken)
+                    : new EmergencyAvailabilityDecision(true, "NOT_EMERGENCY", evaluation.ProviderServiceCategoryId);
+                var eligible = evaluation.IsEligible && emergency.IsAvailable;
                 if (eligible) eligibleCount++;
 
                 var candidate = candidates.SingleOrDefault(item => item.ProviderProfileId == provider.Id);
@@ -81,7 +86,7 @@ public sealed class RequestMatchingService(
                 candidate.ApprovalMatch = approvalMatch;
                 candidate.EvaluatedAt = now;
                 candidate.ExpiresAt = request.ExpiresAt;
-                candidate.ReasonCode = evaluation.ReasonCode;
+                candidate.ReasonCode = evaluation.ReasonCode ?? (emergency.IsAvailable ? null : emergency.ReasonCode);
                 candidate.StatusCode = eligible ? "ELIGIBLE" : "INELIGIBLE";
             }
 
@@ -121,11 +126,14 @@ public sealed class RequestMatchingService(
                 {
                     continue;
                 }
+                if (request.IsUrgent && !await dbContext.NotificationTemplates.AsNoTracking().AnyAsync(
+                        x => x.EventTypeCode == "EMERGENCY.PUBLISHED" && x.IsActive, cancellationToken))
+                    continue;
                 dbContext.OutboxEvents.Add(new OutboxEvent
                 {
                     AggregateType = "RequestDispatch",
                     AggregatePublicId = dispatch.PublicId,
-                    EventType = "REQUEST_DISPATCHED",
+                    EventType = request.IsUrgent ? "EMERGENCY.PUBLISHED" : "REQUEST_DISPATCHED",
                     PayloadJson = JsonSerializer.Serialize(new { recipientUserId, request_no = request.PublicId.ToString("N")[..10].ToUpperInvariant(), source_no = dispatch.PublicId.ToString("N")[..10].ToUpperInvariant() }),
                     StatusCode = "PENDING",
                     OccurredAt = now,

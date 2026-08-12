@@ -67,6 +67,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
             <button type="button" onClick={() => navigate('/services')}>서비스</button>
             <button type="button" onClick={() => navigate('/care')}>수달 케어</button>
             <button type="button" onClick={() => navigate('/interior')}>수달 인테리어</button>
+            <button type="button" onClick={() => navigate('/emergency')}>긴급출동</button>
             <button type="button" onClick={() => navigate('/support')}>고객센터</button>
           </nav>
           <div className="customerHeaderActions">

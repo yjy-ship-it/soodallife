@@ -7,6 +7,7 @@ import './provider.css'
 
 const desktop = [
   ['/provider/messages', '메시지'], ['/provider/care', '수달 케어'], ['/provider/interior', '수달 인테리어'],
+  ['/provider/emergency', '긴급출동'],
   ['/provider', '홈'], ['/provider/matched-requests', '받은 요청'], ['/provider/quotes', '내 견적'],
   ['/provider/work', '거래·작업'], ['/provider/after-services', 'A/S'], ['/provider/disputes', '분쟁'], ['/provider/wallet', '충전금'], ['/provider/onboarding', '마이수달'],
 ] as const

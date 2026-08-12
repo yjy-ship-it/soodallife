@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as quoteApi from './api'
 import type { CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, QuoteItemInput, SaveQuoteRevisionInput } from './types'
+import * as requestApi from '../requests/api'
+import { EmergencyResponsesPanel } from '../emergency/EmergencyPages'
 
 const emptyItem = (): QuoteItemInput => ({ itemName: '', description: null, quantity: 1, unitText: '식', unitPriceAmount: 0 })
 
@@ -101,11 +103,13 @@ export function ProviderQuotePanel({ requestId, requestExpiresAt }: { requestId:
 }
 
 export function CustomerQuotesPanel({ requestId }: { requestId: string }) {
+  const [isEmergency, setIsEmergency] = useState(false)
   const [quotes, setQuotes] = useState<CustomerQuoteComparison[]>([]), [selected, setSelected] = useState<CustomerQuoteDetail | null>(null)
   const [profile, setProfile] = useState<CustomerProviderProfile | null>(null), [accepting, setAccepting] = useState(false)
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [loading, setLoading] = useState(true)
   const load = useCallback(() => quoteApi.getCustomerQuotes(requestId).then(setQuotes).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false)), [requestId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { requestApi.getMyRequest(requestId).then(value => setIsEmergency(value.isUrgent)).catch(() => setIsEmergency(false)) }, [requestId])
   const show = async (quoteId: string) => { setError(''); setProfile(null); try { setSelected(await quoteApi.getCustomerQuote(quoteId)) } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 불러오지 못했습니다.') } }
   const showProfile = async () => { if (!selected) return; setError(''); try { setProfile(await quoteApi.getCustomerProviderProfile(selected.providerId, requestId)) } catch (reason) { setError(reason instanceof Error ? reason.message : '공급자 정보를 불러오지 못했습니다.') } }
   const accept = async () => {
@@ -118,6 +122,7 @@ export function CustomerQuotesPanel({ requestId }: { requestId: string }) {
       setSelected(await quoteApi.getCustomerQuote(selected.id)); await load()
     } catch (reason) { setError(reason instanceof Error ? reason.message : '견적을 선택하지 못했습니다.') } finally { setAccepting(false) }
   }
+  if (isEmergency) return <EmergencyResponsesPanel requestId={requestId} />
   return <section className="detailCard quotePanel">
     <div className="sectionHeading"><div><p className="eyebrow">RECEIVED QUOTES</p><h2>받은 견적</h2></div><span>{quotes.length}건</span></div>
     {error && <div className="errorBanner">{error}</div>}{message && <div className="successBanner">{message}</div>}

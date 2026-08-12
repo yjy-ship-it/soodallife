@@ -66,6 +66,7 @@ import {
 } from '../customer/CustomerCarePages'
 import { CustomerInteriorHomePage, CustomerInteriorProjectPage, CustomerInteriorProjectsPage, NewCustomerInteriorProjectPage } from '../customer/CustomerInteriorPages'
 import { ChatRoomListPage, ChatRoomPage } from '../chat/ChatPages'
+import { CustomerEmergencyHomePage, CustomerEmergencyProgressPage, ProviderEmergencyPage, ProviderEmergencyProgressPage } from '../emergency/EmergencyPages'
 import './App.css'
 
 const protectedRoutes: Record<string, RoleCode> = {
@@ -100,6 +101,7 @@ function ApplicationRoutes() {
   if (pathname === '/') return <CustomerHomePage />
   if (pathname === '/care') return <CustomerCareHomePage />
   if (pathname === '/interior') return <CustomerInteriorHomePage />
+  if (pathname === '/emergency') return <CustomerEmergencyHomePage />
   if (pathname === '/services') return <ServiceCatalogPage />
   if (pathname === '/services/search') return <ServiceSearchPage />
   if (serviceDetailMatch) return <ServiceDetailPage id={serviceDetailMatch[1]} />
@@ -151,8 +153,10 @@ function ApplicationRoutes() {
   const providerCareVisitMatch = pathname.match(/^\/provider\/care\/visits\/([0-9a-f-]+)$/i)
   const providerInteriorProjectMatch = pathname.match(/^\/provider\/interior\/projects\/([0-9a-f-]+)$/i)
   const providerChatMatch = pathname.match(/^\/provider\/messages\/([0-9a-f-]+)$/i)
+  const providerEmergencyMatch = pathname.match(/^\/provider\/emergency\/([0-9a-f-]+)$/i)
   const customerChatMatch = pathname.match(/^\/customer\/messages\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
+  const customerEmergencyMatch = pathname.match(/^\/customer\/emergency\/([0-9a-f-]+)$/i)
   const customerDisputeMatch = pathname.match(/^\/customer\/disputes\/([0-9a-f-]+)$/i)
   const customerHistoryMatch = pathname.match(/^\/customer\/service-history\/([0-9a-f-]+)$/i)
   const customerAfterServiceMatch = pathname.match(/^\/customer\/after-services\/([0-9a-f-]+)$/i)
@@ -227,6 +231,7 @@ function ApplicationRoutes() {
     if (customerRequestMatch) return <CustomerRequestDetailPage requestId={customerRequestMatch[1]} />
     if (pathname === '/customer/transactions') return <WorkTransactionListPage audience="customer" />
     if (customerTransactionMatch) return <CustomerWorkDetailPage transactionId={customerTransactionMatch[1]} />
+    if (customerEmergencyMatch) return <CustomerEmergencyProgressPage id={customerEmergencyMatch[1]} />
     if (pathname === '/customer/reviews') return <MyReviewsPage />
     if (pathname === '/customer/service-history') return <ServiceHistoryPage />
     if (customerHistoryMatch) return <ServiceHistoryPage id={customerHistoryMatch[1]} />
@@ -253,6 +258,8 @@ function ApplicationRoutes() {
     if (providerCareVisitMatch) return <ProviderCareVisitsPage id={providerCareVisitMatch[1]} />
     if (pathname === '/provider/care/schedule-changes') return <ProviderCareScheduleChangesPage />
     if (pathname === '/provider/interior') return <ProviderInteriorHomePage />
+    if (pathname === '/provider/emergency') return <ProviderEmergencyPage />
+    if (providerEmergencyMatch) return <ProviderEmergencyProgressPage id={providerEmergencyMatch[1]} />
     if (pathname === '/provider/interior/projects') return <ProviderInteriorProjectsPage />
     if (providerInteriorProjectMatch) return <ProviderInteriorProjectsPage id={providerInteriorProjectMatch[1]} />
     if (pathname === '/provider/onboarding') return <ProviderProfilePage />

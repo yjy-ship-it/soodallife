@@ -1,0 +1,9 @@
+export type EmergencyAvailabilitySlot={id:string;dayOfWeek:number;startTime:string|null;endTime:string|null;is24Hours:boolean}
+export type EmergencyServiceSetting={id:string;providerServiceCategoryId:string;categoryId:string;categoryName:string;isApproved:boolean;emergencyAllowedByCategory:boolean;isEnabled:boolean;slots:EmergencyAvailabilitySlot[]}
+export type EmergencyException={id:string;startsAt:string;endsAt:string;reason:string|null}
+export type EmergencyAvailability={id:string;isEnabled:boolean;temporarilyUnavailableUntil:string|null;temporaryUnavailableReason:string|null;isCurrentlyAvailable:boolean;currentAvailabilityReason:string;services:EmergencyServiceSetting[];exceptions:EmergencyException[];rowVersion:string}
+export type EmergencyProviderRequest={requestId:string;categoryName:string;areaName:string;title:string;description:string|null;requestedAt:string;responseDeadlineAt:string;dispatchStatus:string;responseStatus:string|null;personalInformationWithheld:boolean}
+export type EmergencyProviderAssignment={transactionId:string;categoryName:string;areaName:string;title:string;transactionStatus:string;emergencyStatus:string;assignedAt:string}
+export type EmergencyCustomerResponse={id:string;providerId:string;providerName:string;status:string;etaMinutes:number|null;estimatedArrivalAt:string|null;conditions:string|null;trustScore:number|null;trustGrade:string|null;publicReviewCount:number;isApproved:boolean;personalInformationWithheld:boolean;rowVersion:string}
+export type EmergencySelection={transactionId:string;providerId:string;chatRoomId:string;status:string;pricingStatus:string;walletCharged:boolean}
+export type EmergencyProgress={transactionId:string;transactionStatus:string;currentEmergencyStatus:string;events:Array<{id:string;eventType:string;note:string|null;occurredAt:string}>}

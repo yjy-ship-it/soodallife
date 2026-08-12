@@ -19,7 +19,8 @@ export function NewCustomerRequestPage() {
   const [areas, setAreas] = useState<AdministrativeArea[]>([]), [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]), [fields, setFields] = useState<RequestField[]>([])
   const [majorId, setMajorId] = useState(''), [middleId, setMiddleId] = useState(''), [serviceId, setServiceId] = useState(''), [areaId, setAreaId] = useState('')
   const [title, setTitle] = useState(''), [description, setDescription] = useState(''), [detailAddress, setDetailAddress] = useState('')
-  const [isUrgent, setIsUrgent] = useState(false), [answers, setAnswers] = useState<Record<string, DynamicValue>>({}), [files, setFiles] = useState<RequestFile[]>([])
+  const emergencyMode = new URLSearchParams(window.location.search).get('emergency') === '1'
+  const [isUrgent, setIsUrgent] = useState(emergencyMode), [answers, setAnswers] = useState<Record<string, DynamicValue>>({}), [files, setFiles] = useState<RequestFile[]>([])
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
   const idempotencyKey = useRef(crypto.randomUUID())
 

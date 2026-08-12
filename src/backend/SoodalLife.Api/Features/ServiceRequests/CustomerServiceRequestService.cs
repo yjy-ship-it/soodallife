@@ -440,6 +440,8 @@ public sealed class CustomerServiceRequestService(
 
     private async Task ValidatePublishAsync(ServiceRequest request, CategoryContext context, IReadOnlyList<ServiceRequestFile> files, CancellationToken token)
     {
+        if (request.IsUrgent && !context.Policy.IsEmergencyAllowed)
+            throw Invalid("EMERGENCY_NOT_ALLOWED", "이 서비스는 긴급출동 요청을 지원하지 않습니다.", "isUrgent");
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         if (string.IsNullOrWhiteSpace(request.Title)) errors["title"] = ["요청 제목을 입력해 주세요."];
         if (!request.AdministrativeAreaId.HasValue) errors["administrativeAreaId"] = ["서비스 지역을 선택해 주세요."];
