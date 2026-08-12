@@ -238,6 +238,22 @@ public sealed class InteriorWorkStage
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class InteriorWorkStageAssignment
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long WorkStageId { get; set; }
+    public long ProjectParticipantId { get; set; }
+    public string StatusCode { get; set; } = "ACTIVE";
+    public DateTime EffectiveFrom { get; set; }
+    public DateTime? EffectiveTo { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class InteriorWorkUpdate
 {
     public long Id { get; set; }
@@ -276,6 +292,17 @@ public sealed class InteriorStageInspection
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class InteriorStageInspectionFile
+{
+    public long Id { get; set; }
+    public long StageInspectionId { get; set; }
+    public long FileId { get; set; }
+    public string PurposeCode { get; set; } = "INSPECTION_EVIDENCE";
+    public int DisplayOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+}
+
 public sealed class InteriorStageInspectionAcknowledgement
 {
     public long Id { get; set; }
@@ -310,6 +337,17 @@ public sealed class InteriorContractChange
     public DateTime UpdatedAt { get; set; }
     public long? UpdatedByUserId { get; set; }
     public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class InteriorContractChangeFile
+{
+    public long Id { get; set; }
+    public long ContractChangeId { get; set; }
+    public long FileId { get; set; }
+    public string PurposeCode { get; set; } = "CHANGE_EVIDENCE";
+    public int DisplayOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
 }
 
 public sealed class InteriorDefect

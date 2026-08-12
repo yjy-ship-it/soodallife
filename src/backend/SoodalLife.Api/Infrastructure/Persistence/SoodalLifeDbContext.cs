@@ -151,11 +151,14 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<InteriorPaymentPlan> InteriorPaymentPlans => Set<InteriorPaymentPlan>();
     public DbSet<InteriorPaymentConfirmation> InteriorPaymentConfirmations => Set<InteriorPaymentConfirmation>();
     public DbSet<InteriorWorkStage> InteriorWorkStages => Set<InteriorWorkStage>();
+    public DbSet<InteriorWorkStageAssignment> InteriorWorkStageAssignments => Set<InteriorWorkStageAssignment>();
     public DbSet<InteriorWorkUpdate> InteriorWorkUpdates => Set<InteriorWorkUpdate>();
     public DbSet<InteriorWorkUpdateFile> InteriorWorkUpdateFiles => Set<InteriorWorkUpdateFile>();
     public DbSet<InteriorStageInspection> InteriorStageInspections => Set<InteriorStageInspection>();
+    public DbSet<InteriorStageInspectionFile> InteriorStageInspectionFiles => Set<InteriorStageInspectionFile>();
     public DbSet<InteriorStageInspectionAcknowledgement> InteriorStageInspectionAcknowledgements => Set<InteriorStageInspectionAcknowledgement>();
     public DbSet<InteriorContractChange> InteriorContractChanges => Set<InteriorContractChange>();
+    public DbSet<InteriorContractChangeFile> InteriorContractChangeFiles => Set<InteriorContractChangeFile>();
     public DbSet<InteriorDefect> InteriorDefects => Set<InteriorDefect>();
     public DbSet<InteriorProjectEvent> InteriorProjectEvents => Set<InteriorProjectEvent>();
     public DbSet<ChatRoom> ChatRooms => Set<ChatRoom>();

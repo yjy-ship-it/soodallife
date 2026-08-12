@@ -12,6 +12,7 @@ import { ProviderOperationsHomePage, ProviderQuoteListPage } from '../providers/
 import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
 import { ProviderWalletPage } from '../providers/ProviderWalletPage'
 import { ProviderCareApplicationsPage, ProviderCareContractsPage, ProviderCareHomePage, ProviderCareRequestsPage, ProviderCareScheduleChangesPage, ProviderCareVisitsPage } from '../providers/ProviderCarePages'
+import { ProviderInteriorHomePage, ProviderInteriorProjectsPage } from '../providers/ProviderInteriorPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
 import { CustomerDisputesPage, MyReviewsPage } from '../pages/CustomerWorkHistoryPages'
 import { AfterServiceDisputeFormPage, AfterServicesPage, CustomerReportsPage, ServiceHistoryPage } from '../pages/CustomerAftercarePages'
@@ -148,6 +149,7 @@ function ApplicationRoutes() {
   const providerDisputeMatch = pathname.match(/^\/provider\/disputes\/([0-9a-f-]+)$/i)
   const providerCareContractMatch = pathname.match(/^\/provider\/care\/contracts\/([0-9a-f-]+)$/i)
   const providerCareVisitMatch = pathname.match(/^\/provider\/care\/visits\/([0-9a-f-]+)$/i)
+  const providerInteriorProjectMatch = pathname.match(/^\/provider\/interior\/projects\/([0-9a-f-]+)$/i)
   const providerChatMatch = pathname.match(/^\/provider\/messages\/([0-9a-f-]+)$/i)
   const customerChatMatch = pathname.match(/^\/customer\/messages\/([0-9a-f-]+)$/i)
   const customerTransactionMatch = pathname.match(/^\/customer\/transactions\/([0-9a-f-]+)$/i)
@@ -250,6 +252,9 @@ function ApplicationRoutes() {
     if (pathname === '/provider/care/visits') return <ProviderCareVisitsPage />
     if (providerCareVisitMatch) return <ProviderCareVisitsPage id={providerCareVisitMatch[1]} />
     if (pathname === '/provider/care/schedule-changes') return <ProviderCareScheduleChangesPage />
+    if (pathname === '/provider/interior') return <ProviderInteriorHomePage />
+    if (pathname === '/provider/interior/projects') return <ProviderInteriorProjectsPage />
+    if (providerInteriorProjectMatch) return <ProviderInteriorProjectsPage id={providerInteriorProjectMatch[1]} />
     if (pathname === '/provider/onboarding') return <ProviderProfilePage />
     if (pathname === '/provider/documents') return <ProviderDocumentsPage />
     if (pathname === '/provider/approval') return <ProviderApprovalPage />

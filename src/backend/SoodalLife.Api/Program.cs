@@ -97,6 +97,7 @@ builder.Services.AddSingleton<ISubscriptionSettlementFeeCalculator, Subscription
 builder.Services.AddScoped<SubscriptionBillingService>();
 builder.Services.AddScoped<InteriorProjectService>();
 builder.Services.AddScoped<CustomerInteriorService>();
+builder.Services.AddScoped<ProviderInteriorService>();
 builder.Services.AddScoped<NotificationManagementService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddSignalR();
