@@ -20,10 +20,25 @@ public interface IPersonalDataReader
     string? Read(byte[]? encrypted, string? plaintext);
 }
 
-public sealed class EncryptedFirstPersonalDataReader(IPersonalDataProtector protector, IOptions<PrivacyProtectionOptions> options) : IPersonalDataReader
+public sealed class PersonalDataReadMetrics
 {
-    public string? Read(byte[]? encrypted, string? plaintext) =>
-        options.Value.EncryptedReadEnabled && encrypted is { Length: > 0 } ? protector.Unprotect(encrypted) : plaintext;
+    private long _plaintextFallbackCount;
+    public long PlaintextFallbackCount => Interlocked.Read(ref _plaintextFallbackCount);
+    internal void RecordPlaintextFallback() => Interlocked.Increment(ref _plaintextFallbackCount);
+}
+
+public sealed class EncryptedFirstPersonalDataReader(
+    IPersonalDataProtector protector,
+    IOptions<PrivacyProtectionOptions> options,
+    PersonalDataReadMetrics metrics) : IPersonalDataReader
+{
+    public string? Read(byte[]? encrypted, string? plaintext)
+    {
+        if (!options.Value.EncryptedReadEnabled) return plaintext;
+        if (encrypted is { Length: > 0 }) return protector.Unprotect(encrypted);
+        if (plaintext is not null) metrics.RecordPlaintextFallback();
+        return plaintext;
+    }
 }
 
 public static class PersonalDataNormalizer

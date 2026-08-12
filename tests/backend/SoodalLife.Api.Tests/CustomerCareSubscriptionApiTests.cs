@@ -221,7 +221,7 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
 
     private async Task<CareProductResponse> CreateProduct(HttpClient admin)
     {
-        var response = await admin.PostAsJsonAsync("/api/v1/admin/subscriptions/products", new { serviceCategoryId = factory.Catalog.ServiceId, productName = $"고객 공개상품 {Guid.NewGuid():N}", description = "표준 구독상품", serviceScopeText = "기본 점검", visitsPerPeriod = 2, expectedDurationMinutes = 60, billingPeriodCode = "MONTHLY", standardMonthlyAmount = 100000m, standardVisitAmount = 25000m, effectiveFrom = DateOnly.FromDateTime(DateTime.Today), effectiveTo = (DateOnly?)null, isActive = true });
+        var response = await admin.PostAsJsonAsync("/api/v1/admin/subscriptions/products", new { serviceCategoryId = factory.Catalog.ServiceId, productName = $"고객 공개상품 {Guid.NewGuid():N}", description = "표준 구독상품", serviceScopeText = "기본 점검", visitsPerPeriod = 2, expectedDurationMinutes = 60, billingPeriodCode = "MONTHLY", standardMonthlyAmount = 100000m, standardVisitAmount = 25000m, effectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow), effectiveTo = (DateOnly?)null, isActive = true });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); return (await response.Content.ReadFromJsonAsync<CareProductResponse>())!;
     }
 

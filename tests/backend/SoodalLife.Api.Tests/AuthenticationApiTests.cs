@@ -36,6 +36,49 @@ public sealed class AuthenticationApiTests(AuthenticationWebApplicationFactory f
         Assert.Contains(role, currentUser.Roles);
     }
 
+    [Theory]
+    [InlineData(RoleCodes.Customer)]
+    [InlineData(RoleCodes.Provider)]
+    [InlineData(RoleCodes.Admin)]
+    public async Task Login_WithNormalizedEmail_UsesProtectedHashPath(string role)
+    {
+        _ = factory.CreateClient();
+        var credential = factory.Credentials[role];
+        var email = $"{role.ToLowerInvariant()}-{Guid.NewGuid():N}@Example.test";
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var user = await db.Users.SingleAsync(x => x.LoginId == credential.LoginId);
+            user.Email = email;
+            user.NormalizedEmail = email.Trim().ToUpperInvariant();
+            await db.SaveChangesAsync();
+            Assert.NotNull(user.EmailEncrypted);
+            Assert.NotNull(user.EmailSearchHash);
+        }
+
+        using var client = CreateClient();
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            LoginOrEmail = $"  {email.ToUpperInvariant()}  ",
+            credential.Password,
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var current = await response.Content.ReadFromJsonAsync<AuthenticatedUserResponse>();
+        Assert.Contains(role, current!.Roles);
+    }
+
+    [Fact]
+    public async Task Login_WithUnknownEmail_ReturnsStandardUnauthorizedError()
+    {
+        using var client = CreateClient();
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            LoginOrEmail = $"unknown-{Guid.NewGuid():N}@example.test",
+            factory.Credentials[RoleCodes.Customer].Password,
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     [Fact]
     public async Task Login_WithInvalidPassword_ReturnsStandardUnauthorizedError()
     {

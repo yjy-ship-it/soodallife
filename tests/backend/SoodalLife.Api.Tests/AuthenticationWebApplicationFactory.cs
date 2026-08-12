@@ -47,6 +47,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
                 ["ConnectionStrings:SoodalLife"] = "Server=(local);Database=authentication-tests;Trusted_Connection=True;",
                 ["PrivacyProtection:DualWriteEnabled"] = "true",
                 ["PrivacyProtection:SearchHashKey"] = _privacyHashKey,
+                ["PrivacyProtection:EncryptedReadEnabled"] = "true",
             });
         });
         builder.ConfigureServices(services =>

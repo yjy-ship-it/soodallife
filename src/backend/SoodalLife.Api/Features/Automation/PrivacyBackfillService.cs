@@ -6,7 +6,11 @@ using SoodalLife.Api.Infrastructure.Security;
 namespace SoodalLife.Api.Features.Automation;
 
 public sealed record PrivacyBackfillResult(int ScannedCount, int UpdatedCount, int VerifiedCount);
-public sealed record PrivacyBackfillPreflightResult(int ExistingCiphertextVerified, int EmailHashesChecked, int PhoneHashesChecked);
+public sealed record PrivacyBackfillPreflightResult(
+    int ExistingCiphertextVerified,
+    int EmailHashesChecked,
+    int PhoneHashesChecked,
+    int NormalizedEmailDuplicateCount);
 
 public sealed class PrivacyBackfillService(
     SoodalLifeDbContext db,
@@ -22,17 +26,59 @@ public sealed class PrivacyBackfillService(
         var sentinel = "privacy-backfill-preflight";
         if (protector.Unprotect(protector.Protect(sentinel)) != sentinel) throw new InvalidOperationException("PRIVACY_BACKFILL_KEYRING_UNAVAILABLE");
         var users = await db.Users.AsNoTracking().Where(x => x.Email != null || x.Phone != null || x.EmailEncrypted != null || x.PhoneEncrypted != null)
-            .Select(x => new { x.Id, x.Email, x.Phone, x.EmailEncrypted, x.PhoneEncrypted }).ToListAsync(token);
+            .Select(x => new { x.Id, x.Email, x.Phone, x.EmailEncrypted, x.PhoneEncrypted, x.EmailSearchHash, x.PhoneSearchHash }).ToListAsync(token);
         var verified = 0;
         foreach (var user in users)
         {
-            if (user.EmailEncrypted is { Length: > 0 }) { _ = protector.Unprotect(user.EmailEncrypted); verified++; }
-            if (user.PhoneEncrypted is { Length: > 0 }) { _ = protector.Unprotect(user.PhoneEncrypted); verified++; }
+            VerifyCiphertext(user.EmailEncrypted, user.Email, PersonalDataNormalizer.Email, ref verified);
+            VerifyCiphertext(user.PhoneEncrypted, user.Phone, PersonalDataNormalizer.Phone, ref verified);
+            if (!string.IsNullOrWhiteSpace(user.Email) && user.EmailSearchHash is { Length: > 0 } && !user.EmailSearchHash.SequenceEqual(hasher.Email(user.Email)))
+                throw new InvalidOperationException("PRIVACY_BACKFILL_EMAIL_HASH_MISMATCH");
+            if (!string.IsNullOrWhiteSpace(user.Phone) && user.PhoneSearchHash is { Length: > 0 } && !user.PhoneSearchHash.SequenceEqual(hasher.Phone(user.Phone)))
+                throw new InvalidOperationException("PRIVACY_BACKFILL_PHONE_HASH_MISMATCH");
         }
-        var emailHashes = users.Where(x => !string.IsNullOrWhiteSpace(x.Email)).Select(x => new { x.Id, Hash = Convert.ToHexString(hasher.Email(x.Email!)) }).ToList();
-        if (emailHashes.GroupBy(x => x.Hash).Any(x => x.Select(v => v.Id).Distinct().Count() > 1)) throw new InvalidOperationException("PRIVACY_BACKFILL_EMAIL_HASH_COLLISION");
+        var emailHashes = users.Where(x => !string.IsNullOrWhiteSpace(x.Email)).Select(x => new
+        {
+            x.Id,
+            Normalized = PersonalDataNormalizer.Email(x.Email!),
+            Hash = Convert.ToHexString(hasher.Email(x.Email!))
+        }).ToList();
+        if (emailHashes.GroupBy(x => x.Hash).Any(x => x.Select(v => v.Normalized).Distinct(StringComparer.Ordinal).Count() > 1))
+            throw new InvalidOperationException("PRIVACY_BACKFILL_EMAIL_HASH_COLLISION");
+        var normalizedDuplicates = emailHashes.GroupBy(x => x.Normalized, StringComparer.Ordinal).Count(x => x.Count() > 1);
         var phoneHashes = users.Where(x => !string.IsNullOrWhiteSpace(x.Phone)).Select(x => Convert.ToHexString(hasher.Phone(x.Phone!))).ToList();
-        return new(verified, emailHashes.Count, phoneHashes.Count);
+
+        var addresses = await db.CustomerAddresses.AsNoTracking().Select(x => new
+            { x.RecipientName, x.RecipientNameEncrypted, x.RoadAddress, x.RoadAddressEncrypted, x.DetailAddress, x.DetailAddressEncrypted }).ToListAsync(token);
+        foreach (var value in addresses)
+        {
+            VerifyCiphertext(value.RecipientNameEncrypted, value.RecipientName, PersonalDataNormalizer.Text, ref verified);
+            VerifyCiphertext(value.RoadAddressEncrypted, value.RoadAddress, PersonalDataNormalizer.Text, ref verified);
+            VerifyCiphertext(value.DetailAddressEncrypted, value.DetailAddress, PersonalDataNormalizer.Text, ref verified);
+        }
+
+        var providers = await db.ProviderProfiles.AsNoTracking().Where(x => x.BusinessAddressEncrypted != null)
+            .Select(x => new { x.BusinessAddress, x.BusinessAddressEncrypted }).ToListAsync(token);
+        foreach (var value in providers) VerifyCiphertext(value.BusinessAddressEncrypted, value.BusinessAddress, PersonalDataNormalizer.Text, ref verified);
+
+        var requests = await db.ServiceRequests.AsNoTracking().Where(x => x.DetailAddressEncrypted != null)
+            .Select(x => new { x.DetailAddress, x.DetailAddressEncrypted }).ToListAsync(token);
+        foreach (var value in requests) VerifyCiphertext(value.DetailAddressEncrypted, value.DetailAddress, PersonalDataNormalizer.Text, ref verified);
+
+        var subscriptions = await db.SubscriptionRequests.AsNoTracking().Where(x => x.DetailAddressEncrypted != null)
+            .Select(x => new { x.DetailAddress, x.DetailAddressEncrypted }).ToListAsync(token);
+        foreach (var value in subscriptions) VerifyCiphertext(value.DetailAddressEncrypted, value.DetailAddress, PersonalDataNormalizer.Text, ref verified);
+
+        return new(verified, emailHashes.Count, phoneHashes.Count, normalizedDuplicates);
+    }
+
+    private void VerifyCiphertext(byte[]? ciphertext, string? plaintext, Func<string, string> normalize, ref int verified)
+    {
+        if (ciphertext is not { Length: > 0 }) return;
+        var decrypted = protector.Unprotect(ciphertext);
+        if (plaintext is not null && !string.Equals(normalize(decrypted), normalize(plaintext), StringComparison.Ordinal))
+            throw new InvalidOperationException("PRIVACY_BACKFILL_CIPHERTEXT_MISMATCH");
+        verified++;
     }
 
     public async Task<PrivacyBackfillResult> BackfillBatchAsync(CancellationToken token)

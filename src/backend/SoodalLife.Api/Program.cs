@@ -38,6 +38,7 @@ builder.Services.AddDataProtection().SetApplicationName("SoodalLife");
 builder.Services.Configure<PrivacyProtectionOptions>(builder.Configuration.GetSection(PrivacyProtectionOptions.SectionName));
 builder.Services.AddSingleton<SoodalLife.Api.Infrastructure.Security.IPersonalDataProtector, DataProtectionPersonalDataProtector>();
 builder.Services.AddSingleton<IPersonalDataSearchHasher, HmacPersonalDataSearchHasher>();
+builder.Services.AddSingleton<PersonalDataReadMetrics>();
 builder.Services.AddSingleton<IPersonalDataReader, EncryptedFirstPersonalDataReader>();
 builder.Services.AddSingleton<IPrivacyContract, PrivacyContract>();
 builder.Services.AddSingleton<PersonalDataProtectionInterceptor>();

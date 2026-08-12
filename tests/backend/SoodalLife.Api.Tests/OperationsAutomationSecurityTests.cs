@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Automation;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
@@ -59,17 +60,36 @@ public sealed class OperationsAutomationSecurityTests(AuthenticationWebApplicati
     public void Encrypted_first_reader_uses_ciphertext_and_falls_back_safely()
     {
         using var scope = factory.Services.CreateScope(); var protector = scope.ServiceProvider.GetRequiredService<IPersonalDataProtector>();
-        var enabled = new EncryptedFirstPersonalDataReader(protector, Options.Create(new PrivacyProtectionOptions { EncryptedReadEnabled = true }));
+        var metrics = new PersonalDataReadMetrics();
+        var enabled = new EncryptedFirstPersonalDataReader(protector, Options.Create(new PrivacyProtectionOptions { EncryptedReadEnabled = true }), metrics);
         Assert.Equal("cipher-value", enabled.Read(protector.Protect("cipher-value"), "plain-value")); Assert.Equal("plain-value", enabled.Read(null, "plain-value"));
-        var disabled = new EncryptedFirstPersonalDataReader(protector, Options.Create(new PrivacyProtectionOptions { EncryptedReadEnabled = false })); Assert.Equal("plain-value", disabled.Read(protector.Protect("cipher-value"), "plain-value"));
+        Assert.Equal(1, metrics.PlaintextFallbackCount);
+        var disabled = new EncryptedFirstPersonalDataReader(protector, Options.Create(new PrivacyProtectionOptions { EncryptedReadEnabled = false }), metrics); Assert.Equal("plain-value", disabled.Read(protector.Protect("cipher-value"), "plain-value"));
+        Assert.Equal(1, metrics.PlaintextFallbackCount);
     }
 
     [Fact]
     public async Task Privacy_backfill_preflight_validates_keyring_hashes_and_existing_ciphertext()
     {
+        _ = factory.CreateClient();
         using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var user = await db.Users.SingleAsync(x => x.LoginId == factory.Credentials[RoleCodes.Customer].LoginId);
+        var customer = await db.CustomerProfiles.SingleAsync(x => x.UserId == user.Id);
+        var provider = await db.ProviderProfiles.FirstAsync();
+        var category = await db.ServiceCategories.SingleAsync(x => x.PublicId == factory.Catalog.ServiceId);
+        var policy = await db.CategoryPolicies.FirstAsync(x => x.CategoryId == category.Id);
+        var area = await db.AdministrativeAreas.SingleAsync(x => x.PublicId == factory.Catalog.AreaId);
+        user.Email = $"privacy-{Guid.NewGuid():N}@example.test";
+        user.NormalizedEmail = PersonalDataNormalizer.Email(user.Email);
+        user.Phone = "010-9876-5432";
+        provider.BusinessAddress = "test provider address";
+        db.CustomerAddresses.Add(new CustomerAddress { CustomerProfileId = customer.Id, AddressName = "privacy", RecipientName = "recipient", PostalCode = "12345", RoadAddress = "test road", DetailAddress = "test detail" });
+        db.ServiceRequests.Add(new ServiceRequest { CustomerProfileId = customer.Id, CategoryId = category.Id, CategoryPolicyId = policy.Id, AdministrativeAreaId = area.Id, DetailAddress = "request detail", Title = "privacy preflight", PolicySnapshotJson = "{}", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        db.SubscriptionRequests.Add(new SubscriptionRequest { CustomerProfileId = customer.Id, ServiceCategoryId = category.Id, AdministrativeAreaId = area.Id, RequestedScopeText = "privacy preflight", PreferredStartDate = DateOnly.FromDateTime(DateTime.Today), DetailAddress = "subscription detail", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
         var result = await scope.ServiceProvider.GetRequiredService<PrivacyBackfillService>().ValidatePreconditionsAsync(default);
-        Assert.True(result.EmailHashesChecked >= 0); Assert.True(result.PhoneHashesChecked >= 0); Assert.True(result.ExistingCiphertextVerified >= 0);
+        Assert.True(result.EmailHashesChecked >= 1); Assert.True(result.PhoneHashesChecked >= 1); Assert.True(result.ExistingCiphertextVerified >= 8);
     }
 
     [Fact]
