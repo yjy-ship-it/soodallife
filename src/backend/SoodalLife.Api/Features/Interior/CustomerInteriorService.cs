@@ -2,16 +2,19 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.FilePrivacy;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Interior;
 
-public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication)
+public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication,ProviderTradingEligibilityService eligibility)
 {
     public async Task<IReadOnlyList<InteriorServiceResponse>> Services(CancellationToken token)
     {
@@ -101,8 +104,13 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var events=await db.InteriorProjectEvents.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderByDescending(x=>x.OccurredAt).Select(x=>new CustomerInteriorEvent(x.PublicId,x.EventTypeCode,EventDisplay(x.EventTypeCode),x.OccurredAt)).ToListAsync(token);
         var history=await db.ServiceHistoryEntries.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderByDescending(x=>x.OccurredAt).Select(x=>new{x.Title,x.Summary,x.OccurredAt}).FirstOrDefaultAsync(token);
         var tx=await db.Transactions.AsNoTracking().Where(x=>x.ServiceRequestId==row.project.ServiceRequestId&&x.CustomerProfileId==identity.ProfileId).Select(x=>(Guid?)x.PublicId).FirstOrDefaultAsync(token);
+        CustomerInteriorProviderSelection? selection=null;
+        if(row.project.CurrentQuoteRevisionId.HasValue&&row.project.ContractorSelectedAt.HasValue)
+        {
+            selection=await(from revision in db.QuoteRevisions.AsNoTracking() join quote in db.Quotes.AsNoTracking() on revision.QuoteId equals quote.Id join provider in db.ProviderProfiles.AsNoTracking() on quote.ProviderProfileId equals provider.Id where revision.Id==row.project.CurrentQuoteRevisionId&&provider.Id==row.project.SelectedContractorProviderId select new CustomerInteriorProviderSelection(provider.PublicId,provider.BusinessName,revision.PublicId,revision.RevisionNo,revision.TotalAmount,revision.CurrencyCode,revision.Summary,revision.Terms,row.project.ContractorSelectedAt.Value)).SingleOrDefaultAsync(token);
+        }
         return new(row.project.PublicId,Number(row.project.PublicId),row.service.Name,row.request.Title,row.request.Description,row.area?.AreaName??"지역 미정",row.request.DetailAddress,row.project.StatusCode,Status(row.project.StatusCode),row.project.SiteVisitProviderTrustScoreSnapshot,row.project.ContractorTrustScoreSnapshot,row.project.ProjectStartDate,row.project.ExpectedCompletionDate,
-            row.project.ActualCompletionDate.HasValue?new(row.project.ActualCompletionDate.Value,history?.Title,history?.Summary,history?.OccurredAt):null,visits,quotes,designs,contract,stages,changes,defects,disputes,events,tx.HasValue,tx);
+            row.project.ActualCompletionDate.HasValue?new(row.project.ActualCompletionDate.Value,history?.Title,history?.Summary,history?.OccurredAt):null,selection,Version(row.project.RowVersion),visits,quotes,designs,contract,stages,changes,defects,disputes,events,tx.HasValue,tx);
     }
 
     public async Task<CustomerInteriorProjectDetail> SelectVisit(Guid projectId,Guid visitId,CustomerSelectSiteVisitRequest input,ClaimsPrincipal principal,CancellationToken token)
@@ -114,6 +122,82 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var now=DateTime.UtcNow;visit.StatusCode="CONFIRMED";visit.ConfirmedAt??=now;visit.CustomerConfirmedAt??=now;visit.UpdatedAt=now;visit.UpdatedByUserId=identity.UserId;
         project.SelectedSiteVisitProviderId=visit.ProviderProfileId;project.SiteVisitSelectedAt??=now;project.SiteVisitProviderTrustScoreSnapshot=await CurrentTrust(visit.ProviderProfileId,token);project.StatusCode="SITE_VISIT_SCHEDULED";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
         Event(project,"SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,new{visitId},now);Audit(identity.UserId,"INTERIOR_SITE_VISIT_CONFIRMED",project.PublicId,new{visitId},now);Outbox(project,"INTERIOR_SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,now);await db.SaveChangesAsync(token);return await Detail(projectId,principal,token);
+    }
+
+    public async Task<CustomerInteriorProjectDetail> SelectProvider(Guid projectId,CustomerSelectInteriorProviderRequest input,ClaimsPrincipal principal,CancellationToken token)
+    {
+        var identity=await Customer(principal,token);
+        var key=input.IdempotencyKey.Trim();
+        var duplicate=await db.InteriorProjectEvents.AsNoTracking().SingleOrDefaultAsync(x=>x.IdempotencyKey==key,token);
+        if(duplicate is not null)
+        {
+            if(duplicate.InteriorProjectId!=await db.InteriorProjects.Where(x=>x.PublicId==projectId&&x.CustomerProfileId==identity.ProfileId).Select(x=>x.Id).SingleOrDefaultAsync(token)||
+               duplicate.EventTypeCode!="CONTRACTOR_SELECTED"||!SelectionMatches(duplicate.EventDataJson,input.QuoteRevisionId))
+                throw Conflict("IDEMPOTENCY_KEY_REUSED","동일한 중복 실행 방지 키를 다른 공급자 선택에 사용할 수 없습니다.");
+            return await Detail(projectId,principal,token);
+        }
+
+        IDbContextTransaction? transaction=null;
+        try
+        {
+            if(db.Database.IsRelational())transaction=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,token);
+            var project=await OwnedProject(projectId,identity.ProfileId,token);
+            if(project.SelectedContractorProviderId.HasValue||project.CurrentQuoteRevisionId.HasValue)
+                throw Conflict("INTERIOR_CONTRACTOR_ALREADY_SELECTED","최종 시공 공급자는 다시 선택할 수 없습니다.");
+            if(project.CurrentContractId.HasValue||project.StatusCode is "CONTRACT_PENDING" or "CONTRACTED" or "CONSTRUCTION" or "INSPECTION" or "COMPLETED" or "DEFECT_MANAGEMENT" or "CANCELLED")
+                throw Conflict("INTERIOR_PROVIDER_SELECTION_CLOSED","현재 프로젝트 단계에서는 최종 시공 공급자를 선택할 수 없습니다.");
+            if(project.StatusCode is not ("SITE_VISIT_COMPLETED" or "ESTIMATE_IN_PROGRESS" or "ESTIMATE_READY"))
+                throw Conflict("INTERIOR_PROVIDER_SELECTION_NOT_READY","실측 완료 후 유효한 상세견적을 비교하여 선택할 수 있습니다.");
+
+            ApplyVersion(project,input.RowVersion);
+            var now=DateTime.UtcNow;
+            var candidate=await(from revision in db.QuoteRevisions
+                                join quote in db.Quotes on revision.QuoteId equals quote.Id
+                                join provider in db.ProviderProfiles on quote.ProviderProfileId equals provider.Id
+                                join request in db.ServiceRequests on quote.ServiceRequestId equals request.Id
+                                where revision.PublicId==input.QuoteRevisionId&&quote.ServiceRequestId==project.ServiceRequestId
+                                select new{Revision=revision,Quote=quote,Provider=provider,request.AdministrativeAreaId}).SingleOrDefaultAsync(token)
+                          ??throw NotFound("INTERIOR_QUOTE_NOT_FOUND","이 프로젝트에서 선택할 수 있는 견적을 찾을 수 없습니다.");
+            if(candidate.Quote.StatusCode!="SUBMITTED"||candidate.Quote.WithdrawnAt.HasValue||(candidate.Quote.ExpiresAt.HasValue&&candidate.Quote.ExpiresAt<=now)||candidate.Revision.ValidUntil<=now||candidate.Revision.RevisionPurposeCode is not ("POST_SITE_VISIT" or "CONTRACT_ESTIMATE"))
+                throw Conflict("INTERIOR_QUOTE_NOT_SELECTABLE","철회·만료되었거나 계약 선택용이 아닌 견적은 선택할 수 없습니다.");
+            var latest=await db.QuoteRevisions.Where(x=>x.QuoteId==candidate.Quote.Id).MaxAsync(x=>x.RevisionNo,token);
+            if(candidate.Revision.RevisionNo!=latest)
+                throw Conflict("INTERIOR_LATEST_QUOTE_REQUIRED","해당 공급자의 최신 견적 Version만 선택할 수 있습니다.");
+            if(!candidate.AdministrativeAreaId.HasValue)throw Conflict("REQUEST_AREA_REQUIRED","서비스 지역이 없는 프로젝트는 공급자를 선택할 수 없습니다.");
+            var eligibilityResult=await eligibility.EvaluateAsync(candidate.Provider.Id,project.ServiceCategoryId,candidate.AdministrativeAreaId.Value,token);
+            if(!eligibilityResult.IsEligible)throw Conflict(eligibilityResult.ReasonCode??"PROVIDER_NOT_ELIGIBLE","현재 승인·서비스·지역·증빙 요건을 충족한 공급자만 선택할 수 있습니다.");
+
+            var otherPrimary=await db.InteriorProjectParticipants.AnyAsync(x=>x.InteriorProjectId==project.Id&&x.RoleCode=="PRIMARY_CONTRACTOR"&&x.ProviderProfileId!=candidate.Provider.Id&&x.StatusCode=="ACTIVE"&&(x.EffectiveTo==null||x.EffectiveTo>now),token);
+            if(otherPrimary)throw Conflict("INTERIOR_PRIMARY_CONTRACTOR_CONFLICT","이미 다른 주 시공 참여자가 활성 상태입니다.");
+            var participant=await db.InteriorProjectParticipants.SingleOrDefaultAsync(x=>x.InteriorProjectId==project.Id&&x.ProviderProfileId==candidate.Provider.Id&&x.RoleCode=="PRIMARY_CONTRACTOR",token);
+            if(participant is null)
+            {
+                participant=new InteriorProjectParticipant{InteriorProjectId=project.Id,ProviderProfileId=candidate.Provider.Id,RoleCode="PRIMARY_CONTRACTOR",EffectiveFrom=now,StatusCode="ACTIVE",IsPrimary=true,ScopeText="고객 최종 선택 주 시공 공급자",CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId};
+                db.InteriorProjectParticipants.Add(participant);
+            }
+            else
+            {
+                participant.StatusCode="ACTIVE";participant.IsPrimary=true;participant.EffectiveFrom=now;participant.EffectiveTo=null;participant.ScopeText="고객 최종 선택 주 시공 공급자";participant.UpdatedAt=now;participant.UpdatedByUserId=identity.UserId;
+            }
+            var trust=await CurrentTrust(candidate.Provider.Id,token);
+            project.SelectedContractorProviderId=candidate.Provider.Id;project.ContractorSelectedAt=now;project.CurrentQuoteRevisionId=candidate.Revision.Id;project.ContractorTrustScoreSnapshot=trust;project.StatusCode="ESTIMATE_READY";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
+            Event(project,"CONTRACTOR_SELECTED",key,identity.UserId,new{providerId=candidate.Provider.PublicId,quoteRevisionId=candidate.Revision.PublicId,candidate.Revision.RevisionNo,candidate.Revision.TotalAmount,candidate.Revision.CurrencyCode},now);
+            Audit(identity.UserId,"INTERIOR_CONTRACTOR_SELECTED",project.PublicId,new{providerId=candidate.Provider.PublicId,quoteRevisionId=candidate.Revision.PublicId,candidate.Revision.RevisionNo},now);
+            if(await db.NotificationTemplates.AsNoTracking().AnyAsync(x=>x.EventTypeCode=="CONTRACTOR_SELECTED"&&x.IsActive,token))
+                db.OutboxEvents.Add(new(){AggregateType="InteriorProject",AggregatePublicId=project.PublicId,EventType="CONTRACTOR_SELECTED",PayloadJson=JsonSerializer.Serialize(new{projectId=project.PublicId,providerId=candidate.Provider.PublicId}),OccurredAt=now,AvailableAt=now,IdempotencyKey=$"interior:{key}",CreatedByUserId=identity.UserId});
+            await db.SaveChangesAsync(token);
+            if(transaction is not null)await transaction.CommitAsync(token);
+            return await Detail(projectId,principal,token);
+        }
+        catch(DbUpdateConcurrencyException)
+        {
+            if(transaction is not null)await transaction.RollbackAsync(token);
+            throw Conflict("INTERIOR_PROVIDER_SELECTION_CONFLICT","프로젝트가 변경되었습니다. 최신 내용을 확인한 뒤 다시 선택해 주세요.");
+        }
+        finally
+        {
+            if(transaction is not null)await transaction.DisposeAsync();
+        }
     }
 
     public async Task<CustomerInteriorProjectDetail> Agree(Guid projectId,Guid contractId,CustomerAgreeInteriorContractRequest input,ClaimsPrincipal principal,CancellationToken token)
@@ -184,8 +268,17 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
 
     private async Task<IReadOnlyList<CustomerInteriorQuote>> Quotes(InteriorProject project,CancellationToken token)
     {
-        var rows=await (from quote in db.Quotes.AsNoTracking() join revision in db.QuoteRevisions.AsNoTracking() on quote.Id equals revision.QuoteId join provider in db.ProviderProfiles.AsNoTracking() on quote.ProviderProfileId equals provider.Id where quote.ServiceRequestId==project.ServiceRequestId&&quote.StatusCode!="DRAFT" orderby revision.SubmittedAt descending select new{quote,revision,provider}).ToListAsync(token);var result=new List<CustomerInteriorQuote>();
-        foreach(var row in rows){var items=await db.QuoteItems.AsNoTracking().Where(x=>x.QuoteRevisionId==row.revision.Id).OrderBy(x=>x.LineNo).Select(x=>new CustomerInteriorQuoteItem(x.LineNo,x.ItemName,x.Description,x.Quantity,x.UnitText,x.UnitPriceAmount,x.LineTotalAmount,x.WorkTradeText,x.SpaceText,x.MaterialSpecText,x.LaborNoteText)).ToListAsync(token);var trust=await CurrentTrust(row.provider.Id,token);result.Add(new(row.quote.PublicId,row.revision.PublicId,row.revision.RevisionNo,row.revision.RevisionPurposeCode??"PRELIMINARY",Purpose(row.revision.RevisionPurposeCode),row.provider.BusinessName,row.revision.TotalAmount,row.revision.VatAmount,row.revision.CurrencyCode,row.revision.EstimatedDurationText,row.revision.AvailableStartAt,row.revision.ValidUntil,row.revision.Summary,row.revision.Terms,trust,Trust(trust),await PublicReviewCount(row.provider.Id,token),items));}return result;
+        var now=DateTime.UtcNow;var areaId=await db.ServiceRequests.AsNoTracking().Where(x=>x.Id==project.ServiceRequestId).Select(x=>x.AdministrativeAreaId).SingleAsync(token);
+        var rows=await (from quote in db.Quotes.AsNoTracking() join revision in db.QuoteRevisions.AsNoTracking() on quote.Id equals revision.QuoteId join provider in db.ProviderProfiles.AsNoTracking() on quote.ProviderProfileId equals provider.Id where quote.ServiceRequestId==project.ServiceRequestId&&quote.StatusCode=="SUBMITTED"&&!quote.WithdrawnAt.HasValue&&(quote.ExpiresAt==null||quote.ExpiresAt>now)&&revision.ValidUntil>now&&revision.RevisionNo==db.QuoteRevisions.Where(x=>x.QuoteId==quote.Id).Max(x=>x.RevisionNo) orderby revision.SubmittedAt descending select new{quote,revision,provider}).ToListAsync(token);var result=new List<CustomerInteriorQuote>();
+        foreach(var row in rows)
+        {
+            if(!areaId.HasValue||(await eligibility.EvaluateAsync(row.provider.Id,project.ServiceCategoryId,areaId.Value,token)).IsEligible==false)continue;
+            var items=await db.QuoteItems.AsNoTracking().Where(x=>x.QuoteRevisionId==row.revision.Id).OrderBy(x=>x.LineNo).Select(x=>new CustomerInteriorQuoteItem(x.LineNo,x.ItemName,x.Description,x.Quantity,x.UnitText,x.UnitPriceAmount,x.LineTotalAmount,x.WorkTradeText,x.SpaceText,x.MaterialSpecText,x.LaborNoteText)).ToListAsync(token);var trust=await CurrentTrust(row.provider.Id,token);
+            var design=await(from value in db.InteriorDesignVersions.AsNoTracking() join provider in db.ProviderProfiles.AsNoTracking() on value.CreatedByUserId equals provider.UserId where value.InteriorProjectId==project.Id&&provider.Id==row.provider.Id orderby value.VersionNo descending select new{value.VersionNo,value.StatusCode}).FirstOrDefaultAsync(token);
+            var selectable=project.SelectedContractorProviderId==null&&project.StatusCode is ("SITE_VISIT_COMPLETED" or "ESTIMATE_IN_PROGRESS" or "ESTIMATE_READY")&&row.revision.RevisionPurposeCode is ("POST_SITE_VISIT" or "CONTRACT_ESTIMATE");
+            result.Add(new(row.quote.PublicId,row.revision.PublicId,row.revision.RevisionNo,row.revision.RevisionPurposeCode??"PRELIMINARY",Purpose(row.revision.RevisionPurposeCode),row.provider.PublicId,row.provider.BusinessName,row.revision.TotalAmount,row.revision.VatAmount,row.revision.CurrencyCode,row.revision.EstimatedDurationText,row.revision.SubmittedAt,row.revision.AvailableStartAt,row.revision.ValidUntil,row.revision.Summary,row.revision.Terms,trust,Trust(trust),await PublicReviewCount(row.provider.Id,token),design?.VersionNo,design?.StatusCode,project.CurrentQuoteRevisionId==row.revision.Id,selectable,items));
+        }
+        return result;
     }
 
     private async Task<IReadOnlyList<CustomerInteriorDesign>> Designs(InteriorProject project,long viewerUserId,CancellationToken token)
@@ -275,6 +368,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
     private void Audit(long actor,string action,Guid id,object data,DateTime now)=>db.AuditLogs.Add(new(){OccurredAt=now,ActorUserId=actor,ActorRoleCode=RoleCodes.Customer,ActionCode=action,EntityType="InteriorProject",EntityPublicId=id,AfterJson=JsonSerializer.Serialize(data)});
     private void Outbox(InteriorProject p,string type,string key,long actor,DateTime now)=>db.OutboxEvents.Add(new(){AggregateType="InteriorProject",AggregatePublicId=p.PublicId,EventType=type,PayloadJson=JsonSerializer.Serialize(new{projectId=p.PublicId}),OccurredAt=now,AvailableAt=now,IdempotencyKey=$"interior:{key}",CreatedByUserId=actor});
     private void ApplyVersion(object entity,string? value){if(!string.IsNullOrWhiteSpace(value))db.Entry(entity).Property("RowVersion").OriginalValue=Convert.FromBase64String(value);}
+    private static bool SelectionMatches(string? data,Guid revisionId){if(string.IsNullOrWhiteSpace(data))return false;try{using var json=JsonDocument.Parse(data);return json.RootElement.TryGetProperty("quoteRevisionId",out var value)&&Guid.TryParse(value.GetString(),out var parsed)&&parsed==revisionId;}catch(JsonException){return false;}}
     private static string Version(byte[] value)=>value.Length==0?string.Empty:Convert.ToBase64String(value);
     private static string? Clean(string? value)=>string.IsNullOrWhiteSpace(value)?null:value.Trim();
     private static string Number(Guid id)=>$"IP-{id:N}"[..15].ToUpperInvariant();

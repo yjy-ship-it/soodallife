@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace SoodalLife.Api.Features.Interior;
 
 public sealed record ProviderInteriorDashboard(int SiteVisitCount,int SiteVisitResultPendingCount,int DesignCount,int ContractCount,int ActiveProjectCount,int TodayStageCount,int StageUpdatePendingCount,int InspectionCount,int CompletionPendingCount,int AfterServiceCount,int DisputeCount);
-public sealed record ProviderInteriorProjectItem(Guid Id,string ProjectNumber,string ServiceName,string AreaName,IReadOnlyList<string> Roles,string StatusCode,string NextAction,DateTime? NextAt,bool CustomerActionRequired,int PendingActionCount,string RowVersion);
+public sealed record ProviderInteriorProjectItem(Guid Id,string ProjectNumber,string ServiceName,string AreaName,IReadOnlyList<string> Roles,string StatusCode,string NextAction,DateTime? NextAt,bool CustomerActionRequired,int PendingActionCount,bool IsFinalProvider,string RowVersion);
 public sealed record ProviderInteriorFile(Guid Id,string FileName,string ContentType,long SizeBytes,string PublicationMode,string? DownloadUrl,string PublicationStatus="AVAILABLE",string? PublicationMessage=null);
 public sealed record ProviderInteriorVisit(Guid Id,string StatusCode,DateTime ScheduledStartAt,DateTime? ScheduledEndAt,DateTime? VisitedAt,DateTime? CompletedAt,string? MeasurementSummary,string? Constraint,string? RiskNote,IReadOnlyList<InteriorMeasurementInput> Measurements,IReadOnlyList<ProviderInteriorFile> Files,string RowVersion);
 public sealed record ProviderInteriorDesign(Guid Id,int VersionNo,string Title,string? Description,string StatusCode,DateTime? CustomerApprovedAt,IReadOnlyList<ProviderInteriorFile> Files,string RowVersion);
