@@ -1,23 +1,24 @@
-// Development-only placeholder information. Replace every placeholder value and
-// policy destination with verified production information before launch.
+export const serviceDomains = {
+  customer: 'https://soodallife.kr',
+  provider: 'https://partner.soodallife.kr',
+  admin: 'https://admin.soodallife.kr',
+  api: 'https://api.soodallife.kr',
+} as const
+
 export const serviceCompany = {
-  isPlaceholder: true,
+  isPlaceholder: false,
   serviceName: '수달 라이프',
   serviceNameEnglish: 'SOODAL LIFE',
   companyName: '주식회사 디에이치',
-  ceoName: '홍길동',
-  businessRegistrationNumber: '123-45-67890',
-  ecommerceRegistrationNumber: '제2026-대구○○-0001호',
-  address: '대구광역시 ○○구 ○○로 123, 4층',
-  representativePhone: '1588-0000',
-  customerServiceHours: [
-    '평일 09:00 ~ 18:00',
-    '점심시간 12:00 ~ 13:00',
-    '토·일·공휴일 휴무',
-  ],
-  customerServiceEmail: 'help@soodallife.co.kr',
-  partnershipEmail: 'partner@soodallife.co.kr',
-  privacyEmail: 'privacy@soodallife.co.kr',
+  ceoName: '하정숙',
+  businessRegistrationNumber: '896-81-02432',
+  ecommerceRegistrationNumber: null as string | null,
+  address: '대구광역시 동구 효동로 72-1, 3층(효목동)',
+  representativePhone: null as string | null,
+  customerServiceHours: null as readonly string[] | null,
+  customerServiceEmail: null as string | null,
+  partnershipEmail: null as string | null,
+  privacyEmail: null as string | null,
   platformNotice:
     '수달 라이프는 고객과 서비스 공급자를 연결하는 생활서비스 플랫폼입니다. 서비스 계약 및 작업 수행의 당사자 관계는 개별 서비스의 거래 형태와 계약 조건에 따라 달라질 수 있습니다.',
   copyright: '© 2026 주식회사 디에이치. All rights reserved.',

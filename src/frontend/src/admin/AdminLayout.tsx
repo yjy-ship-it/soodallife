@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthentication } from '../auth/AuthenticationContext'
 import { navigate } from '../auth/routing'
+import { ServiceFooter } from '../components/ServiceFooter'
 import { adminMenuItems, findAdminMenu } from './menu'
 
 interface AdminLayoutProps extends PropsWithChildren {
@@ -68,6 +69,7 @@ export function AdminLayout({ pathname, children }: AdminLayoutProps) {
           </div>
         </header>
         <main className="adminMain">{children}</main>
+        <ServiceFooter variant="admin" />
       </div>
     </div>
   )

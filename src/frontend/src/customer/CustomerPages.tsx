@@ -100,8 +100,8 @@ export function PublicContentPage({ type, id }: { type: 'NOTICE' | 'FAQ'; id?: s
 }
 
 export function CustomerSupportPage() {
-  const hours = useMemo(() => serviceCompany.customerServiceHours.join(' · '), [])
-  return <CustomerAppLayout><section className="pageHeading"><p>고객지원</p><h1>궁금한 점을 확인해 보세요</h1></section><section className="supportGrid"><button onClick={() => navigate('/notices')}><strong>공지사항</strong><span>서비스 운영 소식을 확인합니다.</span></button><button onClick={() => navigate('/faq')}><strong>FAQ</strong><span>자주 묻는 질문을 확인합니다.</span></button><article><strong>전국 대표번호</strong><a href={`tel:${serviceCompany.representativePhone.replaceAll('-', '')}`}>{serviceCompany.representativePhone}</a><span>{hours}</span></article><article><strong>이메일 문의</strong><a href={`mailto:${serviceCompany.customerServiceEmail}`}>{serviceCompany.customerServiceEmail}</a><span>{serviceCompany.isPlaceholder ? '현재 개발용 임시 연락처입니다.' : '고객지원 이메일'}</span></article></section></CustomerAppLayout>
+  const hours = useMemo(() => serviceCompany.customerServiceHours?.join(' · ') ?? '운영시간 확정 전', [])
+  return <CustomerAppLayout><section className="pageHeading"><p>고객지원</p><h1>궁금한 점을 확인해 보세요</h1></section><section className="supportGrid"><button onClick={() => navigate('/notices')}><strong>공지사항</strong><span>서비스 운영 소식을 확인합니다.</span></button><button onClick={() => navigate('/faq')}><strong>FAQ</strong><span>자주 묻는 질문을 확인합니다.</span></button><article><strong>전국 대표번호</strong>{serviceCompany.representativePhone ? <a href={`tel:${serviceCompany.representativePhone.replaceAll('-', '')}`}>{serviceCompany.representativePhone}</a> : <b>확정 전</b>}<span>{hours}</span></article><article><strong>이메일 문의</strong>{serviceCompany.customerServiceEmail ? <a href={`mailto:${serviceCompany.customerServiceEmail}`}>{serviceCompany.customerServiceEmail}</a> : <b>확정 전</b>}<span>대표 이메일이 확정되면 안내합니다.</span></article></section></CustomerAppLayout>
 }
 
 export function CompanyInfoPage() {

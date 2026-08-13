@@ -255,7 +255,7 @@
 .adminNav button.active { color: #f4fff9; background: #285943; font-weight: 800; }
 .adminNavMark { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 7px; color: #8da39a; background: #26342f; font-size: .67rem; font-weight: 900; }
 .adminNav button.active .adminNavMark { color: #16402f; background: #74d8aa; }
-.adminWorkspace { width: calc(100% - 248px); min-width: 0; margin-left: 248px; }
+.adminWorkspace { display: flex; width: calc(100% - 248px); min-width: 0; min-height: 100vh; flex-direction: column; margin-left: 248px; }
 .adminTopBar { position: sticky; z-index: 20; top: 0; display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 24px; padding: 0 28px; border-bottom: 1px solid #dde2df; background: rgb(255 255 255 / 94%); backdrop-filter: blur(12px); }
 .adminLocation { display: flex; align-items: center; gap: 10px; color: #78817e; font-size: .82rem; }
 .adminLocation span::after { margin-left: 10px; color: #c1c7c4; content: '/'; }
@@ -268,7 +268,7 @@
 .adminIdentity strong { max-width: 230px; overflow: hidden; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
 .adminIdentity span { margin-top: 2px; color: #74807b; font-size: .71rem; }
 .adminLogout { padding: 8px 11px; border: 1px solid #d5ddda; border-radius: 8px; color: #43514c; background: #fff; cursor: pointer; }
-.adminMain { width: min(1500px, 100%); margin: 0 auto; padding: 34px 32px 72px; }
+.adminMain { width: min(1500px, 100%); flex: 1; margin: 0 auto; padding: 34px 32px 72px; }
 .adminPageHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .adminPageHeading p { margin: 0 0 7px; color: #27805a; font-size: .72rem; font-weight: 900; letter-spacing: .1em; }
 .adminPageHeading h1 { margin: 0; color: #18231f; font-size: 1.75rem; letter-spacing: -.035em; }

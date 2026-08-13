@@ -5,6 +5,11 @@
   border-top: 1px solid #d6e0db;
 }
 
+.serviceFooter[data-variant="admin"] {
+  background: #e8eeeb;
+  border-top-color: #cfdad5;
+}
+
 .serviceFooterInner {
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
@@ -75,12 +80,12 @@
   font-weight: 500;
 }
 
-.placeholderBadge {
+.verifiedBadge {
   padding: 4px 8px;
-  border: 1px solid #dac994;
+  border: 1px solid #a9d6c1;
   border-radius: 999px;
-  color: #725f27;
-  background: #faf4df;
+  color: #1c6849;
+  background: #e8f7ef;
   font-size: .64rem;
 }
 
@@ -121,6 +126,33 @@
   flex-basis: 100%;
 }
 
+.serviceFooterDomains {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 10px;
+  max-width: 520px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  border: 1px solid #d6e2dc;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 46%);
+  font-size: .72rem;
+}
+
+.serviceFooterDomains span {
+  color: #607068;
+  font-weight: 760;
+}
+
+.serviceFooterDomains a {
+  min-width: 0;
+  overflow: hidden;
+  color: #246749;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .businessVerification {
   display: inline-flex;
   align-items: center;
@@ -147,6 +179,17 @@
   line-height: 1.55;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+.serviceFooterPending {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #756741;
+  background: #f5efde;
+  font-size: .7rem;
+  font-weight: 750;
 }
 
 .serviceFooterHours {
@@ -224,6 +267,10 @@
 
   .serviceFooterDetails {
     gap: 9px;
+  }
+
+  .serviceFooterDomains {
+    grid-template-columns: 1fr;
   }
 
   .serviceFooterNotice {
