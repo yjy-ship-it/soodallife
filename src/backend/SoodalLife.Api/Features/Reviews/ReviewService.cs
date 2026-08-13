@@ -6,11 +6,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Reviews;
 
-public sealed class ReviewService(SoodalLifeDbContext db, SoodalLife.Api.Features.Work.IPrivateFileStorage fileStorage)
+public sealed class ReviewService(
+    SoodalLifeDbContext db,
+    SoodalLife.Api.Features.Work.IPrivateFileStorage fileStorage,
+    ICrossDomainFilePublicationResolver filePublication)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     public async Task<ReviewResponse> CreateAsync(ClaimsPrincipal principal,Guid transactionId,CreateReviewRequest input,CancellationToken token)
@@ -84,6 +88,27 @@ public sealed class ReviewService(SoodalLifeDbContext db, SoodalLife.Api.Feature
         return(await fileStorage.OpenReadAsync(file.StorageKey,token),file.ContentType,file.OriginalFileName);
     }
 
+    public async Task<(Stream Stream,string ContentType,string FileName)> OpenPublicFile(
+        Guid providerId,Guid reviewId,Guid fileId,CancellationToken token)
+    {
+        var originals=await(
+            from review in db.Reviews.AsNoTracking()
+            join provider in db.ProviderProfiles.AsNoTracking() on review.ProviderProfileId equals provider.Id
+            join link in db.ReviewFiles.AsNoTracking() on review.Id equals link.ReviewId
+            join file in db.Files.AsNoTracking() on link.FileId equals file.Id
+            where provider.PublicId==providerId&&review.PublicId==reviewId&&file.PurposeCode=="REVIEW"&&
+                  review.VisibilityStatusCode=="PUBLIC"&&review.VerificationStatusCode=="VERIFIED_TRANSACTION"
+            select file).ToListAsync(token);
+        foreach(var original in originals)
+        {
+            var publication=await filePublication.ResolveAsync(original,null,true,true,token);
+            if(!publication.Allowed||publication.PublishedFile?.PublicId!=fileId)continue;
+            var published=publication.PublishedFile!;
+            return(await fileStorage.OpenReadAsync(published.StorageKey,token),published.ContentType,PublicFileName(published.ContentType));
+        }
+        throw NotFound("REVIEW_FILE_NOT_FOUND","공개 가능한 리뷰 첨부파일을 찾을 수 없습니다.");
+    }
+
     public async Task<PublicReviewListResponse> PublicList(Guid providerId,int page,int pageSize,CancellationToken token)
     {
         if(page<1||pageSize is <1 or >100)throw Invalid("REVIEW_PAGE_INVALID","페이지 정보를 확인해 주세요.");
@@ -111,10 +136,25 @@ public sealed class ReviewService(SoodalLifeDbContext db, SoodalLife.Api.Feature
         var row=await(from review in db.Reviews.AsNoTracking() join transaction in db.Transactions.AsNoTracking() on review.TransactionId equals transaction.Id join provider in db.ProviderProfiles.AsNoTracking() on review.ProviderProfileId equals provider.Id join customer in db.CustomerProfiles.AsNoTracking() on review.CustomerProfileId equals customer.Id where review.Id==reviewId select new{review,transaction,provider,customer}).SingleAsync(token);
         if(ownerCustomerId.HasValue&&row.review.CustomerProfileId!=ownerCustomerId)throw Forbidden("REVIEW_FORBIDDEN","리뷰를 조회할 수 없습니다.");
         var ratings=await(from rating in db.ReviewRatings.AsNoTracking() join item in db.ReviewRatingItems.AsNoTracking() on rating.RatingItemId equals item.Id where rating.ReviewId==reviewId orderby rating.DisplayOrder select new ReviewRatingResponse(item.PublicId,item.Code,item.Name,rating.RatingValue,item.MinValue,item.MaxValue,rating.DisplayOrder)).ToListAsync(token);
-        var files=await(from link in db.ReviewFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.ReviewId==reviewId orderby link.DisplayOrder select new ReviewFileResponse(file.PublicId,file.OriginalFileName,file.ContentType,link.DisplayOrder)).ToListAsync(token);
+        var fileRows=await(from link in db.ReviewFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.ReviewId==reviewId orderby link.DisplayOrder select new{link.DisplayOrder,File=file}).ToListAsync(token);
+        var files=new List<ReviewFileResponse>(fileRows.Count);
+        foreach(var item in fileRows)
+        {
+            if(!publicView)
+            {
+                files.Add(new(item.File.PublicId,item.File.OriginalFileName,item.File.ContentType,item.DisplayOrder,$"/api/v1/customers/me/review-files/{item.File.PublicId}","OWNER_ORIGINAL"));
+                continue;
+            }
+            var publication=await filePublication.ResolveAsync(item.File,null,true,true,token);
+            if(!publication.Allowed||publication.PublishedFile is null)continue;
+            var published=publication.PublishedFile;
+            files.Add(new(published.PublicId,PublicFileName(published.ContentType),published.ContentType,item.DisplayOrder,
+                $"/api/v1/providers/{row.provider.PublicId}/reviews/{row.review.PublicId}/files/{published.PublicId}",publication.PublicationMode));
+        }
         var reply=await db.ReviewProviderReplies.AsNoTracking().SingleOrDefaultAsync(x=>x.ReviewId==reviewId,token);return new(row.review.PublicId,row.transaction.PublicId,$"TR-{row.transaction.Id:D8}",row.provider.PublicId,row.provider.BusinessName,publicView?MaskName(row.customer.DisplayName):row.customer.DisplayName,row.review.BodyText,row.review.OverallRating,row.review.VerificationStatusCode,row.review.VisibilityStatusCode,row.review.SubmittedAt,ratings,files,reply is null?null:await ReplyResponse(reply,token));
     }
     private async Task<ReviewReplyResponse> ReplyResponse(ReviewProviderReply reply,CancellationToken token){var name=await db.ProviderProfiles.Where(x=>x.Id==reply.ProviderProfileId).Select(x=>x.BusinessName).SingleAsync(token);return new(reply.PublicId,name,reply.BodyText,reply.SubmittedAt);}
+    private static string PublicFileName(string contentType)=>contentType.StartsWith("image/",StringComparison.OrdinalIgnoreCase)?"리뷰 첨부 이미지":"리뷰 첨부 파일";
     private async Task<(long UserId,long ProfileId)> CustomerIdentity(ClaimsPrincipal p,CancellationToken t){var id=Guid.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);return await(from u in db.Users where u.PublicId==id join c in db.CustomerProfiles on u.Id equals c.UserId select new ValueTuple<long,long>(u.Id,c.Id)).SingleOrDefaultAsync(t) is var x&&x.Item1!=0?x:throw Forbidden("CUSTOMER_PROFILE_REQUIRED","고객 프로필이 필요합니다.");}
     private async Task<(long UserId,long ProfileId)> ProviderIdentity(ClaimsPrincipal p,CancellationToken t){var id=Guid.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);return await(from u in db.Users where u.PublicId==id join c in db.ProviderProfiles on u.Id equals c.UserId select new ValueTuple<long,long>(u.Id,c.Id)).SingleOrDefaultAsync(t) is var x&&x.Item1!=0?x:throw Forbidden("PROVIDER_PROFILE_REQUIRED","공급자 프로필이 필요합니다.");}
     private Task<long> TransactionId(Guid id,CancellationToken t)=>db.Transactions.Where(x=>x.PublicId==id).Select(x=>x.Id).SingleOrDefaultAsync(t);

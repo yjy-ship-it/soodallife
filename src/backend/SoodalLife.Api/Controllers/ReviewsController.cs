@@ -23,6 +23,8 @@ public sealed class ReviewsController(ReviewService service):ControllerBase
     public async Task<IActionResult> File(Guid fileId,CancellationToken token){try{var value=await service.OpenFile(User,fileId,token);return File(value.Stream,value.ContentType,value.FileName);}catch(ReviewBusinessException e){return StatusCode(e.StatusCode,ApiErrorResponse.Create(HttpContext,e.BusinessCode,e.Message));}}
     [AllowAnonymous,HttpGet("providers/{providerId:guid}/reviews")]
     public Task<ActionResult<PublicReviewListResponse>> Public(Guid providerId,[FromQuery]int page=1,[FromQuery]int pageSize=20,CancellationToken token=default)=>Run(()=>service.PublicList(providerId,page,pageSize,token));
+    [AllowAnonymous,HttpGet("providers/{providerId:guid}/reviews/{reviewId:guid}/files/{fileId:guid}")]
+    public async Task<IActionResult> PublicFile(Guid providerId,Guid reviewId,Guid fileId,CancellationToken token){try{var value=await service.OpenPublicFile(providerId,reviewId,fileId,token);return File(value.Stream,value.ContentType,value.FileName);}catch(ReviewBusinessException e){return StatusCode(e.StatusCode,ApiErrorResponse.Create(HttpContext,e.BusinessCode,e.Message));}}
     [AllowAnonymous,HttpGet("providers/{providerId:guid}/review-statistics")]
     public Task<ActionResult<ProviderReviewStatisticsResponse>> Statistics(Guid providerId,CancellationToken token)=>Run(()=>service.Statistics(providerId,token));
     [Authorize(Roles=RoleCodes.Provider),HttpPost("providers/me/reviews/{reviewId:guid}/reply")]

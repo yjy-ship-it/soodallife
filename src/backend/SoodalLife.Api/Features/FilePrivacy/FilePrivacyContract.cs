@@ -32,7 +32,7 @@ public interface ICrossDomainFilePublicationResolver
 {
     Task<FilePublicationResult> ResolveAsync(
         StoredFile original,
-        long viewerUserId,
+        long? viewerUserId,
         bool resourceParticipant,
         bool fileLinkedToResource,
         CancellationToken token);
@@ -48,7 +48,7 @@ public sealed class CrossDomainFilePublicationResolver(
 {
     public async Task<FilePublicationResult> ResolveAsync(
         StoredFile original,
-        long viewerUserId,
+        long? viewerUserId,
         bool resourceParticipant,
         bool fileLinkedToResource,
         CancellationToken token)
@@ -56,7 +56,7 @@ public sealed class CrossDomainFilePublicationResolver(
         if (!resourceParticipant || !fileLinkedToResource)
             return Denied("RESOURCE_ACCESS_DENIED", "이 업무에 연결된 파일이 아닙니다.");
 
-        var owner = original.UploadedByUserId == viewerUserId;
+        var owner = viewerUserId.HasValue && original.UploadedByUserId == viewerUserId.Value;
         var derivative = owner ? null : await (
             from relation in db.FileDerivatives.AsNoTracking()
             join file in db.Files.AsNoTracking() on relation.DerivedFileId equals file.Id

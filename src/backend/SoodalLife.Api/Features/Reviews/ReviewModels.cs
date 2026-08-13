@@ -8,7 +8,13 @@ public sealed record ReviewResponse(Guid Id, Guid TransactionId, string Transact
     string VisibilityStatusCode, DateTime SubmittedAt, IReadOnlyList<ReviewRatingResponse> Ratings,
     IReadOnlyList<ReviewFileResponse> Files, ReviewReplyResponse? ProviderReply);
 public sealed record ReviewRatingResponse(Guid ItemId, string ItemCode, string ItemName, decimal RatingValue, decimal MinValue, decimal MaxValue, int DisplayOrder);
-public sealed record ReviewFileResponse(Guid FileId, string FileName, string ContentType, int DisplayOrder);
+public sealed record ReviewFileResponse(
+    Guid FileId,
+    string FileName,
+    string ContentType,
+    int DisplayOrder,
+    string? DownloadUrl = null,
+    string? PublicationMode = null);
 public sealed record ReviewReplyResponse(Guid Id, string ProviderName, string BodyText, DateTime SubmittedAt);
 public sealed record PublicReviewListResponse(int TotalCount, int Page, int PageSize, IReadOnlyList<ReviewResponse> Items);
 public sealed record ProviderReviewStatisticsResponse(Guid ProviderId, int ReviewCount, int PublicReviewCount, IReadOnlyList<RatingItemAverageResponse> RatingItemAverages);
