@@ -7,10 +7,11 @@ using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
+using SoodalLife.Api.Features.RelationshipBlocks;
 
 namespace SoodalLife.Api.Features.Subscriptions;
 
-public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradingEligibilityService eligibility,ISubscriptionVisitVerificationAdapter visitVerification,IPrivacyContract privacyContract)
+public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradingEligibilityService eligibility,ISubscriptionVisitVerificationAdapter visitVerification,IPrivacyContract privacyContract,IUserRelationshipBlockPolicy relationshipBlocks)
 {
     private const int RollingWindowDays=90;
     private static readonly string[] Frequencies=["WEEKLY","BIWEEKLY","MONTHLY","QUARTERLY","HALF_YEARLY"];
@@ -76,6 +77,7 @@ public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradi
     public async Task<SubscriptionApplicationResponse> Apply(Guid requestId,SubmitSubscriptionApplicationRequest input,ClaimsPrincipal principal,CancellationToken token)
     {
         ValidateAmounts(input.ProposedMonthlyAmount,input.ProposedVisitAmount);var identity=await Provider(principal,token);var request=await db.SubscriptionRequests.SingleOrDefaultAsync(x=>x.PublicId==requestId,token)??throw NotFound("SUBSCRIPTION_REQUEST_NOT_FOUND","구독 요청을 찾을 수 없습니다.");if(request.StatusCode!="OPEN")throw Conflict("SUBSCRIPTION_REQUEST_NOT_OPEN","신청 가능한 구독 요청이 아닙니다.");
+        await relationshipBlocks.EnsureAllowedAsync(request.CustomerProfileId,identity.ProfileId,token);
         var existingByKey=await db.SubscriptionApplications.SingleOrDefaultAsync(x=>x.IdempotencyKey==input.IdempotencyKey,token);if(existingByKey is not null)return await MapApplication(existingByKey,token);
         if(await db.SubscriptionApplications.AnyAsync(x=>x.SubscriptionRequestId==request.Id&&x.ProviderProfileId==identity.ProfileId,token))throw Conflict("SUBSCRIPTION_APPLICATION_DUPLICATED","이미 신청한 구독 요청입니다.");
         var result=await eligibility.EvaluateAsync(identity.ProfileId,request.ServiceCategoryId,request.AdministrativeAreaId,token);if(!result.IsEligible)throw Forbidden(result.ReasonCode??"PROVIDER_NOT_ELIGIBLE",EligibilityMessage(result.ReasonCode));
@@ -94,6 +96,7 @@ public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradi
         var prior=await db.SubscriptionEvents.AsNoTracking().SingleOrDefaultAsync(x=>x.IdempotencyKey==input.IdempotencyKey,token);if(prior?.SubscriptionContractId is long priorContract)return await BuildContract(priorContract,token);
         if(request.SelectedApplicationId.HasValue||request.StatusCode!="OPEN")throw Conflict("SUBSCRIPTION_PROVIDER_ALREADY_SELECTED","이미 공급자가 선택된 요청입니다.");
         var application=await db.SubscriptionApplications.SingleOrDefaultAsync(x=>x.PublicId==input.ApplicationId&&x.SubscriptionRequestId==request.Id&&x.StatusCode=="SUBMITTED",token)??throw NotFound("SUBSCRIPTION_APPLICATION_NOT_FOUND","선택할 공급자 신청을 찾을 수 없습니다.");
+        await relationshipBlocks.EnsureAllowedAsync(request.CustomerProfileId,application.ProviderProfileId,token);
         var eligible=await eligibility.EvaluateAsync(application.ProviderProfileId,request.ServiceCategoryId,request.AdministrativeAreaId,token);if(!eligible.IsEligible)throw Conflict(eligible.ReasonCode??"PROVIDER_NOT_ELIGIBLE",EligibilityMessage(eligible.ReasonCode));
         var rule=await db.SubscriptionRecurrenceRules.SingleAsync(x=>x.SubscriptionRequestId==request.Id,token);var provider=await db.ProviderProfiles.SingleAsync(x=>x.Id==application.ProviderProfileId,token);var product=request.CareProductId.HasValue?await db.CareProducts.SingleAsync(x=>x.Id==request.CareProductId,token):null;var now=DateTime.UtcNow;
         var operationPolicy=await db.CategoryOperationPolicies.AsNoTracking().Where(x=>x.CategoryId==request.ServiceCategoryId&&x.IsActive).OrderByDescending(x=>x.EffectiveFrom).FirstOrDefaultAsync(token);
@@ -124,7 +127,7 @@ public sealed class CareSubscriptionService(SoodalLifeDbContext db,ProviderTradi
     public async Task<SubscriptionContractResponse> ReplaceProvider(Guid id,ReplaceSubscriptionProviderRequest input,Guid actorPublicId,CancellationToken token)
     {
         var actor=await AdminId(actorPublicId,token);var contract=await Contract(id,token);if(contract.StatusCode is not("ACTIVE" or "PAUSED"))throw Conflict("CONTRACT_STATE_INVALID","운영 중인 계약만 공급자를 교체할 수 있습니다.");if(await db.SubscriptionEvents.AnyAsync(x=>x.IdempotencyKey==input.IdempotencyKey,token))return await BuildContract(contract.Id,token);
-        var provider=await db.ProviderProfiles.SingleOrDefaultAsync(x=>x.PublicId==input.ProviderId,token)??throw NotFound("PROVIDER_NOT_FOUND","공급자를 찾을 수 없습니다.");var request=await db.SubscriptionRequests.SingleAsync(x=>x.Id==contract.SubscriptionRequestId,token);var valid=await eligibility.EvaluateAsync(provider.Id,contract.ServiceCategoryId,request.AdministrativeAreaId,token);if(!valid.IsEligible)throw Conflict(valid.ReasonCode??"PROVIDER_NOT_ELIGIBLE",EligibilityMessage(valid.ReasonCode));
+        var provider=await db.ProviderProfiles.SingleOrDefaultAsync(x=>x.PublicId==input.ProviderId,token)??throw NotFound("PROVIDER_NOT_FOUND","공급자를 찾을 수 없습니다.");var request=await db.SubscriptionRequests.SingleAsync(x=>x.Id==contract.SubscriptionRequestId,token);await relationshipBlocks.EnsureAllowedAsync(contract.CustomerProfileId,provider.Id,token);var valid=await eligibility.EvaluateAsync(provider.Id,contract.ServiceCategoryId,request.AdministrativeAreaId,token);if(!valid.IsEligible)throw Conflict(valid.ReasonCode??"PROVIDER_NOT_ELIGIBLE",EligibilityMessage(valid.ReasonCode));
         var now=DateTime.UtcNow;var old=contract.ProviderProfileId;contract.ProviderProfileId=provider.Id;contract.UpdatedAt=now;contract.UpdatedByUserId=actor;foreach(var visit in await FutureVisits(contract.Id,now,token))visit.ProviderProfileId=provider.Id;AddEvent(contract.SubscriptionRequestId,contract.Id,null,"PROVIDER_REPLACED",new{oldProviderId=old,newProviderId=provider.Id,input.Reason},actor,input.IdempotencyKey.Trim(),now);await db.SaveChangesAsync(token);return await BuildContract(contract.Id,token);
     }
 

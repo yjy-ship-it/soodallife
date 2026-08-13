@@ -1,4 +1,4 @@
-import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, WithdrawalDashboard, WithdrawalReadiness, WithdrawalRequest } from './accountTypes'
+import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, ProviderBlock, WithdrawalDashboard, WithdrawalReadiness, WithdrawalRequest } from './accountTypes'
 
 export class CustomerAccountApiError extends Error {
   readonly status: number
@@ -41,6 +41,9 @@ export const customerAccountApi = {
   requestWithdrawal: (scopeCode: string, reason: string) => request<WithdrawalRequest>('/api/v1/customer/account/withdrawal-requests', json({ scopeCode, reason, idempotencyKey: crypto.randomUUID() })),
   cancelWithdrawal: (id: string, reason: string, rowVersion: string) => request<WithdrawalRequest>(`/api/v1/customer/account/withdrawal-requests/${id}/cancel`, json({ reason, rowVersion, idempotencyKey: crypto.randomUUID() })),
   withdrawalReadiness: () => request<WithdrawalReadiness>('/api/v1/customers/me/withdrawal-readiness'),
+  providerBlocks: () => request<ProviderBlock[]>('/api/v1/customers/me/provider-blocks'),
+  blockProvider: (providerId: string, reasonCode: string | null, privateMemo: string | null) => request<ProviderBlock>('/api/v1/customers/me/provider-blocks', json({ providerId, reasonCode, privateMemo, idempotencyKey: crypto.randomUUID() })),
+  releaseProviderBlock: (id: string, rowVersion: string) => request<ProviderBlock>(`/api/v1/customers/me/provider-blocks/${id}/release`, json({ rowVersion, idempotencyKey: crypto.randomUUID() })),
   mySoodalSummary: () => request<MySoodalSummary>('/api/v1/customers/me/my-soodal/summary'),
   sidos: () => request<AdministrativeArea[]>('/api/v1/administrative-areas/sidos'),
   sigungu: (parentId?: string) => request<AdministrativeArea[]>(`/api/v1/administrative-areas/sigungu${parentId ? `?parentId=${parentId}` : ''}`),

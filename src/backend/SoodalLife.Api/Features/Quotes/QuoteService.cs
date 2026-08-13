@@ -9,6 +9,7 @@ using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Wallet;
 using SoodalLife.Api.Features.Chat;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Features.RelationshipBlocks;
 
 namespace SoodalLife.Api.Features.Quotes;
 
@@ -16,7 +17,8 @@ public sealed class QuoteService(
     SoodalLifeDbContext dbContext,
     ProviderTradingEligibilityService eligibilityService,
     ProviderWalletService walletService,
-    ChatService chatService)
+    ChatService chatService,
+    IUserRelationshipBlockPolicy relationshipBlocks)
 {
     private const decimal MaximumAmount = 999_999_999_999_999m;
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> AcceptanceLocks = new();
@@ -171,6 +173,7 @@ public sealed class QuoteService(
 
         var request = await dbContext.ServiceRequests.SingleAsync(item => item.Id == quote.ServiceRequestId, cancellationToken);
         ValidateRequestOpen(request);
+        await relationshipBlocks.EnsureAllowedAsync(request.CustomerProfileId, identity.ProviderId, cancellationToken);
         await ValidateProviderEligibilityAsync(identity.ProviderId, request, cancellationToken);
         var readiness = await BuildSubmissionReadinessAsync(identity.ProviderId, request, cancellationToken);
         if (!readiness.CanSubmit)
@@ -351,6 +354,7 @@ public sealed class QuoteService(
             if (revision.ValidUntil <= now || quote.ExpiresAt <= now) throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
             var provider = await dbContext.ProviderProfiles.SingleAsync(item => item.Id == quote.ProviderProfileId, cancellationToken);
             await ValidateProviderEligibilityAsync(provider.Id, request, cancellationToken);
+            await relationshipBlocks.EnsureAllowedAsync(customer.CustomerId, provider.Id, cancellationToken);
             var feePolicy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
             var feeAmount = FeeAmount(feePolicy);
             var balance = await walletService.GetBalanceAsync(provider.PublicId, feeAmount, cancellationToken);

@@ -16,6 +16,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
     public DbSet<CustomerWithdrawalRequest> CustomerWithdrawalRequests => Set<CustomerWithdrawalRequest>();
+    public DbSet<UserRelationshipBlock> UserRelationshipBlocks => Set<UserRelationshipBlock>();
     public DbSet<ProviderProfile> ProviderProfiles => Set<ProviderProfile>();
     public DbSet<ProviderApprovalEvent> ProviderApprovalEvents => Set<ProviderApprovalEvent>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();

@@ -24,6 +24,7 @@ import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
 import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderRequirementStandardsPage'
 import { AdminCustomersPage } from '../admin/AdminCustomersPage'
 import { AdminCustomerWithdrawalPage } from '../admin/AdminCustomerWithdrawalPage'
+import { AdminUserBlocksPage } from '../admin/AdminUserBlocksPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
 import { AdminWalletsPage } from '../admin/AdminWalletsPage'
 import { AdminProviderExitPage } from '../admin/AdminProviderExitPage'
@@ -57,6 +58,7 @@ import {
   CustomerSignupPage,
   LegalDocumentsPage,
   MySoodalPage,
+  CustomerProviderBlocksPage,
   PasswordResetRequestPage,
 } from '../customer/CustomerAccountPages'
 import { CustomerWithdrawalPage } from '../customer/CustomerWithdrawalPage'
@@ -189,6 +191,7 @@ function ApplicationRoutes() {
     if (pathname === '/customer/security/withdrawal') return <CustomerWithdrawalPage />
     if (pathname === '/customer/consents') return <CustomerConsentsPage />
     if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
+    if (pathname === '/customer/provider-blocks') return <CustomerProviderBlocksPage />
     if (pathname === '/customer/notifications') return <CustomerNotificationCenterPage />
     if (pathname === '/customer/messages') return <ChatRoomListPage audience="customer" />
     if (customerChatMatch) return <ChatRoomPage audience="customer" id={customerChatMatch[1]} />
@@ -209,6 +212,7 @@ function ApplicationRoutes() {
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
     if (pathname === '/admin/customers') return <AdminCustomersPage pathname={pathname} />
     if (pathname === '/admin/customers/withdrawals') return <AdminCustomerWithdrawalPage pathname={pathname} />
+    if (pathname === '/admin/user-blocks') return <AdminUserBlocksPage pathname={pathname} />
     if (adminCustomerWithdrawalMatch) return <AdminCustomerWithdrawalPage pathname={pathname} id={adminCustomerWithdrawalMatch[1]} />
     if (adminCustomerMatch) return <AdminCustomersPage pathname={pathname} customerId={adminCustomerMatch[1]} />
     if (pathname === '/admin/providers') return <AdminProvidersPage pathname={pathname} />

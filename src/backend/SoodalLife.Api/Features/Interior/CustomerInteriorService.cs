@@ -9,12 +9,13 @@ using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Matching;
+using SoodalLife.Api.Features.RelationshipBlocks;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Interior;
 
-public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication,ProviderTradingEligibilityService eligibility)
+public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication,ProviderTradingEligibilityService eligibility,IUserRelationshipBlockPolicy relationshipBlocks)
 {
     public async Task<IReadOnlyList<InteriorServiceResponse>> Services(CancellationToken token)
     {
@@ -98,7 +99,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
             join request in db.ServiceRequests.AsNoTracking() on project.ServiceRequestId equals request.Id join service in db.ServiceCategories.AsNoTracking() on project.ServiceCategoryId equals service.Id
             join area0 in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area0.Id into areas from area in areas.DefaultIfEmpty()
             where project.PublicId==id&&project.CustomerProfileId==identity.ProfileId select new{project,request,service,area}).SingleOrDefaultAsync(token)??throw NotFound("INTERIOR_PROJECT_NOT_FOUND","인테리어 프로젝트를 찾을 수 없습니다.");
-        var visits=new List<CustomerInteriorSiteVisit>();foreach(var visit in await db.InteriorSiteVisits.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderBy(x=>x.ScheduledStartAt).ToListAsync(token))visits.Add(await MapVisit(row.project,visit,identity.UserId,token));
+        var visits=new List<CustomerInteriorSiteVisit>();foreach(var visit in await db.InteriorSiteVisits.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderBy(x=>x.ScheduledStartAt).ToListAsync(token)){if(visit.StatusCode=="PROPOSED"&&row.project.SelectedSiteVisitProviderId!=visit.ProviderProfileId&&await relationshipBlocks.IsBlockedAsync(row.project.CustomerProfileId,visit.ProviderProfileId,token))continue;visits.Add(await MapVisit(row.project,visit,identity.UserId,token));}
         var quotes=await Quotes(row.project,token);var designs=await Designs(row.project,identity.UserId,token);var contract=await Contract(row.project,identity.UserId,token);var stages=await Stages(row.project,identity.UserId,token);
         var changes=await Changes(row.project,identity.UserId,token);var defects=await Defects(row.project,identity.UserId,token);var disputes=await Disputes(row.project,token);
         var events=await db.InteriorProjectEvents.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderByDescending(x=>x.OccurredAt).Select(x=>new CustomerInteriorEvent(x.PublicId,x.EventTypeCode,EventDisplay(x.EventTypeCode),x.OccurredAt)).ToListAsync(token);
@@ -119,6 +120,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         if(await db.InteriorProjectEvents.AnyAsync(x=>x.IdempotencyKey==input.IdempotencyKey,token))return await Detail(projectId,principal,token);
         var visit=await db.InteriorSiteVisits.SingleOrDefaultAsync(x=>x.PublicId==visitId&&x.InteriorProjectId==project.Id,token)??throw NotFound("SITE_VISIT_NOT_FOUND","실측 후보를 찾을 수 없습니다.");
         if(visit.StatusCode!="PROPOSED"&&visit.StatusCode!="CONFIRMED")throw Conflict("SITE_VISIT_STATE_CONFLICT","제안 상태의 실측 일정만 선택할 수 있습니다.");
+        await relationshipBlocks.EnsureAllowedAsync(project.CustomerProfileId,visit.ProviderProfileId,token);
         var now=DateTime.UtcNow;visit.StatusCode="CONFIRMED";visit.ConfirmedAt??=now;visit.CustomerConfirmedAt??=now;visit.UpdatedAt=now;visit.UpdatedByUserId=identity.UserId;
         project.SelectedSiteVisitProviderId=visit.ProviderProfileId;project.SiteVisitSelectedAt??=now;project.SiteVisitProviderTrustScoreSnapshot=await CurrentTrust(visit.ProviderProfileId,token);project.StatusCode="SITE_VISIT_SCHEDULED";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
         Event(project,"SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,new{visitId},now);Audit(identity.UserId,"INTERIOR_SITE_VISIT_CONFIRMED",project.PublicId,new{visitId},now);Outbox(project,"INTERIOR_SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,now);await db.SaveChangesAsync(token);return await Detail(projectId,principal,token);
@@ -164,6 +166,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
             if(candidate.Revision.RevisionNo!=latest)
                 throw Conflict("INTERIOR_LATEST_QUOTE_REQUIRED","해당 공급자의 최신 견적 Version만 선택할 수 있습니다.");
             if(!candidate.AdministrativeAreaId.HasValue)throw Conflict("REQUEST_AREA_REQUIRED","서비스 지역이 없는 프로젝트는 공급자를 선택할 수 없습니다.");
+            await relationshipBlocks.EnsureAllowedAsync(project.CustomerProfileId,candidate.Provider.Id,token);
             var eligibilityResult=await eligibility.EvaluateAsync(candidate.Provider.Id,project.ServiceCategoryId,candidate.AdministrativeAreaId.Value,token);
             if(!eligibilityResult.IsEligible)throw Conflict(eligibilityResult.ReasonCode??"PROVIDER_NOT_ELIGIBLE","현재 승인·서비스·지역·증빙 요건을 충족한 공급자만 선택할 수 있습니다.");
 
@@ -272,7 +275,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var rows=await (from quote in db.Quotes.AsNoTracking() join revision in db.QuoteRevisions.AsNoTracking() on quote.Id equals revision.QuoteId join provider in db.ProviderProfiles.AsNoTracking() on quote.ProviderProfileId equals provider.Id where quote.ServiceRequestId==project.ServiceRequestId&&quote.StatusCode=="SUBMITTED"&&!quote.WithdrawnAt.HasValue&&(quote.ExpiresAt==null||quote.ExpiresAt>now)&&revision.ValidUntil>now&&revision.RevisionNo==db.QuoteRevisions.Where(x=>x.QuoteId==quote.Id).Max(x=>x.RevisionNo) orderby revision.SubmittedAt descending select new{quote,revision,provider}).ToListAsync(token);var result=new List<CustomerInteriorQuote>();
         foreach(var row in rows)
         {
-            if(!areaId.HasValue||(await eligibility.EvaluateAsync(row.provider.Id,project.ServiceCategoryId,areaId.Value,token)).IsEligible==false)continue;
+            if(!areaId.HasValue||(await eligibility.EvaluateAsync(row.provider.Id,project.ServiceCategoryId,areaId.Value,token)).IsEligible==false||await relationshipBlocks.IsBlockedAsync(project.CustomerProfileId,row.provider.Id,token))continue;
             var items=await db.QuoteItems.AsNoTracking().Where(x=>x.QuoteRevisionId==row.revision.Id).OrderBy(x=>x.LineNo).Select(x=>new CustomerInteriorQuoteItem(x.LineNo,x.ItemName,x.Description,x.Quantity,x.UnitText,x.UnitPriceAmount,x.LineTotalAmount,x.WorkTradeText,x.SpaceText,x.MaterialSpecText,x.LaborNoteText)).ToListAsync(token);var trust=await CurrentTrust(row.provider.Id,token);
             var design=await(from value in db.InteriorDesignVersions.AsNoTracking() join provider in db.ProviderProfiles.AsNoTracking() on value.CreatedByUserId equals provider.UserId where value.InteriorProjectId==project.Id&&provider.Id==row.provider.Id orderby value.VersionNo descending select new{value.VersionNo,value.StatusCode}).FirstOrDefaultAsync(token);
             var selectable=project.SelectedContractorProviderId==null&&project.StatusCode is ("SITE_VISIT_COMPLETED" or "ESTIMATE_IN_PROGRESS" or "ESTIMATE_READY")&&row.revision.RevisionPurposeCode is ("POST_SITE_VISIT" or "CONTRACT_ESTIMATE");

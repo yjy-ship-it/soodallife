@@ -5,7 +5,7 @@ import { getSafeReturnUrl, navigate } from '../auth/routing'
 import { BrandLogo } from '../components/BrandLogo'
 import { ServiceFooter } from '../components/ServiceFooter'
 import { customerAccountApi, CustomerAccountApiError } from './accountApi'
-import type { AdministrativeArea, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, WithdrawalReadiness } from './accountTypes'
+import type { AdministrativeArea, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, ProviderBlock, WithdrawalReadiness } from './accountTypes'
 import { CustomerAppLayout } from './CustomerAppLayout'
 import { safeNotificationTarget } from './notificationRouting'
 import './customerAccount.css'
@@ -62,8 +62,16 @@ export function PasswordResetRequestPage() {
 
 const myMenus = [
   ['/customer', '마이수달'], ['/customer/profile', '내 정보'], ['/customer/addresses', '주소 관리'], ['/customer/security', '로그인·보안'],
-  ['/customer/notifications', '알림센터'], ['/customer/notification-settings', '알림 설정'], ['/customer/consents', '약관·동의'], ['/customer/security/withdrawal', '계정 탈퇴'],
+  ['/customer/notifications', '알림센터'], ['/customer/notification-settings', '알림 설정'], ['/customer/consents', '약관·동의'], ['/customer/provider-blocks', '차단한 공급자'], ['/customer/security/withdrawal', '계정 탈퇴'],
 ] as const
+
+export function CustomerProviderBlocksPage() {
+  const [items, setItems] = useState<ProviderBlock[]>([]); const [error, setError] = useState(''); const [busy, setBusy] = useState('')
+  const load = () => customerAccountApi.providerBlocks().then(setItems).catch(reason => setError(message(reason)))
+  useEffect(() => { void load() }, [])
+  const release = async (item: ProviderBlock) => { if (!window.confirm(`${item.providerName} 공급자 차단을 해제할까요? 이후 새 요청에서 다시 매칭될 수 있습니다.`)) return; try { setBusy(item.id); await customerAccountApi.releaseProviderBlock(item.id, item.rowVersion); await load() } catch (reason) { setError(message(reason)) } finally { setBusy('') } }
+  return <MySoodalLayout title="차단한 공급자" description="차단은 새로운 매칭만 제한하며 기존 거래·채팅·리뷰·A/S·분쟁 기록은 삭제하거나 취소하지 않습니다."><div className="providerBlockList">{items.map(item => <article key={item.id}><div><span>{item.status === 'ACTIVE' ? '차단 중' : '해제됨'}</span><h2>{item.providerName}</h2><small>차단 {date(item.createdAt)}{item.releasedAt ? ` · 해제 ${date(item.releasedAt)}` : ''}</small></div>{item.status === 'ACTIVE' && <button disabled={busy === item.id} onClick={() => void release(item)}>{busy === item.id ? '처리 중…' : '차단 해제'}</button>}</article>)}{items.length === 0 && <p className="accountEmpty">차단한 공급자가 없습니다.</p>}</div>{error && <p className="accountError">{error}</p>}<section className="notIntegratedNotice"><strong>공급자→고객 차단 정책 미확정</strong><span>이번 단계는 고객이 공급자를 차단하는 기능만 제공합니다. 차단 사유와 개인 메모는 공급자에게 공개하거나 알림으로 보내지 않습니다.</span></section></MySoodalLayout>
+}
 export function MySoodalLayout({ title, description, children }: PropsWithChildren<{ title: string; description: string }>) {
   const path = window.location.pathname
   return <CustomerAppLayout><section className="mySoodalHeading"><p>MY SOODAL</p><h1>{title}</h1><span>{description}</span></section><div className="mySoodalLayout"><nav aria-label="마이수달 메뉴">{myMenus.map(([href, label]) => <button className={path === href ? 'isActive' : ''} onClick={() => navigate(href)} key={href}>{label}</button>)}<hr />{[['/customer/requests', '요청·견적'], ['/customer/transactions', '진행 거래'], ['/customer/care/contracts', '내 구독'], ['/customer/interior/projects', '내 인테리어'], ['/customer/service-history', '서비스 이력'], ['/customer/reviews', '내 리뷰'], ['/customer/after-services', 'A/S'], ['/customer/disputes', '분쟁'], ['/customer/reports', '신고'], ['/support', '고객센터']].map(([href, label]) => <button onClick={() => navigate(href)} key={href}>{label}</button>)}</nav><section className="mySoodalContent">{children}</section></div></CustomerAppLayout>

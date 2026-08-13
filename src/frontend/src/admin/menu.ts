@@ -13,6 +13,7 @@ export const adminMenuItems: readonly AdminMenuItem[] = [
   { label: '공급자 요건 기준정보', path: '/admin/provider-requirement-standards', shortLabel: '요건', allowedRoles: adminOnly },
   { label: '가격·수수료', path: '/admin/pricing', shortLabel: '가격', allowedRoles: adminOnly },
   { label: '고객 관리', path: '/admin/customers', shortLabel: '고객', allowedRoles: adminOnly },
+  { label: '사용자 차단 조회', path: '/admin/user-blocks', shortLabel: '차단', allowedRoles: adminOnly },
   { label: '공급자 관리', path: '/admin/providers', shortLabel: '공급자', allowedRoles: adminOnly },
   { label: '공급자 활동 종료', path: '/admin/provider-exits', shortLabel: '종료', allowedRoles: adminOnly },
   { label: '지역·매칭', path: '/admin/matching', shortLabel: '매칭', allowedRoles: adminOnly },

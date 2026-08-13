@@ -10,6 +10,7 @@ using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
+using SoodalLife.Api.Features.RelationshipBlocks;
 
 namespace SoodalLife.Api.Features.Subscriptions;
 
@@ -18,7 +19,8 @@ public sealed class ProviderCareService(
     ProviderTradingEligibilityService eligibility,
     CareSubscriptionService core,
     IPrivacyContract privacy,
-    IPrivateFileStorage storage)
+    IPrivateFileStorage storage,
+    IUserRelationshipBlockPolicy relationshipBlocks)
 {
     private const int MaximumFileSize = 10 * 1024 * 1024;
     private static readonly string[] ContactVisitStates = ["SCHEDULED", "RESCHEDULED", "IN_PROGRESS", "PROVIDER_COMPLETED"];
@@ -260,7 +262,7 @@ public sealed class ProviderCareService(
         foreach (var row in rows)
         {
             var decision = await eligibility.EvaluateAsync(identity.ProviderId, row.request.ServiceCategoryId, row.request.AdministrativeAreaId, token);
-            if (!decision.IsEligible) continue;
+            if (!decision.IsEligible || await relationshipBlocks.IsBlockedAsync(row.request.CustomerProfileId, identity.ProviderId, token)) continue;
             result.Add(new(row.request.PublicId, Number("SR", row.request.PublicId), row.service.PublicId, row.service.Name, row.area.AreaName,
                 row.request.RequestTypeCode, row.request.RequestedScopeText, row.request.PreferredStartDate, MapRule(row.rule), row.request.StatusCode,
                 await db.SubscriptionApplications.AsNoTracking().AnyAsync(x => x.SubscriptionRequestId == row.request.Id && x.ProviderProfileId == identity.ProviderId, token), row.request.CreatedAt));

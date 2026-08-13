@@ -6,6 +6,7 @@ using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Emergency;
+using SoodalLife.Api.Features.RelationshipBlocks;
 
 namespace SoodalLife.Api.Features.Matching;
 
@@ -13,7 +14,8 @@ public sealed class RequestMatchingService(
     SoodalLifeDbContext dbContext,
     ProviderTradingEligibilityService eligibilityService,
     ServiceRequestFilePrivacyResolver filePrivacyResolver,
-    IEmergencyAvailabilityResolver emergencyAvailabilityResolver)
+    IEmergencyAvailabilityResolver emergencyAvailabilityResolver,
+    IUserRelationshipBlockPolicy relationshipBlocks)
 {
     public async Task<MatchAndDispatchResult> MatchAndDispatchAsync(Guid requestPublicId, CancellationToken cancellationToken)
     {
@@ -65,7 +67,8 @@ public sealed class RequestMatchingService(
                 var emergency = request.IsUrgent
                     ? await emergencyAvailabilityResolver.EvaluateAsync(provider.Id, request.CategoryId, administrativeAreaId, now, cancellationToken)
                     : new EmergencyAvailabilityDecision(true, "NOT_EMERGENCY", evaluation.ProviderServiceCategoryId);
-                var eligible = evaluation.IsEligible && emergency.IsAvailable;
+                var relationshipAllowed = !await relationshipBlocks.IsBlockedAsync(request.CustomerProfileId, provider.Id, cancellationToken);
+                var eligible = evaluation.IsEligible && emergency.IsAvailable && relationshipAllowed;
                 if (eligible) eligibleCount++;
 
                 var candidate = candidates.SingleOrDefault(item => item.ProviderProfileId == provider.Id);
@@ -86,7 +89,7 @@ public sealed class RequestMatchingService(
                 candidate.ApprovalMatch = approvalMatch;
                 candidate.EvaluatedAt = now;
                 candidate.ExpiresAt = request.ExpiresAt;
-                candidate.ReasonCode = evaluation.ReasonCode ?? (emergency.IsAvailable ? null : emergency.ReasonCode);
+                candidate.ReasonCode = evaluation.ReasonCode ?? (emergency.IsAvailable ? (relationshipAllowed ? null : "USER_RELATIONSHIP_BLOCKED") : emergency.ReasonCode);
                 candidate.StatusCode = eligible ? "ELIGIBLE" : "INELIGIBLE";
             }
 
