@@ -4,6 +4,7 @@ import { useAuthentication } from '../auth/AuthenticationContext'
 import { navigate } from '../auth/routing'
 import { ServiceFooter } from '../components/ServiceFooter'
 import { adminMenuItems, findAdminMenu } from './menu'
+import { AdminDirectPaymentStatus } from './AdminDirectPaymentStatus'
 
 interface AdminLayoutProps extends PropsWithChildren {
   pathname: string
@@ -68,7 +69,7 @@ export function AdminLayout({ pathname, children }: AdminLayoutProps) {
             <button className="adminLogout" type="button" onClick={handleLogout}>로그아웃</button>
           </div>
         </header>
-        <main className="adminMain">{children}</main>
+        <main className="adminMain">{children}<AdminDirectPaymentStatus /></main>
         <ServiceFooter variant="admin" />
       </div>
     </div>

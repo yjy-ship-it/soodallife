@@ -286,6 +286,33 @@ public sealed class TransactionAppointment
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class TransactionDirectPayment
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long TransactionId { get; set; }
+    public long RegisteredByUserId { get; set; }
+    public string RegisteredByRoleCode { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string PaymentMethodCode { get; set; } = string.Empty;
+    public DateTime PaidAt { get; set; }
+    public string? NoteText { get; set; }
+    public long? EvidenceFileId { get; set; }
+    public string StatusCode { get; set; } = "REGISTERED";
+    public DateTime RegisteredAt { get; set; }
+    public long? DecidedByUserId { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public string? RejectionReason { get; set; }
+    public string RegistrationIdempotencyKey { get; set; } = string.Empty;
+    public string? DecisionIdempotencyKey { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class TransactionAppointmentChangeRequest
 {
     public long Id { get; set; }

@@ -7,7 +7,8 @@ namespace SoodalLife.Api.Controllers;
 
 [ApiController]
 [Route("api/v1")]
-public sealed class WorkController(WorkService workService, TransactionAppointmentService appointmentService) : ControllerBase
+public sealed class WorkController(WorkService workService, TransactionAppointmentService appointmentService,
+    TransactionDirectPaymentService directPaymentService) : ControllerBase
 {
     [Authorize(Roles = RoleCodes.Provider)]
     [HttpGet("providers/me/transactions")]
@@ -28,6 +29,36 @@ public sealed class WorkController(WorkService workService, TransactionAppointme
     [HttpGet("customers/me/transactions/{transactionId:guid}")]
     public Task<ActionResult<WorkTransactionDetail>> CustomerDetail(Guid transactionId, CancellationToken token) =>
         Execute(() => workService.GetCustomerDetailAsync(User, transactionId, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpGet("transactions/{transactionId:guid}/direct-payment")]
+    public Task<ActionResult<DirectPaymentContextResponse>> DirectPayment(Guid transactionId, CancellationToken token) =>
+        Execute(() => directPaymentService.GetAsync(User, transactionId, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/direct-payment")]
+    [RequestSizeLimit(10 * 1024 * 1024 + 64 * 1024)]
+    public Task<ActionResult<TransactionDirectPaymentResponse>> RegisterDirectPayment(
+        Guid transactionId, [FromForm] RegisterDirectPaymentInput input, CancellationToken token) =>
+        Execute(() => directPaymentService.RegisterAsync(User, transactionId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpPost("transactions/{transactionId:guid}/direct-payment/{paymentId:guid}/decision")]
+    public Task<ActionResult<TransactionDirectPaymentResponse>> DecideDirectPayment(
+        Guid transactionId, Guid paymentId, DecideDirectPaymentInput input, CancellationToken token) =>
+        Execute(() => directPaymentService.DecideAsync(User, transactionId, paymentId, input, token));
+
+    [Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+    [HttpGet("transactions/{transactionId:guid}/direct-payments/files/{fileId:guid}")]
+    public async Task<IActionResult> DownloadDirectPayment(Guid transactionId, Guid fileId, CancellationToken token)
+    {
+        try
+        {
+            var result = await directPaymentService.OpenEvidenceAsync(User, transactionId, fileId, token);
+            return File(result.Stream, result.ContentType, result.FileName, enableRangeProcessing: true);
+        }
+        catch (WorkBusinessException exception) { return StatusCode(exception.StatusCode, Error(exception)); }
+    }
 
     [Authorize(Roles = $"{RoleCodes.Customer},{RoleCodes.Provider}")]
     [HttpGet("transactions/{transactionId:guid}/appointment")]

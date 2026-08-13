@@ -4,6 +4,7 @@ import { createLoginPath, navigate } from '../auth/routing'
 import { BrandLogo } from '../components/BrandLogo'
 import { ServiceFooter } from '../components/ServiceFooter'
 import { BusinessChatShortcut } from '../chat/BusinessChatShortcut'
+import { TransactionDirectPaymentPanel } from '../work/TransactionDirectPaymentPanel'
 import './customer.css'
 
 type CustomerAppLayoutProps = PropsWithChildren<{ actions?: ReactNode }>
@@ -81,7 +82,7 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
         </div>
       </header>
       {!online && <div className="customerOfflineNotice" role="status">인터넷 연결이 필요합니다. 저장·변경 작업은 온라인에서 다시 시도해 주세요.</div>}
-      <main id="customer-main" className="customerMain">{actions}<BusinessChatShortcut />{children}</main>
+      <main id="customer-main" className="customerMain">{actions}<BusinessChatShortcut />{children}<TransactionDirectPaymentPanel /></main>
       <ServiceFooter variant="customer" />
       <nav className="customerBottomNav" aria-label="모바일 고객 메뉴">
         {navItems.map(item => {

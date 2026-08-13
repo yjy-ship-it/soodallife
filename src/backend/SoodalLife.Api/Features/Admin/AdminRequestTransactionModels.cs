@@ -24,7 +24,9 @@ public sealed record AdminTransactionDetailResponse(Guid Id, string TransactionN
     string AreaName, string? DetailAddress, decimal AgreedAmount, string CurrencyCode, DateTime CreatedAt,
     DateTime? StartedAt, DateTime? CompletedAt, AdminAppliedFeePolicy? FeePolicy, AdminWalletFeeLink? WalletFee,
     IReadOnlyList<AdminTransactionQuoteItem> QuoteItems, AdminCompletionSummary Completion,
-    IReadOnlyList<AdminAfterServiceSummary> AfterServices, IReadOnlyList<AdminOperationHistoryItem> History);
+    AdminDirectPaymentSummary? DirectPayment, IReadOnlyList<AdminAfterServiceSummary> AfterServices, IReadOnlyList<AdminOperationHistoryItem> History);
+public sealed record AdminDirectPaymentSummary(Guid Id, string StatusCode, decimal Amount, string CurrencyCode,
+    string PaymentMethodCode, DateTime PaidAt, string RegisteredByRoleCode, DateTime RegisteredAt, DateTime? DecidedAt, string? RejectionReason);
 public sealed record AdminAppliedFeePolicy(Guid? PolicyId, string? Version, string? PolicyKind, string? TransactionType,
     string? CalculationMethod, decimal? CalculatedFeeAmount, decimal? ActualChargedFeeAmount, string? CurrencyCode,
     string? ChargeTiming, string? RestoreRule);

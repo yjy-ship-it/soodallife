@@ -160,6 +160,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<InteriorContractVersion> InteriorContractVersions => Set<InteriorContractVersion>();
     public DbSet<InteriorPaymentPlan> InteriorPaymentPlans => Set<InteriorPaymentPlan>();
     public DbSet<InteriorPaymentConfirmation> InteriorPaymentConfirmations => Set<InteriorPaymentConfirmation>();
+    public DbSet<TransactionDirectPayment> TransactionDirectPayments => Set<TransactionDirectPayment>();
     public DbSet<InteriorWorkStage> InteriorWorkStages => Set<InteriorWorkStage>();
     public DbSet<InteriorWorkStageAssignment> InteriorWorkStageAssignments => Set<InteriorWorkStageAssignment>();
     public DbSet<InteriorWorkUpdate> InteriorWorkUpdates => Set<InteriorWorkUpdate>();

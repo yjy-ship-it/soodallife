@@ -93,6 +93,7 @@ builder.Services.AddScoped<QuoteService>();
 builder.Services.AddSingleton<CompletionPolicyEvaluator>();
 builder.Services.AddSingleton<IPrivateFileStorage, DevelopmentPrivateFileStorage>();
 builder.Services.AddScoped<WorkService>();
+builder.Services.AddScoped<TransactionDirectPaymentService>();
 builder.Services.AddScoped<TransactionAppointmentService>();
 builder.Services.AddScoped<CustomerDisputeService>();
 builder.Services.AddScoped<CustomerAfterServiceService>();

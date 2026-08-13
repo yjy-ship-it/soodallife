@@ -423,6 +423,13 @@ public sealed class WorkService(
         if (transaction.CancelledAt.HasValue) timeline.Add(new("TRANSACTION_CANCELLED", "거래 취소", transaction.CancelledAt.Value, transaction.StatusCode == "CANCELLED"));
         timeline.AddRange(revisionResponses.Where(x => x.Status != "DRAFT").Select(x => new WorkTimelineItem("COMPLETION_SUBMITTED", $"작업완료 자료 {x.RevisionNo}차 제출", x.RecordedAt, transaction.StatusCode == "COMPLETION_SUBMITTED" && x.Id == revisionResponse?.Id)));
         timeline.AddRange(confirmations.Select(x => new WorkTimelineItem(x.ResultCode, x.ResultCode == "COMPLETED" ? "고객 완료 확인" : x.ResultCode == "REVISION_REQUESTED" ? "고객 보완 요청" : "분쟁 전환", x.ConfirmedAt, false)));
+        var directPaymentTimeline = await db.TransactionDirectPayments.AsNoTracking().SingleOrDefaultAsync(x => x.TransactionId == transaction.Id, cancellationToken);
+        if (directPaymentTimeline is not null)
+        {
+            timeline.Add(new("DIRECT_PAYMENT_REGISTERED", "직접지급 사실 등록", directPaymentTimeline.RegisteredAt, directPaymentTimeline.StatusCode == "REGISTERED"));
+            if (directPaymentTimeline.DecidedAt.HasValue)
+                timeline.Add(new(directPaymentTimeline.StatusCode, directPaymentTimeline.StatusCode == "COUNTERPART_CONFIRMED" ? "상대방 직접지급 확인" : "직접지급 확인 거절", directPaymentTimeline.DecidedAt.Value, false));
+        }
         var afterService = await db.AfterServiceCases.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderByDescending(x => x.ReceivedAt)
             .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, x.StatusCode, x.ReceivedAt)).FirstOrDefaultAsync(cancellationToken);
         var dispute = await db.DisputeCases.AsNoTracking().Where(x => x.TransactionId == transaction.Id).OrderByDescending(x => x.ReceivedAt)
@@ -485,6 +492,7 @@ public sealed class WorkService(
             .Select(item => item.FileId).ToListAsync(cancellationToken);
         var (actualAmount, currency) = ReadActual(revision.ChecklistJson, transaction.CurrencyCode);
         var warrantyStart = DateOnly.FromDateTime(now);
+        var directPayment = await db.TransactionDirectPayments.AsNoTracking().SingleOrDefaultAsync(x => x.TransactionId == transaction.Id, cancellationToken);
         var history = new ServiceHistoryEntry
         {
             CustomerProfileId = transaction.CustomerProfileId, TransactionId = transaction.Id, SourceCompletionRevisionId = revision.Id,
@@ -493,7 +501,9 @@ public sealed class WorkService(
             CurrencyCode = currency, CompletedAtSnapshot = now, WarrantyStartDate = warrantyStart,
             WarrantyEndDate = warrantyStart.AddDays(transaction.WarrantyDaysSnapshot),
             SnapshotJson = JsonSerializer.Serialize(new { transactionId = transaction.PublicId, completionRevisionId = revision.PublicId,
-                revision.RevisionNo, revision.WorkSummary, actualAmount, currencyCode = currency, evidenceFileIds = evidence }),
+                revision.RevisionNo, revision.WorkSummary, actualAmount, currencyCode = currency, evidenceFileIds = evidence,
+                directPayment = directPayment is null ? null : new { paymentId = directPayment.PublicId, directPayment.StatusCode,
+                    directPayment.Amount, directPayment.CurrencyCode, directPayment.PaymentMethodCode, directPayment.PaidAt, directPayment.DecidedAt } }),
             OccurredAt = now, IdempotencyKey = $"completion:{transaction.PublicId:N}:{revision.PublicId:N}", CreatedAt = now, CreatedByUserId = userId,
         };
         db.ServiceHistoryEntries.Add(history);

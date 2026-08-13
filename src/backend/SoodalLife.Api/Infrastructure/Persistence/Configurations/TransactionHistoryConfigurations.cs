@@ -92,6 +92,45 @@ internal sealed class WorkCompletionConfiguration() : EntityConfiguration<WorkCo
     }
 }
 
+internal sealed class TransactionDirectPaymentConfiguration() : EntityConfiguration<TransactionDirectPayment>("transaction_direct_payments")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<TransactionDirectPayment> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(TransactionDirectPayment.TransactionId), "transaction_id");
+        Mapping.Long(b, nameof(TransactionDirectPayment.RegisteredByUserId), "registered_by_user_id");
+        Mapping.String(b, nameof(TransactionDirectPayment.RegisteredByRoleCode), "registered_by_role_code", 20, unicode: false);
+        Mapping.Decimal(b, nameof(TransactionDirectPayment.Amount), "amount");
+        Mapping.String(b, nameof(TransactionDirectPayment.CurrencyCode), "currency_code", 3, unicode: false, fixedLength: true);
+        Mapping.String(b, nameof(TransactionDirectPayment.PaymentMethodCode), "payment_method_code", 30, unicode: false);
+        Mapping.DateTime(b, nameof(TransactionDirectPayment.PaidAt), "paid_at");
+        Mapping.String(b, nameof(TransactionDirectPayment.NoteText), "note_text", 1000, nullable: true);
+        Mapping.NullableLong(b, nameof(TransactionDirectPayment.EvidenceFileId), "evidence_file_id");
+        Mapping.String(b, nameof(TransactionDirectPayment.StatusCode), "status_code", 30, unicode: false, defaultValue: "REGISTERED");
+        Mapping.DateTime(b, nameof(TransactionDirectPayment.RegisteredAt), "registered_at");
+        Mapping.NullableLong(b, nameof(TransactionDirectPayment.DecidedByUserId), "decided_by_user_id");
+        Mapping.DateTime(b, nameof(TransactionDirectPayment.DecidedAt), "decided_at", nullable: true);
+        Mapping.String(b, nameof(TransactionDirectPayment.RejectionReason), "rejection_reason", 1000, nullable: true);
+        Mapping.String(b, nameof(TransactionDirectPayment.RegistrationIdempotencyKey), "registration_idempotency_key", 100, unicode: false);
+        Mapping.String(b, nameof(TransactionDirectPayment.DecisionIdempotencyKey), "decision_idempotency_key", 100, nullable: true, unicode: false);
+        Mapping.FullAudit(b);
+        Mapping.Fk<TransactionDirectPayment, TransactionRecord>(b, nameof(TransactionDirectPayment.TransactionId));
+        Mapping.Fk<TransactionDirectPayment, User>(b, nameof(TransactionDirectPayment.RegisteredByUserId));
+        Mapping.Fk<TransactionDirectPayment, User>(b, nameof(TransactionDirectPayment.DecidedByUserId));
+        Mapping.Fk<TransactionDirectPayment, StoredFile>(b, nameof(TransactionDirectPayment.EvidenceFileId));
+        b.HasIndex(x => x.TransactionId).IsUnique();
+        b.HasIndex(x => x.RegistrationIdempotencyKey).IsUnique();
+        b.HasIndex(x => x.DecisionIdempotencyKey).IsUnique().HasFilter("[decision_idempotency_key] IS NOT NULL");
+        b.ToTable("transaction_direct_payments", t =>
+        {
+            t.HasCheckConstraint("CK_transaction_direct_payments_amount", "[amount] > 0");
+            t.HasCheckConstraint("CK_transaction_direct_payments_status", "[status_code] IN ('REGISTERED','COUNTERPART_CONFIRMED','REJECTED')");
+            t.HasCheckConstraint("CK_transaction_direct_payments_role", "[registered_by_role_code] IN ('CUSTOMER','PROVIDER')");
+            t.HasCheckConstraint("CK_transaction_direct_payments_method", "[payment_method_code] IN ('BANK_TRANSFER','ON_SITE_CARD','CASH','OTHER')");
+        });
+    }
+}
+
 internal sealed class WorkCompletionRevisionConfiguration() : EntityConfiguration<WorkCompletionRevision>("work_completion_revisions")
 {
     protected override void ConfigureEntity(EntityTypeBuilder<WorkCompletionRevision> b)

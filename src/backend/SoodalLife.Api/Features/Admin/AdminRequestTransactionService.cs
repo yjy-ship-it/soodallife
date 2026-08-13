@@ -145,11 +145,15 @@ public sealed class AdminRequestTransactionService(SoodalLifeDbContext db)
         var afterServices = await db.AfterServiceCases.AsNoTracking().Where(item => item.TransactionId == row.Transaction.Id)
             .OrderByDescending(item => item.ReceivedAt).Select(item => new AdminAfterServiceSummary(item.PublicId, item.Subject,
                 item.StatusCode, item.ReceivedAt, item.CompletedAt)).ToListAsync(token);
+        var directPayment = await db.TransactionDirectPayments.AsNoTracking().Where(item => item.TransactionId == row.Transaction.Id)
+            .Select(item => new AdminDirectPaymentSummary(item.PublicId, item.StatusCode, item.Amount, item.CurrencyCode,
+                item.PaymentMethodCode, item.PaidAt, item.RegisteredByRoleCode, item.RegisteredAt, item.DecidedAt, item.RejectionReason))
+            .SingleOrDefaultAsync(token);
         return new(row.Transaction.PublicId, TransactionNumber(row.Transaction.PublicId), row.Transaction.StatusCode, row.Service.Name,
             row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Customer.DisplayName, AdminPrivacy.Phone(row.User.Phone),
             row.Provider.BusinessName, row.Request.Title, row.Area.AreaName, AdminPrivacy.DetailAddress(row.Request.DetailAddress), row.Transaction.AgreedAmount,
             row.Transaction.CurrencyCode, row.Transaction.CreatedAt, row.Transaction.StartedAt, row.Transaction.CompletedAt,
-            fee, feeLink, items, completion, afterServices, await HistoryAsync("TRANSACTION", row.Transaction.PublicId, token));
+            fee, feeLink, items, completion, directPayment, afterServices, await HistoryAsync("TRANSACTION", row.Transaction.PublicId, token));
     }
 
     private async Task<IReadOnlyList<AdminOperationHistoryItem>> HistoryAsync(string entityType, Guid id, CancellationToken token) =>

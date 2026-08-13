@@ -181,6 +181,50 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal("IN_PROGRESS", (await db.Transactions.SingleAsync(x => x.PublicId == transactionId)).StatusCode);
     }
 
+    [Fact]
+    public async Task DirectPayment_CounterpartyConfirmation_IsIdempotent_AndDoesNotTouchWalletFeeOrTrust()
+    {
+        using var provider = Client(); using var customer = Client(); using var otherProvider = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        await Login(otherProvider, factory.AreaMismatchProviderCredential);
+        var transactionId = await ArrangeTransaction(provider, customer); await ConfirmAppointment(customer, provider, transactionId);
+        await provider.PostAsync($"/api/v1/transactions/{transactionId}/start", null);
+        var context = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/direct-payment")).Content.ReadFromJsonAsync<DirectPaymentContextResponse>())!;
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var walletBefore = await db.ProviderWallets.Select(x => new { x.Id, x.AvailableBalance, x.ReservedBalance }).ToListAsync();
+        var ledgerBefore = await db.WalletLedgerEntries.CountAsync(); var feeBefore = await db.FeeCharges.CountAsync(); var trustBefore = await db.TrustScoreEvents.CountAsync();
+        var key = $"pay-{Guid.NewGuid():N}";
+        var registered = await RegisterPayment(customer, transactionId, context.AgreedAmount, context.TransactionRowVersion, key, withFile: true);
+        Assert.Equal("REGISTERED", registered.Status); Assert.NotNull(registered.Evidence); Assert.NotNull(registered.Evidence!.FileId);
+        var repeated = await RegisterPayment(customer, transactionId, context.AgreedAmount, context.TransactionRowVersion, key, withFile: false);
+        Assert.Equal(registered.Id, repeated.Id);
+        Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync($"/api/v1/transactions/{transactionId}/direct-payment")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/direct-payment/{registered.Id}/decision", new { decision = "CONFIRM", reason = (string?)null, idempotencyKey = $"self-{Guid.NewGuid():N}", rowVersion = registered.RowVersion })).StatusCode);
+        var providerView = (await (await provider.GetAsync($"/api/v1/transactions/{transactionId}/direct-payment")).Content.ReadFromJsonAsync<DirectPaymentContextResponse>())!;
+        Assert.Null(providerView.Payment!.Evidence!.FileId); Assert.Null(providerView.Payment.Evidence.DownloadUrl);
+        var decisionKey = $"decision-{Guid.NewGuid():N}";
+        var decision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/direct-payment/{registered.Id}/decision", new { decision = "CONFIRM", reason = (string?)null, idempotencyKey = decisionKey, rowVersion = providerView.Payment.RowVersion });
+        Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+        var confirmed = (await decision.Content.ReadFromJsonAsync<TransactionDirectPaymentResponse>())!; Assert.Equal("COUNTERPART_CONFIRMED", confirmed.Status);
+        var repeatedDecision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/direct-payment/{registered.Id}/decision", new { decision = "CONFIRM", reason = (string?)null, idempotencyKey = decisionKey, rowVersion = providerView.Payment.RowVersion });
+        Assert.Equal(HttpStatusCode.OK, repeatedDecision.StatusCode);
+        Assert.Equal(walletBefore, await db.ProviderWallets.Select(x => new { x.Id, x.AvailableBalance, x.ReservedBalance }).ToListAsync());
+        Assert.Equal(ledgerBefore, await db.WalletLedgerEntries.CountAsync()); Assert.Equal(feeBefore, await db.FeeCharges.CountAsync()); Assert.Equal(trustBefore, await db.TrustScoreEvents.CountAsync());
+    }
+
+    [Fact]
+    public async Task DirectPayment_BlocksInvalidStateWrongAmountAndStaleRowVersion()
+    {
+        using var provider = Client(); using var customer = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var transactionId = await ArrangeTransaction(provider, customer);
+        var createdContext = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/direct-payment")).Content.ReadFromJsonAsync<DirectPaymentContextResponse>())!;
+        Assert.Equal(HttpStatusCode.Conflict, (await RegisterPaymentResponse(customer, transactionId, createdContext.AgreedAmount, createdContext.TransactionRowVersion, $"blocked-{Guid.NewGuid():N}")).StatusCode);
+        await ConfirmAppointment(customer, provider, transactionId); await provider.PostAsync($"/api/v1/transactions/{transactionId}/start", null);
+        var context = (await (await customer.GetAsync($"/api/v1/transactions/{transactionId}/direct-payment")).Content.ReadFromJsonAsync<DirectPaymentContextResponse>())!;
+        Assert.Equal(HttpStatusCode.BadRequest, (await RegisterPaymentResponse(customer, transactionId, context.AgreedAmount - 1, context.TransactionRowVersion, $"amount-{Guid.NewGuid():N}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await RegisterPaymentResponse(customer, transactionId, context.AgreedAmount, Convert.ToBase64String([1, 2, 3]), $"stale-{Guid.NewGuid():N}")).StatusCode);
+    }
+
     private async Task ConfirmAppointment(HttpClient customer, HttpClient provider, Guid transactionId)
     {
         var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = 60, memo = (string?)null, idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
@@ -216,6 +260,22 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         content.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(new StringContent(role), "roleCode"); form.Add(new StringContent("test evidence"), "description"); form.Add(content, "file", name);
         var response = await client.PostAsync($"/api/v1/transactions/{id}/completion-evidence", form); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<CompletionEvidenceResponse>())!;
+    }
+
+    private static async Task<TransactionDirectPaymentResponse> RegisterPayment(HttpClient client, Guid id, decimal amount, string rowVersion, string key, bool withFile)
+    {
+        var response = await RegisterPaymentResponse(client, id, amount, rowVersion, key, withFile);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected OK, got {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+        return (await response.Content.ReadFromJsonAsync<TransactionDirectPaymentResponse>())!;
+    }
+
+    private static async Task<HttpResponseMessage> RegisterPaymentResponse(HttpClient client, Guid id, decimal amount, string rowVersion, string key, bool withFile = false)
+    {
+        using var form = new MultipartFormDataContent(); form.Add(new StringContent(amount.ToString(System.Globalization.CultureInfo.InvariantCulture)), "amount");
+        form.Add(new StringContent("BANK_TRANSFER"), "paymentMethod"); form.Add(new StringContent(DateTime.UtcNow.ToString("O")), "paidAt");
+        form.Add(new StringContent("direct payment fact"), "note"); form.Add(new StringContent(key), "idempotencyKey"); form.Add(new StringContent(rowVersion), "transactionRowVersion");
+        if (withFile) { var content = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]); content.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(content, "evidence", "payment.png"); }
+        return await client.PostAsync($"/api/v1/transactions/{id}/direct-payment", form);
     }
 
     private HttpClient Client() => factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
