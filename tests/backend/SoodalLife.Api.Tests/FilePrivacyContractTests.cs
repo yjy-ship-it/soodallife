@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.FilePrivacy;
+using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
 
@@ -74,11 +76,158 @@ public sealed class FilePrivacyContractTests
         Assert.Same(original, decision.PublishedFile);
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task CrossDomainResolver_RequiresBothResourceAuthorizationAndFileLinkage(
+        bool resourceParticipant, bool fileLinked)
+    {
+        await using var db = Context();
+        var original = ActiveFile("CLEAN", "SAFE");
+        original.UploadedByUserId = 10;
+
+        var result = await Resolver(db).ResolveAsync(original, 20, resourceParticipant, fileLinked, default);
+
+        Assert.False(result.Allowed);
+        Assert.Equal("RESOURCE_ACCESS_DENIED", result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CrossDomainResolver_AllowsOwnerOriginalWithoutInventingScanResults()
+    {
+        await using var db = Context();
+        var original = ActiveFile("NOT_INTEGRATED", "NOT_INTEGRATED");
+        original.UploadedByUserId = 10;
+
+        var result = await Resolver(db).ResolveAsync(original, 10, true, true, default);
+
+        Assert.True(result.Allowed);
+        Assert.Same(original, result.PublishedFile);
+        Assert.Equal("ORIGINAL", result.PublicationMode);
+        Assert.Equal("NOT_INTEGRATED", original.MalwareScanStatusCode);
+        Assert.Equal("NOT_INTEGRATED", original.PrivacyInspectionStatusCode);
+    }
+
+    [Fact]
+    public async Task CrossDomainResolver_AllowsCleanSafeOriginalForAuthorizedCounterparty()
+    {
+        await using var db = Context();
+        var original = ActiveFile("CLEAN", "SAFE");
+        original.UploadedByUserId = 10;
+
+        var result = await Resolver(db).ResolveAsync(original, 20, true, true, default);
+
+        Assert.True(result.Allowed);
+        Assert.Same(original, result.PublishedFile);
+        Assert.Equal("PRIVACY_SAFE_ORIGINAL", result.PublicationMode);
+    }
+
+    [Theory]
+    [InlineData(null, "SECURITY_CHECK_REQUIRED")]
+    [InlineData("NOT_INTEGRATED", "SECURITY_CHECK_REQUIRED")]
+    [InlineData("PENDING", "CHECK_PENDING")]
+    [InlineData("FAILED", "REUPLOAD_REQUIRED")]
+    public async Task CrossDomainResolver_FailsClosedForIncompleteMalwareChecks(string? status, string expected)
+    {
+        await using var db = Context();
+        var original = ActiveFile(status, "SAFE");
+        original.UploadedByUserId = 10;
+
+        var result = await Resolver(db).ResolveAsync(original, 20, true, true, default);
+
+        Assert.False(result.Allowed);
+        Assert.Equal(expected, result.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(null, "SECURITY_CHECK_REQUIRED")]
+    [InlineData("NOT_INTEGRATED", "SECURITY_CHECK_REQUIRED")]
+    [InlineData("PENDING", "CHECK_PENDING")]
+    [InlineData("FAILED", "REUPLOAD_REQUIRED")]
+    public async Task CrossDomainResolver_FailsClosedForIncompletePrivacyChecks(string? status, string expected)
+    {
+        await using var db = Context();
+        var original = ActiveFile("CLEAN", status);
+        original.UploadedByUserId = 10;
+
+        var result = await Resolver(db).ResolveAsync(original, 20, true, true, default);
+
+        Assert.False(result.Allowed);
+        Assert.Equal(expected, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CrossDomainResolver_PublishesDistinctCleanSanitizedDerivative()
+    {
+        await using var db = Context();
+        var original = ActiveFile("CLEAN", "SENSITIVE_DETECTED", "COMPLETED");
+        original.UploadedByUserId = 10;
+        var derivative = ActiveFile("CLEAN", null);
+        derivative.UploadedByUserId = 10;
+        db.Files.AddRange(original, derivative);
+        await db.SaveChangesAsync();
+        db.FileDerivatives.Add(new StoredFileDerivative
+        {
+            OriginalFileId = original.Id,
+            DerivedFileId = derivative.Id,
+            DerivativeTypeCode = FilePrivacyCodes.PrivacySanitized,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var result = await Resolver(db).ResolveAsync(original, 20, true, true, default);
+
+        Assert.True(result.Allowed);
+        Assert.Equal(derivative.Id, result.PublishedFile!.Id);
+        Assert.Equal("PRIVACY_SANITIZED_DERIVATIVE", result.PublicationMode);
+    }
+
+    [Fact]
+    public async Task CrossDomainResolver_RejectsSanitizedDerivativeThatIsNotClean()
+    {
+        await using var db = Context();
+        var original = ActiveFile("CLEAN", "SENSITIVE_DETECTED", "COMPLETED");
+        original.UploadedByUserId = 10;
+        var derivative = ActiveFile("NOT_INTEGRATED", null);
+        db.Files.AddRange(original, derivative);
+        await db.SaveChangesAsync();
+        db.FileDerivatives.Add(new StoredFileDerivative
+        {
+            OriginalFileId = original.Id,
+            DerivedFileId = derivative.Id,
+            DerivativeTypeCode = FilePrivacyCodes.PrivacySanitized,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var result = await Resolver(db).ResolveAsync(original, 20, true, true, default);
+
+        Assert.False(result.Allowed);
+        Assert.Equal("SECURITY_CHECK_REQUIRED", result.StatusCode);
+    }
+
+    private static SoodalLifeDbContext Context() => new(
+        new DbContextOptionsBuilder<SoodalLifeDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private static CrossDomainFilePublicationResolver Resolver(SoodalLifeDbContext db) =>
+        new(db, new FilePrivacyContract());
+
     private static StoredFile ActiveFile(string? malware, string? privacy, string? sanitization = null) => new()
     {
+        PurposeCode = "TEST_EVIDENCE",
+        StorageContainer = "test",
+        StorageKey = $"test/{Guid.NewGuid():N}",
+        StorageKeyHash = Guid.NewGuid().ToByteArray(),
+        OriginalFileName = "evidence.jpg",
+        ContentType = "image/jpeg",
+        SizeBytes = 100,
+        Sha256Hex = new string('a', 64),
         StatusCode = "ACTIVE",
         MalwareScanStatusCode = malware,
         PrivacyInspectionStatusCode = privacy,
         SanitizationStatusCode = sanitization,
+        CreatedAt = DateTime.UtcNow,
     };
 }

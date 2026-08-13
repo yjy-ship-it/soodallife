@@ -13,7 +13,7 @@ namespace SoodalLife.Api.Features.Work;
 
 public sealed class ProviderAftercareService(
     SoodalLifeDbContext db, IPrivateFileStorage storage, IPrivacyContract privacy,
-    IFilePrivacyContract filePrivacy)
+    ICrossDomainFilePublicationResolver filePublication)
 {
     private const int MaximumFileSize = 10 * 1024 * 1024;
     private static readonly HashSet<string> TerminalAfterService = ["RESOLVED", "UNRESOLVED_CLOSED", "CONVERTED_TO_DISPUTE"];
@@ -221,9 +221,9 @@ public sealed class ProviderAftercareService(
         var rows = await (from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id
                           where link.AfterServiceCaseId == item.Id && file.StatusCode == "ACTIVE" orderby link.CreatedAt select new { link, file }).ToListAsync(token);
         var result = new List<ProviderCaseFile>();
-        foreach (var row in rows) { var published = await PublishedFile(row.file, identity.UserId, token); if (published is null) continue;
+        foreach (var row in rows) { var publication = await filePublication.ResolveAsync(row.file, identity.UserId, true, true, token);var published=publication.PublishedFile??row.file;
             result.Add(ProviderFile(item.PublicId, published, row.link.RoleCode, row.link.Description, row.file.UploadedByUserId == identity.UserId ? "PROVIDER_UPLOAD" : "CUSTOMER_EVIDENCE",
-                published.Id == row.file.Id ? (row.file.UploadedByUserId == identity.UserId ? "OWNER_ORIGINAL" : "PRIVACY_SAFE_ORIGINAL") : "PRIVACY_SANITIZED_DERIVATIVE", "after-services")); }
+                publication.PublicationMode, "after-services", row.file.PublicId, publication.StatusCode, publication.Allowed?null:publication.Message, publication.Allowed)); }
         return result;
     }
 
@@ -232,20 +232,21 @@ public sealed class ProviderAftercareService(
         var rows = await (from evidence in db.DisputeEvidence.AsNoTracking() join file0 in db.Files.AsNoTracking() on evidence.FileId equals file0.Id into files
                           from file in files.DefaultIfEmpty() where evidence.DisputeCaseId == item.Id && evidence.StatusCode == "ACTIVE" orderby evidence.SubmittedAt select new { evidence, file }).ToListAsync(token);
         var result = new List<ProviderCaseFile>();
-        foreach (var row in rows) { if (row.file is null) continue; var published = await PublishedFile(row.file, identity.UserId, token); if (published is null) continue;
+        foreach (var row in rows) { if (row.file is null) continue; var publication = await filePublication.ResolveAsync(row.file, identity.UserId, true, true, token);var published=publication.PublishedFile??row.file;
             result.Add(ProviderFile(item.PublicId, published, null, row.evidence.Description, row.evidence.SourceTypeCode,
-                published.Id == row.file.Id ? (row.file.UploadedByUserId == identity.UserId ? "OWNER_ORIGINAL" : "PRIVACY_SAFE_ORIGINAL") : "PRIVACY_SANITIZED_DERIVATIVE", "disputes")); }
+                publication.PublicationMode, "disputes", row.file.PublicId, publication.StatusCode, publication.Allowed?null:publication.Message, publication.Allowed)); }
         return result;
     }
 
     private async Task<StoredFile?> PublishedFile(StoredFile original, long providerUserId, CancellationToken token)
     {
-        if (original.UploadedByUserId == providerUserId) return original.StatusCode == "ACTIVE" ? original : null;
-        var derivative = await (from relation in db.FileDerivatives.AsNoTracking() join file in db.Files.AsNoTracking() on relation.DerivedFileId equals file.Id
-                                where relation.OriginalFileId == original.Id && relation.DerivativeTypeCode == FilePrivacyCodes.PrivacySanitized
-                                orderby file.CreatedAt descending select file).FirstOrDefaultAsync(token);
-        var decision = filePrivacy.Evaluate(original, derivative, FileAccessAudience.SelectedProvider);
-        return decision.Allowed ? decision.PublishedFile : null;
+        var publication = await filePublication.ResolveAsync(
+            original,
+            providerUserId,
+            resourceParticipant: true,
+            fileLinkedToResource: true,
+            token);
+        return publication.Allowed ? publication.PublishedFile : null;
     }
 
     private IQueryable<AfterServiceCase> AssignedAfterServices(long providerId)
@@ -310,7 +311,7 @@ public sealed class ProviderAftercareService(
     private async Task<ProviderIdentity> Provider(ClaimsPrincipal principal, CancellationToken token) { if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) throw new WorkBusinessException("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", 401); var value = await (from user in db.Users where user.PublicId == id && user.StatusCode == "ACTIVE" join profile in db.ProviderProfiles on user.Id equals profile.UserId select new ProviderIdentity(user.Id, profile.Id)).SingleOrDefaultAsync(token); return value ?? throw new WorkBusinessException("PROVIDER_PROFILE_REQUIRED", "공급자 프로필이 필요합니다.", 403); }
     private Task<long> CustomerUser(long customer, CancellationToken token) => db.CustomerProfiles.Where(x => x.Id == customer).Select(x => x.UserId).SingleAsync(token);
     private static AfterServiceAction NewAfterAction(AfterServiceCase item, ProviderIdentity identity, string type, string to, string note, string key, DateTime now, DateTime? scheduled = null) => new() { AfterServiceCaseId = item.Id, FromStatusCode = item.StatusCode, ToStatusCode = to, ActionTypeCode = type, ActionNote = note, ScheduledAt = scheduled, ProviderProfileId = identity.ProviderId, OccurredAt = now, ActorUserId = identity.UserId, IdempotencyKey = Key(key) };
-    private static ProviderCaseFile ProviderFile(Guid caseId, StoredFile file, string? role, string? description, string source, string mode, string segment) => new(file.PublicId, SafeFileName(file.ContentType), file.ContentType, file.SizeBytes, Clean(role), Clean(description), source, mode, $"/api/v1/providers/me/{segment}/{caseId}/files/{file.PublicId}");
+    private static ProviderCaseFile ProviderFile(Guid caseId, StoredFile file, string? role, string? description, string source, string mode, string segment, Guid? linkedFileId = null, string status="AVAILABLE", string? message=null, bool allowed=true) => new(file.PublicId, SafeFileName(file.ContentType), file.ContentType, file.SizeBytes, Clean(role), Clean(description), source, mode, allowed?$"/api/v1/providers/me/{segment}/{caseId}/files/{linkedFileId ?? file.PublicId}":null,status,message);
     private static string SafeFileName(string contentType) => "evidence" + (contentType switch { "image/jpeg" => ".jpg", "image/png" => ".png", "application/pdf" => ".pdf", _ => ".bin" });
     private static string SourceType(long? tx, long? visit, long? interior) => interior.HasValue ? "INTERIOR" : visit.HasValue ? "SUBSCRIPTION" : tx.HasValue ? "TRANSACTION" : "OTHER";
     private static string Number(string prefix, Guid id) => $"{prefix}-{id.ToString("N")[..8].ToUpperInvariant()}";

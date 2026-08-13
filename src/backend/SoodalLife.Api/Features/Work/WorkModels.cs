@@ -54,7 +54,9 @@ public sealed record CompletionEvidenceResponse(
     string RoleName,
     int DisplayOrder,
     string? Description,
-    string DownloadUrl);
+    string? DownloadUrl,
+    string PublicationStatus = "AVAILABLE",
+    string? PublicationMessage = null);
 
 public sealed record WorkCompletionRevisionResponse(
     Guid Id,

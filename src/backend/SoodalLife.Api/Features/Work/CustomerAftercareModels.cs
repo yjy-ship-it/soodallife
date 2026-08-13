@@ -6,7 +6,7 @@ public sealed record ServiceHistoryListItem(
     string WarrantyDisplay, bool HasAfterService, bool HasReview, bool HasDispute);
 
 public sealed record ServiceHistoryLine(int LineNo, string ItemName, string? Description, decimal? Quantity, string? UnitText, decimal? Amount, string? CurrencyCode);
-public sealed record ServiceHistoryEvidence(Guid FileId, string FileName, string ContentType, string Role, string? Description, string DownloadUrl);
+public sealed record ServiceHistoryEvidence(Guid FileId, string FileName, string ContentType, string Role, string? Description, string? DownloadUrl, string PublicationStatus="AVAILABLE", string? PublicationMessage=null);
 public sealed record ServiceHistoryAsset(Guid Id, string Type, string Name, string? Manufacturer, string? ModelName);
 public sealed record ServiceHistoryDetail(
     Guid Id, Guid TransactionId, string Title, string Summary, string ServiceName, string? CategoryName,
@@ -19,7 +19,7 @@ public sealed record ServiceHistoryDetail(
 public sealed record CreateAfterServiceInput(
     string Subject, string Description, string? RequestDetails, DateTime? DesiredVisitAt,
     string IdempotencyKey);
-public sealed record AfterServiceEvidenceResponse(Guid FileId, string FileName, string ContentType, long SizeBytes, string? Role, string? Description, string DownloadUrl);
+public sealed record AfterServiceEvidenceResponse(Guid FileId, string FileName, string ContentType, long SizeBytes, string? Role, string? Description, string? DownloadUrl, string PublicationStatus="AVAILABLE", string? PublicationMessage=null);
 public sealed record AfterServiceTimelineItem(string Status, string DisplayStatus, string ActionType, string? PublicNote, DateTime? ScheduledAt, DateTime? PerformedAt, DateTime OccurredAt);
 public sealed record CustomerAfterServiceResponse(
     Guid Id, Guid? TransactionId, Guid? InteriorProjectId, Guid? ServiceHistoryId, string Subject, string Description, string? RequestDetails,

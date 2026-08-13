@@ -1,6 +1,6 @@
 export type InteriorDashboard={siteVisitCount:number;siteVisitResultPendingCount:number;designCount:number;contractCount:number;activeProjectCount:number;todayStageCount:number;stageUpdatePendingCount:number;inspectionCount:number;completionPendingCount:number;afterServiceCount:number;disputeCount:number}
 export type InteriorProject={id:string;projectNumber:string;serviceName:string;areaName:string;roles:string[];statusCode:string;nextAction:string;nextAt:string|null;customerActionRequired:boolean;pendingActionCount:number;rowVersion:string}
-export type InteriorFile={id:string;fileName:string;contentType:string;sizeBytes:number;publicationMode:string;downloadUrl:string}
+export type InteriorFile={id:string;fileName:string;contentType:string;sizeBytes:number;publicationMode:string;downloadUrl:string|null;publicationStatus:string;publicationMessage:string|null}
 export type InteriorVisit={id:string;statusCode:string;scheduledStartAt:string;scheduledEndAt:string|null;visitedAt:string|null;completedAt:string|null;measurementSummary:string|null;constraint:string|null;riskNote:string|null;files:InteriorFile[];rowVersion:string}
 export type InteriorDesign={id:string;versionNo:number;title:string;description:string|null;statusCode:string;customerApprovedAt:string|null;files:InteriorFile[];rowVersion:string}
 export type InteriorStage={id:string;sequenceNo:number;name:string;statusCode:string;progressPercent:number;plannedStartDate:string;plannedEndDate:string;assignedToMe:boolean;files:InteriorFile[];rowVersion:string}

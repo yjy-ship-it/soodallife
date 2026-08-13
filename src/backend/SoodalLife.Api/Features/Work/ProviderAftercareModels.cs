@@ -2,7 +2,7 @@ namespace SoodalLife.Api.Features.Work;
 
 public sealed record ProviderCaseSource(Guid? TransactionId, Guid? SubscriptionVisitId, Guid? InteriorProjectId, Guid? AfterServiceId);
 public sealed record ProviderCaseFile(Guid Id, string FileName, string ContentType, long SizeBytes, string? Role, string? Description,
-    string SourceType, string PublicationMode, string DownloadUrl);
+    string SourceType, string PublicationMode, string? DownloadUrl, string PublicationStatus="AVAILABLE", string? PublicationMessage=null);
 public sealed record ProviderAfterServiceTimeline(string ActionType, string Status, string DisplayStatus, string? Note,
     DateTime? ScheduledAt, DateTime? PerformedAt, DateTime OccurredAt);
 public sealed record ProviderAfterServiceListItem(Guid Id, string CaseNumber, string Subject, string Status, string DisplayStatus,

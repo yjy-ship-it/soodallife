@@ -5,12 +5,13 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Interior;
 
-public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core)
+public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication)
 {
     public async Task<IReadOnlyList<InteriorServiceResponse>> Services(CancellationToken token)
     {
@@ -94,9 +95,9 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
             join request in db.ServiceRequests.AsNoTracking() on project.ServiceRequestId equals request.Id join service in db.ServiceCategories.AsNoTracking() on project.ServiceCategoryId equals service.Id
             join area0 in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area0.Id into areas from area in areas.DefaultIfEmpty()
             where project.PublicId==id&&project.CustomerProfileId==identity.ProfileId select new{project,request,service,area}).SingleOrDefaultAsync(token)??throw NotFound("INTERIOR_PROJECT_NOT_FOUND","인테리어 프로젝트를 찾을 수 없습니다.");
-        var visits=new List<CustomerInteriorSiteVisit>();foreach(var visit in await db.InteriorSiteVisits.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderBy(x=>x.ScheduledStartAt).ToListAsync(token))visits.Add(await MapVisit(row.project,visit,token));
-        var quotes=await Quotes(row.project,token);var designs=await Designs(row.project,token);var contract=await Contract(row.project,identity.UserId,token);var stages=await Stages(row.project,token);
-        var changes=await Changes(row.project,token);var defects=await Defects(row.project,token);var disputes=await Disputes(row.project,token);
+        var visits=new List<CustomerInteriorSiteVisit>();foreach(var visit in await db.InteriorSiteVisits.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderBy(x=>x.ScheduledStartAt).ToListAsync(token))visits.Add(await MapVisit(row.project,visit,identity.UserId,token));
+        var quotes=await Quotes(row.project,token);var designs=await Designs(row.project,identity.UserId,token);var contract=await Contract(row.project,identity.UserId,token);var stages=await Stages(row.project,identity.UserId,token);
+        var changes=await Changes(row.project,identity.UserId,token);var defects=await Defects(row.project,identity.UserId,token);var disputes=await Disputes(row.project,token);
         var events=await db.InteriorProjectEvents.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderByDescending(x=>x.OccurredAt).Select(x=>new CustomerInteriorEvent(x.PublicId,x.EventTypeCode,EventDisplay(x.EventTypeCode),x.OccurredAt)).ToListAsync(token);
         var history=await db.ServiceHistoryEntries.AsNoTracking().Where(x=>x.InteriorProjectId==row.project.Id).OrderByDescending(x=>x.OccurredAt).Select(x=>new{x.Title,x.Summary,x.OccurredAt}).FirstOrDefaultAsync(token);
         var tx=await db.Transactions.AsNoTracking().Where(x=>x.ServiceRequestId==row.project.ServiceRequestId&&x.CustomerProfileId==identity.ProfileId).Select(x=>(Guid?)x.PublicId).FirstOrDefaultAsync(token);
@@ -159,7 +160,8 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var identity=await Customer(principal,token);var project=await OwnedProject(projectId,identity.ProfileId,token);
         var linked=await ProjectFileIds(project.Id).ContainsAsync(fileId,token);if(!linked)throw NotFound("INTERIOR_FILE_NOT_FOUND","프로젝트 파일을 찾을 수 없습니다.");
         var file=await db.Files.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==fileId&&x.StatusCode=="ACTIVE",token)??throw NotFound("INTERIOR_FILE_NOT_FOUND","프로젝트 파일을 찾을 수 없습니다.");
-        return(await storage.OpenReadAsync(file.StorageKey,token),file.ContentType,file.OriginalFileName);
+        var publication=await filePublication.ResolveAsync(file,identity.UserId,true,true,token);if(!publication.Allowed)throw new InteriorBusinessException(403,"INTERIOR_FILE_PRIVACY_BLOCKED",publication.Message);var published=publication.PublishedFile!;
+        return(await storage.OpenReadAsync(published.StorageKey,token),published.ContentType,published.OriginalFileName);
     }
 
     public async Task<CustomerInteriorUploadResponse> UploadEvidence(Guid projectId,IFormFile upload,ClaimsPrincipal principal,CancellationToken token)
@@ -168,15 +170,15 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var name=Path.GetFileName(upload.FileName);if(string.IsNullOrWhiteSpace(name)||name!=upload.FileName||name.Length>255)throw Conflict("INTERIOR_FILE_NAME_INVALID","안전한 파일명을 사용해 주세요.");var ext=Path.GetExtension(name).ToLowerInvariant();
         var allowed=(upload.ContentType.ToLowerInvariant(),ext) switch{("application/pdf",".pdf")=>true,("image/jpeg",".jpg" or ".jpeg")=>true,("image/png",".png")=>true,_=>false};if(!allowed)throw Conflict("INTERIOR_FILE_TYPE_INVALID","PDF, JPG, PNG 파일만 등록할 수 있습니다.");
         await using var source=upload.OpenReadStream();using var memory=new MemoryStream();await source.CopyToAsync(memory,token);var bytes=memory.ToArray();if(!ValidSignature(upload.ContentType,bytes))throw Conflict("INTERIOR_FILE_SIGNATURE_INVALID","파일 형식과 실제 내용이 일치하지 않습니다.");
-        var now=DateTime.UtcNow;var key=$"interior/{projectId:N}/{Guid.NewGuid():N}{ext}";var file=new StoredFile{PurposeCode="INTERIOR_EVIDENCE",StorageContainer="development-private",StorageKey=key,StorageKeyHash=SHA256.HashData(Encoding.UTF8.GetBytes(key)),OriginalFileName=name,ContentType=upload.ContentType.ToLowerInvariant(),SizeBytes=bytes.Length,Sha256Hex=Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),StatusCode="PENDING",UploadedByUserId=identity.UserId,CreatedAt=now};db.Files.Add(file);await db.SaveChangesAsync(token);
-        try{memory.Position=0;await storage.SaveAsync(key,memory,token);file.StatusCode="ACTIVE";file.ActivatedAt=now;file.ScanResultText="NOT_INTEGRATED";await db.SaveChangesAsync(token);return new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,"NOT_INTEGRATED");}catch{await storage.DeleteIfExistsAsync(key,token);throw;}
+        var now=DateTime.UtcNow;var key=$"interior/{projectId:N}/{Guid.NewGuid():N}{ext}";var file=new StoredFile{PurposeCode="INTERIOR_EVIDENCE",StorageContainer="development-private",StorageKey=key,StorageKeyHash=SHA256.HashData(Encoding.UTF8.GetBytes(key)),OriginalFileName=name,ContentType=upload.ContentType.ToLowerInvariant(),SizeBytes=bytes.Length,Sha256Hex=Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),StatusCode="PENDING",MalwareScanStatusCode=FilePrivacyCodes.NotIntegrated,PrivacyInspectionStatusCode=FilePrivacyCodes.NotIntegrated,SanitizationStatusCode=FilePrivacyCodes.NotIntegrated,UploadedByUserId=identity.UserId,CreatedAt=now};db.Files.Add(file);await db.SaveChangesAsync(token);
+        try{memory.Position=0;await storage.SaveAsync(key,memory,token);file.StatusCode="ACTIVE";file.ActivatedAt=now;file.ScanResultText=FilePrivacyCodes.NotIntegrated;await db.SaveChangesAsync(token);return new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,FilePrivacyCodes.NotIntegrated);}catch{await storage.DeleteIfExistsAsync(key,token);throw;}
     }
 
-    private async Task<CustomerInteriorSiteVisit> MapVisit(InteriorProject project,InteriorSiteVisit visit,CancellationToken token)
+    private async Task<CustomerInteriorSiteVisit> MapVisit(InteriorProject project,InteriorSiteVisit visit,long viewerUserId,CancellationToken token)
     {
         var provider=await db.ProviderProfiles.AsNoTracking().SingleAsync(x=>x.Id==visit.ProviderProfileId,token);var trust=await CurrentTrust(provider.Id,token);var reviews=await PublicReviewCount(provider.Id,token);
         var measurements=await db.InteriorSiteVisitMeasurements.AsNoTracking().Where(x=>x.SiteVisitId==visit.Id).OrderBy(x=>x.Id).Select(x=>new CustomerInteriorMeasurement(x.MeasurementKey,x.MeasurementValue,x.MeasurementText,x.UnitText,x.LocationText,x.NoteText)).ToListAsync(token);
-        var files=await (from link in db.InteriorSiteVisitFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.SiteVisitId==visit.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select File(project.PublicId,file,link.PurposeCode)).ToListAsync(token);
+        var fileRows=await (from link in db.InteriorSiteVisitFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.SiteVisitId==visit.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select new{File=file,Purpose=link.PurposeCode}).ToListAsync(token);var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);
         return new(visit.PublicId,provider.PublicId,provider.BusinessName,visit.StatusCode,VisitStatus(visit.StatusCode),visit.ScheduledStartAt,visit.ScheduledEndAt,visit.ConfirmedAt,visit.CompletedAt,trust,Trust(trust),reviews,project.SelectedSiteVisitProviderId==provider.Id,visit.StatusCode=="PROPOSED"&&project.SelectedSiteVisitProviderId==null,visit.MeasurementSummaryText,visit.ConstraintText,visit.RiskNoteText,measurements,files);
     }
 
@@ -186,29 +188,68 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         foreach(var row in rows){var items=await db.QuoteItems.AsNoTracking().Where(x=>x.QuoteRevisionId==row.revision.Id).OrderBy(x=>x.LineNo).Select(x=>new CustomerInteriorQuoteItem(x.LineNo,x.ItemName,x.Description,x.Quantity,x.UnitText,x.UnitPriceAmount,x.LineTotalAmount,x.WorkTradeText,x.SpaceText,x.MaterialSpecText,x.LaborNoteText)).ToListAsync(token);var trust=await CurrentTrust(row.provider.Id,token);result.Add(new(row.quote.PublicId,row.revision.PublicId,row.revision.RevisionNo,row.revision.RevisionPurposeCode??"PRELIMINARY",Purpose(row.revision.RevisionPurposeCode),row.provider.BusinessName,row.revision.TotalAmount,row.revision.VatAmount,row.revision.CurrencyCode,row.revision.EstimatedDurationText,row.revision.AvailableStartAt,row.revision.ValidUntil,row.revision.Summary,row.revision.Terms,trust,Trust(trust),await PublicReviewCount(row.provider.Id,token),items));}return result;
     }
 
-    private async Task<IReadOnlyList<CustomerInteriorDesign>> Designs(InteriorProject project,CancellationToken token)
-    {var rows=await db.InteriorDesignVersions.AsNoTracking().Where(x=>x.InteriorProjectId==project.Id).OrderByDescending(x=>x.VersionNo).ToListAsync(token);var result=new List<CustomerInteriorDesign>();foreach(var row in rows){var files=await(from link in db.InteriorDesignFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.DesignVersionId==row.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select File(project.PublicId,file,link.PurposeCode)).ToListAsync(token);result.Add(new(row.PublicId,row.VersionNo,row.Title,row.Description,row.StatusCode,row.CustomerApprovedAt,files));}return result;}
+    private async Task<IReadOnlyList<CustomerInteriorDesign>> Designs(InteriorProject project,long viewerUserId,CancellationToken token)
+    {var rows=await db.InteriorDesignVersions.AsNoTracking().Where(x=>x.InteriorProjectId==project.Id).OrderByDescending(x=>x.VersionNo).ToListAsync(token);var result=new List<CustomerInteriorDesign>();foreach(var row in rows){var fileRows=await(from link in db.InteriorDesignFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.DesignVersionId==row.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select new{File=file,Purpose=link.PurposeCode}).ToListAsync(token);var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);result.Add(new(row.PublicId,row.VersionNo,row.Title,row.Description,row.StatusCode,row.CustomerApprovedAt,files));}return result;}
 
     private async Task<CustomerInteriorContract?> Contract(InteriorProject project,long userId,CancellationToken token)
     {
         var row=await db.InteriorContracts.AsNoTracking().Where(x=>x.InteriorProjectId==project.Id).OrderByDescending(x=>x.ContractVersion).FirstOrDefaultAsync(token);if(row is null)return null;var provider=await db.ProviderProfiles.AsNoTracking().Where(x=>x.Id==row.ProviderProfileId).Select(x=>x.BusinessName).SingleAsync(token);
         var versions=await db.InteriorContractVersions.AsNoTracking().Where(x=>x.InteriorContractId==row.Id).OrderBy(x=>x.VersionNo).Select(x=>new CustomerInteriorContractVersion(x.VersionNo,x.ContractAmount,x.CurrencyCode,x.ScopeSnapshotJson,x.ScheduleSnapshotJson,x.PaymentPlanSnapshotJson,x.WarrantySnapshotJson,x.CustomerAgreedAt,x.ProviderAgreedAt,x.CreatedAt)).ToListAsync(token);
-        var plans=new List<CustomerInteriorPaymentPlan>();foreach(var plan in await db.InteriorPaymentPlans.AsNoTracking().Where(x=>x.InteriorContractId==row.Id).OrderBy(x=>x.SequenceNo).ToListAsync(token)){var confirms=await db.InteriorPaymentConfirmations.AsNoTracking().Where(x=>x.PaymentPlanId==plan.Id).OrderBy(x=>x.ConfirmedAt).Select(x=>new CustomerInteriorPaymentConfirmation(x.PublicId,x.ConfirmationTypeCode,x.ConfirmedAmount,x.ConfirmedAt,x.NoteText)).ToListAsync(token);plans.Add(new(plan.PublicId,plan.SequenceNo,plan.PaymentName,plan.PlannedAmount,plan.PlannedDueDate,plan.ConditionText,plan.StatusCode,confirms));}
+        var plans=new List<CustomerInteriorPaymentPlan>();
+        foreach(var plan in await db.InteriorPaymentPlans.AsNoTracking().Where(x=>x.InteriorContractId==row.Id).OrderBy(x=>x.SequenceNo).ToListAsync(token))
+        {
+            var confirms=new List<CustomerInteriorPaymentConfirmation>();
+            foreach(var confirmation in await db.InteriorPaymentConfirmations.AsNoTracking().Where(x=>x.PaymentPlanId==plan.Id).OrderBy(x=>x.ConfirmedAt).ToListAsync(token))
+            {
+                CustomerInteriorFile? evidence=null;
+                if(confirmation.EvidenceFileId.HasValue)
+                {
+                    var file=await db.Files.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==confirmation.EvidenceFileId.Value&&x.StatusCode=="ACTIVE",token);
+                    if(file is not null)evidence=(await PublishFiles(project.PublicId,userId,[(file,"PAYMENT_EVIDENCE")],token)).Single();
+                }
+                confirms.Add(new(confirmation.PublicId,confirmation.ConfirmationTypeCode,confirmation.ConfirmedAmount,confirmation.ConfirmedAt,confirmation.NoteText,evidence));
+            }
+            plans.Add(new(plan.PublicId,plan.SequenceNo,plan.PaymentName,plan.PlannedAmount,plan.PlannedDueDate,plan.ConditionText,plan.StatusCode,confirms));
+        }
         return new(row.PublicId,row.ContractVersion,provider,row.StatusCode,row.ContractAmount,row.CurrencyCode,row.ScopeSnapshotJson,row.ScheduleSnapshotJson,row.WarrantySnapshotJson,row.PlannedStartDate,row.PlannedCompletionDate,row.CustomerAgreedAt,row.ProviderAgreedAt,row.EffectiveAt,row.ProviderTrustScoreSnapshot,versions,plans);
     }
 
-    private async Task<IReadOnlyList<CustomerInteriorWorkStage>> Stages(InteriorProject project,CancellationToken token)
-    {var result=new List<CustomerInteriorWorkStage>();foreach(var stage in await db.InteriorWorkStages.AsNoTracking().Where(x=>x.InteriorProjectId==project.Id).OrderBy(x=>x.SequenceNo).ToListAsync(token)){var updates=new List<CustomerInteriorWorkUpdate>();foreach(var update in await db.InteriorWorkUpdates.AsNoTracking().Where(x=>x.WorkStageId==stage.Id).OrderByDescending(x=>x.CreatedAt).ToListAsync(token)){var files=await(from link in db.InteriorWorkUpdateFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.WorkUpdateId==update.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select File(project.PublicId,file,link.PurposeCode)).ToListAsync(token);updates.Add(new(update.PublicId,update.ProgressPercent,update.UpdateText,update.IssueText,update.CreatedAt,files));}var inspections=await(from inspection in db.InteriorStageInspections.AsNoTracking() join acknowledgement0 in db.InteriorStageInspectionAcknowledgements.AsNoTracking().Where(x=>x.CustomerProfileId==project.CustomerProfileId) on inspection.Id equals acknowledgement0.StageInspectionId into acknowledgements from acknowledgement in acknowledgements.DefaultIfEmpty() where inspection.WorkStageId==stage.Id orderby inspection.InspectedAt descending select new CustomerInteriorInspection(inspection.PublicId,inspection.InspectionStatusCode,inspection.ChecklistJson,inspection.ResultText,inspection.RequestedCorrectionText,inspection.InspectedAt,acknowledgement==null?null:acknowledgement.AcknowledgedAt,acknowledgement==null?null:acknowledgement.Comment)).ToListAsync(token);result.Add(new(stage.PublicId,stage.SequenceNo,stage.StageName,stage.PlannedStartDate,stage.PlannedEndDate,stage.ActualStartAt,stage.ActualEndAt,stage.ProgressPercent,stage.StatusCode,stage.ProviderNote,updates,inspections));}return result;}
+    private async Task<IReadOnlyList<CustomerInteriorWorkStage>> Stages(InteriorProject project,long viewerUserId,CancellationToken token)
+    {var result=new List<CustomerInteriorWorkStage>();foreach(var stage in await db.InteriorWorkStages.AsNoTracking().Where(x=>x.InteriorProjectId==project.Id).OrderBy(x=>x.SequenceNo).ToListAsync(token)){var updates=new List<CustomerInteriorWorkUpdate>();foreach(var update in await db.InteriorWorkUpdates.AsNoTracking().Where(x=>x.WorkStageId==stage.Id).OrderByDescending(x=>x.CreatedAt).ToListAsync(token)){var fileRows=await(from link in db.InteriorWorkUpdateFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.WorkUpdateId==update.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select new{File=file,Purpose=link.PurposeCode}).ToListAsync(token);var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);updates.Add(new(update.PublicId,update.ProgressPercent,update.UpdateText,update.IssueText,update.CreatedAt,files));}var inspections=await Inspections(project,stage.Id,viewerUserId,token);result.Add(new(stage.PublicId,stage.SequenceNo,stage.StageName,stage.PlannedStartDate,stage.PlannedEndDate,stage.ActualStartAt,stage.ActualEndAt,stage.ProgressPercent,stage.StatusCode,stage.ProviderNote,updates,inspections));}return result;}
 
-    private async Task<IReadOnlyList<CustomerInteriorChange>> Changes(InteriorProject project,CancellationToken token)=>await(from change in db.InteriorContractChanges.AsNoTracking() join contract in db.InteriorContracts.AsNoTracking() on change.InteriorContractId equals contract.Id where contract.InteriorProjectId==project.Id orderby change.RequestedAt descending select new CustomerInteriorChange(change.PublicId,change.ChangeNo,change.StatusCode,change.ChangeTypeCode,change.ReasonText,change.ScopeChangeText,change.AmountDelta,change.ScheduleImpactDays,change.RequestedAt,change.CustomerDecidedAt,change.StatusCode=="REQUESTED")).ToListAsync(token);
-    private async Task<IReadOnlyList<CustomerInteriorDefect>> Defects(InteriorProject project,CancellationToken token)
+    private async Task<IReadOnlyList<CustomerInteriorInspection>> Inspections(InteriorProject project,long stageId,long viewerUserId,CancellationToken token)
+    {
+        var rows=await(from inspection in db.InteriorStageInspections.AsNoTracking() join acknowledgement0 in db.InteriorStageInspectionAcknowledgements.AsNoTracking().Where(x=>x.CustomerProfileId==project.CustomerProfileId) on inspection.Id equals acknowledgement0.StageInspectionId into acknowledgements from acknowledgement in acknowledgements.DefaultIfEmpty() where inspection.WorkStageId==stageId orderby inspection.InspectedAt descending select new{Inspection=inspection,Acknowledgement=acknowledgement}).ToListAsync(token);
+        var result=new List<CustomerInteriorInspection>();
+        foreach(var row in rows)
+        {
+            var fileRows=await(from link in db.InteriorStageInspectionFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.StageInspectionId==row.Inspection.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select new{File=file,Purpose=link.PurposeCode}).ToListAsync(token);
+            var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);
+            result.Add(new(row.Inspection.PublicId,row.Inspection.InspectionStatusCode,row.Inspection.ChecklistJson,row.Inspection.ResultText,row.Inspection.RequestedCorrectionText,row.Inspection.InspectedAt,row.Acknowledgement?.AcknowledgedAt,row.Acknowledgement?.Comment,files));
+        }
+        return result;
+    }
+
+    private async Task<IReadOnlyList<CustomerInteriorChange>> Changes(InteriorProject project,long viewerUserId,CancellationToken token)
+    {
+        var rows=await(from change in db.InteriorContractChanges.AsNoTracking() join contract in db.InteriorContracts.AsNoTracking() on change.InteriorContractId equals contract.Id where contract.InteriorProjectId==project.Id orderby change.RequestedAt descending select change).ToListAsync(token);
+        var result=new List<CustomerInteriorChange>();
+        foreach(var change in rows)
+        {
+            var fileRows=await(from link in db.InteriorContractChangeFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.ContractChangeId==change.Id&&file.StatusCode=="ACTIVE" orderby link.DisplayOrder select new{File=file,Purpose=link.PurposeCode}).ToListAsync(token);
+            var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);
+            result.Add(new(change.PublicId,change.ChangeNo,change.StatusCode,change.ChangeTypeCode,change.ReasonText,change.ScopeChangeText,change.AmountDelta,change.ScheduleImpactDays,change.RequestedAt,change.CustomerDecidedAt,change.StatusCode=="REQUESTED",files));
+        }
+        return result;
+    }
+    private async Task<IReadOnlyList<CustomerInteriorDefect>> Defects(InteriorProject project,long viewerUserId,CancellationToken token)
     {
         var rows=await(from defect in db.InteriorDefects.AsNoTracking() join item in db.AfterServiceCases.AsNoTracking() on defect.AfterServiceCaseId equals item.Id join stage0 in db.InteriorWorkStages.AsNoTracking() on defect.WorkStageId equals stage0.Id into stages from stage in stages.DefaultIfEmpty() where defect.InteriorProjectId==project.Id orderby item.ReceivedAt descending select new{defect,item,StageId=stage==null?(Guid?)null:stage.PublicId}).ToListAsync(token);
         var result=new List<CustomerInteriorDefect>();
         foreach(var row in rows)
         {
             var actions=await db.AfterServiceActions.AsNoTracking().Where(x=>x.AfterServiceCaseId==row.item.Id).OrderBy(x=>x.OccurredAt).Select(x=>new CustomerInteriorAfterServiceAction(x.ActionTypeCode,x.FromStatusCode,x.ToStatusCode,x.ActionNote,x.ScheduledAt,x.PerformedAt,x.VisitOccurred,x.ResultText,x.OccurredAt)).ToListAsync(token);
-            var files=await(from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.AfterServiceCaseId==row.item.Id&&file.StatusCode=="ACTIVE" orderby link.CreatedAt select File(project.PublicId,file,link.RoleCode??"AFTER_SERVICE_EVIDENCE")).ToListAsync(token);
+            var fileRows=await(from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id where link.AfterServiceCaseId==row.item.Id&&file.StatusCode=="ACTIVE" orderby link.CreatedAt select new{File=file,Purpose=link.RoleCode??"AFTER_SERVICE_EVIDENCE"}).ToListAsync(token);var files=await PublishFiles(project.PublicId,viewerUserId,fileRows.Select(x=>(x.File,x.Purpose)),token);
             result.Add(new(row.defect.PublicId,row.item.PublicId,row.item.StatusCode,row.item.Subject,row.defect.DefectLocationText,row.defect.DefectDescription,row.StageId,row.defect.ContractVersion,row.item.ReceivedAt,actions,files));
         }
         return result;
@@ -219,9 +260,12 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         db.InteriorSiteVisitFiles.Where(x=>db.InteriorSiteVisits.Any(v=>v.Id==x.SiteVisitId&&v.InteriorProjectId==projectId)).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First())
         .Concat(db.InteriorDesignFiles.Where(x=>db.InteriorDesignVersions.Any(v=>v.Id==x.DesignVersionId&&v.InteriorProjectId==projectId)).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()))
         .Concat(db.InteriorWorkUpdateFiles.Where(x=>db.InteriorWorkUpdates.Any(u=>u.Id==x.WorkUpdateId&&db.InteriorWorkStages.Any(s=>s.Id==u.WorkStageId&&s.InteriorProjectId==projectId))).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()))
+        .Concat(db.InteriorStageInspectionFiles.Where(x=>db.InteriorStageInspections.Any(i=>i.Id==x.StageInspectionId&&db.InteriorWorkStages.Any(s=>s.Id==i.WorkStageId&&s.InteriorProjectId==projectId))).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()))
+        .Concat(db.InteriorContractChangeFiles.Where(x=>db.InteriorContractChanges.Any(c=>c.Id==x.ContractChangeId&&db.InteriorContracts.Any(k=>k.Id==c.InteriorContractId&&k.InteriorProjectId==projectId))).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()))
+        .Concat(db.InteriorPaymentConfirmations.Where(x=>x.EvidenceFileId!=null&&db.InteriorPaymentPlans.Any(p=>p.Id==x.PaymentPlanId&&db.InteriorContracts.Any(k=>k.Id==p.InteriorContractId&&k.InteriorProjectId==projectId))).Select(x=>db.Files.Where(f=>f.Id==x.EvidenceFileId).Select(f=>f.PublicId).First()))
         .Concat(db.AfterServiceFiles.Where(x=>db.AfterServiceCases.Any(a=>a.Id==x.AfterServiceCaseId&&a.InteriorProjectId==projectId)).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()))
         .Concat(db.DisputeEvidence.Where(x=>x.FileId!=null&&db.DisputeCases.Any(d=>d.Id==x.DisputeCaseId&&d.InteriorProjectId==projectId)).Select(x=>db.Files.Where(f=>f.Id==x.FileId).Select(f=>f.PublicId).First()));
-    private static CustomerInteriorFile File(Guid projectId,StoredFile file,string purpose)=>new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,purpose,$"/api/v1/customers/me/interior/projects/{projectId}/files/{file.PublicId}");
+    private async Task<IReadOnlyList<CustomerInteriorFile>> PublishFiles(Guid projectId,long viewerUserId,IEnumerable<(StoredFile File,string Purpose)> rows,CancellationToken token){var result=new List<CustomerInteriorFile>();foreach(var row in rows){var publication=await filePublication.ResolveAsync(row.File,viewerUserId,true,true,token);var published=publication.PublishedFile??row.File;result.Add(new(row.File.PublicId,publication.Allowed?published.OriginalFileName:"evidence",published.ContentType,published.SizeBytes,row.Purpose,publication.Allowed?$"/api/v1/customers/me/interior/projects/{projectId}/files/{row.File.PublicId}":null,publication.StatusCode,publication.Allowed?null:publication.Message));}return result;}
     private async Task<List<StoredFile>> OwnedFiles(IReadOnlyList<Guid>? ids,long userId,CancellationToken token){if(ids is null||ids.Count==0)return[];var values=ids.Distinct().ToArray();var files=await db.Files.Where(x=>values.Contains(x.PublicId)&&x.StatusCode=="ACTIVE"&&x.UploadedByUserId==userId).ToListAsync(token);if(files.Count!=values.Length)throw NotFound("INTERIOR_FILE_NOT_FOUND","사용할 수 없는 증빙파일이 포함되어 있습니다.");return files;}
     private async Task<int> PublicReviewCount(long providerId,CancellationToken token)=>await db.Reviews.AsNoTracking().CountAsync(x=>x.ProviderProfileId==providerId&&x.VisibilityStatusCode=="PUBLIC"&&(x.VerificationStatusCode=="VERIFIED_TRANSACTION"||x.VerificationStatusCode=="VERIFIED_SUBSCRIPTION_VISIT"),token);
     private async Task<decimal?> CurrentTrust(long providerId,CancellationToken token){var value=await db.ProviderTrustScoreCurrent.AsNoTracking().Where(x=>x.ProviderProfileId==providerId&&x.EvaluationStatusCode=="CALCULATED").Select(x=>(decimal?)x.Score).SingleOrDefaultAsync(token);return value;}

@@ -82,6 +82,7 @@ builder.Services.AddScoped<CatalogQueryService>();
 builder.Services.AddScoped<PublicCatalogQueryService>();
 builder.Services.AddScoped<CustomerServiceRequestService>();
 builder.Services.AddSingleton<IFilePrivacyContract, FilePrivacyContract>();
+builder.Services.AddScoped<ICrossDomainFilePublicationResolver, CrossDomainFilePublicationResolver>();
 builder.Services.AddScoped<ServiceRequestFilePrivacyResolver>();
 builder.Services.AddScoped<ProviderConfigurationService>();
 builder.Services.AddScoped<ProviderOperationsHubService>();

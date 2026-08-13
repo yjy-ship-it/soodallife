@@ -43,7 +43,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         var submitted = await (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).Content.ReadFromJsonAsync<WorkCompletionRevisionResponse>();
         Assert.Equal("SUBMITTED", submitted!.Status); Assert.True(submitted.Policy.IsSatisfied); Assert.Equal(2, submitted.Evidence.Count);
         Assert.Equal(submitted.Id, (await (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).Content.ReadFromJsonAsync<WorkCompletionRevisionResponse>())!.Id);
-        Assert.Equal(HttpStatusCode.OK, (await customer.GetAsync(before.DownloadUrl)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync(before.DownloadUrl)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync(before.DownloadUrl)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync(before.DownloadUrl)).StatusCode);
 

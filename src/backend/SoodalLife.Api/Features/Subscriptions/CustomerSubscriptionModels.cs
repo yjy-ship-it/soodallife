@@ -112,7 +112,9 @@ public sealed record CustomerSubscriptionVisitFileResponse(
     string ContentType,
     long SizeBytes,
     int DisplayOrder,
-    string DownloadUrl);
+    string? DownloadUrl,
+    string PublicationStatus = "AVAILABLE",
+    string? PublicationMessage = null);
 
 public sealed record CustomerSubscriptionVisitListItem(
     Guid Id,

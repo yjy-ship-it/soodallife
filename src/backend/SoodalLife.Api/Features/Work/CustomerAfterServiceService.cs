@@ -5,11 +5,12 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Work;
 
-public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivateFileStorage storage)
+public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivateFileStorage storage, ICrossDomainFilePublicationResolver filePublication)
 {
     private const int MaximumFileSize = 10 * 1024 * 1024;
 
@@ -42,14 +43,22 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var transaction = await db.Transactions.AsNoTracking().SingleAsync(x => x.Id == row.TransactionId.Value, token);
         var lines = await db.ServiceHistoryItems.AsNoTracking().Where(x => x.ServiceHistoryEntryId == row.Id).OrderBy(x => x.LineNo)
             .Select(x => new ServiceHistoryLine(x.LineNo, x.ItemName, x.Description, x.Quantity, x.UnitText, x.Amount, x.CurrencyCode)).ToListAsync(token);
-        var evidence = row.SourceCompletionRevisionId.HasValue
+        var evidenceRows = row.SourceCompletionRevisionId.HasValue
             ? await (from link in db.CompletionEvidenceFiles.AsNoTracking()
                      join file in db.Files.AsNoTracking() on link.FileId equals file.Id
                      join role in db.CompletionPhotoRoles.AsNoTracking() on link.PhotoRoleId equals role.Id
                      where link.CompletionRevisionId == row.SourceCompletionRevisionId && file.StatusCode == "ACTIVE"
-                     orderby link.DisplayOrder
-                     select new ServiceHistoryEvidence(file.PublicId, file.OriginalFileName, file.ContentType, role.Name, link.Description, "/api/v1/files/" + file.PublicId)).ToListAsync(token)
+                     orderby link.DisplayOrder select new { Link = link, File = file, Role = role }).ToListAsync(token)
             : [];
+        var evidence = new List<ServiceHistoryEvidence>(evidenceRows.Count);
+        foreach (var item in evidenceRows)
+        {
+            var publication = await filePublication.ResolveAsync(item.File, identity.UserId, true, true, token);
+            var published = publication.PublishedFile ?? item.File;
+            evidence.Add(new(item.File.PublicId, publication.Allowed ? published.OriginalFileName : "evidence", published.ContentType, item.Role.Name,
+                item.Link.Description, publication.Allowed ? "/api/v1/files/" + item.File.PublicId : null,
+                publication.StatusCode, publication.Allowed ? null : publication.Message));
+        }
         var assets = await (from link in db.TransactionAssetLinks.AsNoTracking()
                             join asset in db.ServiceAssets.AsNoTracking() on link.ServiceAssetId equals asset.Id
                             where link.TransactionId == transaction.Id && link.StatusCode == "ACTIVE" && asset.CustomerProfileId == identity.ProfileId
@@ -136,6 +145,12 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var file = await (from link in db.AfterServiceFiles.AsNoTracking() join f in db.Files.AsNoTracking() on link.FileId equals f.Id
                           where link.AfterServiceCaseId == access.CaseId && f.PublicId == fileId && f.StatusCode == "ACTIVE" select f).SingleOrDefaultAsync(token)
                    ?? throw NotFound("AFTER_SERVICE_FILE_NOT_FOUND", "A/S 증빙 파일을 찾을 수 없습니다.");
+        if (!access.IsAdmin)
+        {
+            var publication = await filePublication.ResolveAsync(file, access.UserId, true, true, token);
+            if (!publication.Allowed) throw new WorkBusinessException("FILE_PRIVACY_BLOCKED", publication.Message, 403);
+            file = publication.PublishedFile!;
+        }
         return (await storage.OpenReadAsync(file.StorageKey, token), file.ContentType, file.OriginalFileName);
     }
 
@@ -174,9 +189,21 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var publicNoteTypes = new HashSet<string>(StringComparer.Ordinal) { "RECEIVED", "PROVIDER_CONFIRMATION", "VISIT_SCHEDULED", "VISIT", "REVISIT", "TREATMENT", "RESOLUTION", "UNRESOLVED_CLOSURE", "DISPUTE_CONVERSION" };
         var timeline = actionRows.Select(x => new AfterServiceTimelineItem(x.ToStatusCode, AfterServiceDisplay(x.ToStatusCode), x.ActionTypeCode,
             isAdmin || publicNoteTypes.Contains(x.ActionTypeCode) ? x.ActionNote : null, x.ScheduledAt, x.PerformedAt, x.OccurredAt)).ToList();
-        var files = await (from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id
-                           where link.AfterServiceCaseId == id && file.StatusCode == "ACTIVE" orderby link.CreatedAt
-                           select new AfterServiceEvidenceResponse(file.PublicId, file.OriginalFileName, file.ContentType, file.SizeBytes, link.RoleCode, link.Description, $"/api/v1/after-services/{item.PublicId}/files/{file.PublicId}")).ToListAsync(token);
+        var fileRows = await (from link in db.AfterServiceFiles.AsNoTracking() join file in db.Files.AsNoTracking() on link.FileId equals file.Id
+                              where link.AfterServiceCaseId == id && file.StatusCode == "ACTIVE" orderby link.CreatedAt
+                              select new { Link = link, File = file }).ToListAsync(token);
+        var files = new List<AfterServiceEvidenceResponse>(fileRows.Count);
+        foreach (var row in fileRows)
+        {
+            var publication = isAdmin
+                ? new FilePublicationResult(true, row.File, "ADMIN_AUTHORIZED", "AVAILABLE", "다운로드할 수 있습니다.")
+                : await filePublication.ResolveAsync(row.File, userId, true, true, token);
+            var published = publication.PublishedFile ?? row.File;
+            files.Add(new(row.File.PublicId, publication.Allowed ? published.OriginalFileName : "evidence", published.ContentType, published.SizeBytes,
+                row.Link.RoleCode, row.Link.Description,
+                publication.Allowed ? $"/api/v1/after-services/{item.PublicId}/files/{row.File.PublicId}" : null,
+                publication.StatusCode, publication.Allowed ? null : publication.Message));
+        }
         return new(item.PublicId, transactionId, interiorProjectId, historyId, item.Subject, item.Description, item.RequestDetails, item.StatusCode,
             AfterServiceDisplay(item.StatusCode), item.ReceivedAt, item.WarrantyStartDate, item.WarrantyEndDate, item.IsWithinWarranty,
             Warranty(item.WarrantyEndDate), item.DueAt, item.ProviderConfirmedAt, item.ProviderResponseText, item.VisitRequired,
@@ -189,7 +216,8 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var transactionId = await db.Transactions.AsNoTracking().Where(x => x.Id == row.TransactionId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var interiorProjectId = await db.InteriorProjects.AsNoTracking().Where(x => x.Id == row.InteriorProjectId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var split = SplitDispute(row.Description);
-        var evidence = await (from e in db.DisputeEvidence.AsNoTracking() join f0 in db.Files.AsNoTracking() on e.FileId equals f0.Id into fs from f in fs.DefaultIfEmpty() where e.DisputeCaseId == id && e.StatusCode == "ACTIVE" orderby e.SubmittedAt select new CustomerDisputeEvidenceResponse(e.PublicId, f == null ? null : f.PublicId, e.SourceTypeCode, e.Description, e.SubmittedAt, f == null ? null : "/api/v1/customers/me/dispute-files/" + f.PublicId)).ToListAsync(token);
+        var evidenceRows = await (from e in db.DisputeEvidence.AsNoTracking() join f0 in db.Files.AsNoTracking() on e.FileId equals f0.Id into fs from f in fs.DefaultIfEmpty() where e.DisputeCaseId == id && e.StatusCode == "ACTIVE" orderby e.SubmittedAt select new { Evidence=e, File=f }).ToListAsync(token);
+        var evidence=new List<CustomerDisputeEvidenceResponse>(evidenceRows.Count);foreach(var item in evidenceRows){if(item.File is null){evidence.Add(new(item.Evidence.PublicId,null,item.Evidence.SourceTypeCode,item.Evidence.Description,item.Evidence.SubmittedAt,null));continue;}var publication=await filePublication.ResolveAsync(item.File,customerUserId,true,true,token);evidence.Add(new(item.Evidence.PublicId,item.File.PublicId,item.Evidence.SourceTypeCode,item.Evidence.Description,item.Evidence.SubmittedAt,publication.Allowed?"/api/v1/customers/me/dispute-files/"+item.File.PublicId:null,publication.StatusCode,publication.Allowed?null:publication.Message));}
         var resolution = await db.DisputeResolutions.AsNoTracking().Where(x => x.DisputeCaseId == id && x.IsCurrent).Select(x => new { x.ResultSummary, x.FollowUpAction }).SingleOrDefaultAsync(token);
         var updates = await db.DisputeActions.AsNoTracking().Where(x => x.DisputeCaseId == id && x.ToStatusCode != null && (x.ActionTypeCode == "CREATED" || x.ActionTypeCode == "STATUS_CHANGE" || x.ActionTypeCode == "RESOLUTION"))
             .OrderBy(x => x.OccurredAt).Select(x => new CustomerDisputeUpdate(DisputeDisplay(x.ToStatusCode!), x.OccurredAt)).ToListAsync(token);
@@ -246,7 +274,7 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
     }
 
     private static StoredFile NewFile(string purpose, string key, IFormFile upload, byte[] bytes, long actor, DateTime now) => new()
-    { PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = Path.GetFileName(upload.FileName), ContentType = upload.ContentType.ToLowerInvariant(), SizeBytes = bytes.Length, Sha256Hex = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), StatusCode = "PENDING", UploadedByUserId = actor, CreatedAt = now };
+    { PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = Path.GetFileName(upload.FileName), ContentType = upload.ContentType.ToLowerInvariant(), SizeBytes = bytes.Length, Sha256Hex = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), StatusCode = "PENDING", MalwareScanStatusCode=FilePrivacyCodes.NotIntegrated, PrivacyInspectionStatusCode=FilePrivacyCodes.NotIntegrated, SanitizationStatusCode=FilePrivacyCodes.NotIntegrated, UploadedByUserId = actor, CreatedAt = now };
     private static string Required(string? value, int max) { var result = value?.Trim(); if (string.IsNullOrWhiteSpace(result) || result.Length > max) throw Invalid("CASE_INPUT_INVALID", "필수 입력값을 확인해 주세요."); return result; }
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static Guid PrincipalId(ClaimsPrincipal principal) => Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : throw new InvalidOperationException("Authenticated user identifier is invalid.");

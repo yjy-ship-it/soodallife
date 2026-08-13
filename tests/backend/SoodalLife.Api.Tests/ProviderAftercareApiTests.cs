@@ -56,8 +56,8 @@ public sealed class ProviderAftercareApiTests(AuthenticationWebApplicationFactor
     {
         var id = await SeedAfterService("IN_PROGRESS", addFiles: true); using var client = Client(); await Login(client, factory.Credentials[RoleCodes.Provider]);
         var detail = await client.GetFromJsonAsync<ProviderAfterServiceDetail>($"/api/v1/providers/me/after-services/{id}");
-        Assert.NotNull(detail); Assert.Single(detail.Evidence); Assert.Equal("PROVIDER_UPLOAD", detail.Evidence[0].SourceType);
-        Assert.DoesNotContain(detail.Evidence, x => x.SourceType == "CUSTOMER_EVIDENCE");
+        Assert.NotNull(detail); Assert.Equal(2, detail.Evidence.Count); Assert.Contains(detail.Evidence, x => x.SourceType == "PROVIDER_UPLOAD" && x.DownloadUrl is not null);
+        Assert.Contains(detail.Evidence, x => x.SourceType == "CUSTOMER_EVIDENCE" && x.DownloadUrl is null && x.PublicationStatus == "SECURITY_CHECK_REQUIRED");
     }
 
     [Fact]

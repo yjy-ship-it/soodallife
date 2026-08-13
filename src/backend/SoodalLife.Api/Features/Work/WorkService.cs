@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
 
@@ -16,7 +17,8 @@ public sealed class WorkService(
     SoodalLifeDbContext db,
     CompletionPolicyEvaluator policyEvaluator,
     IPrivateFileStorage fileStorage,
-    IPrivacyContract privacyContract)
+    IPrivacyContract privacyContract,
+    ICrossDomainFilePublicationResolver filePublication)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     private static readonly IReadOnlyDictionary<string, (string Extension, byte[][] Signatures)> AllowedImages =
@@ -48,7 +50,7 @@ public sealed class WorkService(
         var transaction = await db.Transactions.AsNoTracking().SingleOrDefaultAsync(
             item => item.PublicId == transactionId && item.ProviderProfileId == identity.ProfileId, cancellationToken)
             ?? throw NotFound();
-        return await BuildDetailAsync(transaction, providerView: true, cancellationToken);
+        return await BuildDetailAsync(transaction, providerView: true, identity.UserId, cancellationToken);
     }
 
     public async Task<WorkTransactionDetail> GetCustomerDetailAsync(
@@ -58,7 +60,7 @@ public sealed class WorkService(
         var transaction = await db.Transactions.AsNoTracking().SingleOrDefaultAsync(
             item => item.PublicId == transactionId && item.CustomerProfileId == identity.ProfileId, cancellationToken)
             ?? throw NotFound();
-        return await BuildDetailAsync(transaction, providerView: false, cancellationToken);
+        return await BuildDetailAsync(transaction, providerView: false, identity.UserId, cancellationToken);
     }
 
     public async Task<WorkTransactionDetail> StartAsync(
@@ -66,7 +68,7 @@ public sealed class WorkService(
     {
         var identity = await ProviderIdentityAsync(principal, cancellationToken);
         var transaction = await OwnedProviderTransactionAsync(identity.ProfileId, transactionId, cancellationToken);
-        if (transaction.StatusCode == "IN_PROGRESS") return await BuildDetailAsync(transaction, true, cancellationToken);
+        if (transaction.StatusCode == "IN_PROGRESS") return await BuildDetailAsync(transaction, true, identity.UserId, cancellationToken);
         if (transaction.StatusCode != "CREATED") throw Conflict("TRANSACTION_STATE_CONFLICT", "현재 상태에서는 작업을 시작할 수 없습니다.");
         if (!await db.TransactionAppointments.AsNoTracking().AnyAsync(item => item.TransactionId == transaction.Id && item.StatusCode == "CONFIRMED", cancellationToken))
             throw Conflict("CONFIRMED_APPOINTMENT_REQUIRED", "상호 승인된 일정이 있어야 작업을 시작할 수 있습니다.");
@@ -77,7 +79,7 @@ public sealed class WorkService(
         transaction.UpdatedByUserId = identity.UserId;
         db.OutboxEvents.Add(NewOutbox(transaction, "TRANSACTION_STARTED", identity.UserId, now));
         await db.SaveChangesAsync(cancellationToken);
-        return await BuildDetailAsync(transaction, true, cancellationToken);
+        return await BuildDetailAsync(transaction, true, identity.UserId, cancellationToken);
     }
 
     public async Task<WorkCompletionRevisionResponse> SaveDraftAsync(
@@ -95,7 +97,7 @@ public sealed class WorkService(
         {
             var completionId = await db.WorkCompletions.Where(item => item.TransactionId == transaction.Id).Select(item => item.Id).SingleAsync(cancellationToken);
             if (existing.WorkCompletionId != completionId) throw Conflict("IDEMPOTENCY_KEY_CONFLICT", "다른 작업에 사용된 요청 키입니다.");
-            return await BuildRevisionAsync(transaction, existing, cancellationToken);
+            return await BuildRevisionAsync(transaction, existing, identity.UserId, cancellationToken);
         }
 
         var now = DateTime.UtcNow;
@@ -145,7 +147,7 @@ public sealed class WorkService(
             }));
             await db.SaveChangesAsync(cancellationToken);
         }
-        return await BuildRevisionAsync(transaction, revision, cancellationToken);
+        return await BuildRevisionAsync(transaction, revision, identity.UserId, cancellationToken);
     }
 
     public async Task<CompletionEvidenceResponse> UploadEvidenceAsync(
@@ -176,7 +178,9 @@ public sealed class WorkService(
             PurposeCode = "COMPLETION_EVIDENCE", StorageContainer = "development-private", StorageKey = storageKey,
             StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(storageKey)), OriginalFileName = originalName,
             ContentType = contentType, SizeBytes = upload.Length, Sha256Hex = Convert.ToHexString(contentHash).ToLowerInvariant(),
-            StatusCode = "PENDING", UploadedByUserId = identity.UserId, CreatedAt = now,
+            StatusCode = "PENDING", MalwareScanStatusCode = FilePrivacyCodes.NotIntegrated,
+            PrivacyInspectionStatusCode = FilePrivacyCodes.NotIntegrated, SanitizationStatusCode = FilePrivacyCodes.NotIntegrated,
+            UploadedByUserId = identity.UserId, CreatedAt = now,
         };
         db.Files.Add(stored);
         await db.SaveChangesAsync(cancellationToken);
@@ -186,7 +190,7 @@ public sealed class WorkService(
             await fileStorage.SaveAsync(storageKey, input, cancellationToken);
             stored.StatusCode = "ACTIVE";
             stored.ActivatedAt = now;
-            stored.ScanResultText = "Development-only signature validation; malware scanning is not configured.";
+            stored.ScanResultText = FilePrivacyCodes.NotIntegrated;
             var order = await db.CompletionEvidenceFiles.CountAsync(item => item.CompletionRevisionId == revision.Id, cancellationToken) + 1;
             var link = new CompletionEvidenceFile
             {
@@ -215,7 +219,7 @@ public sealed class WorkService(
         var revision = await db.WorkCompletionRevisions.SingleAsync(
             item => item.WorkCompletionId == completion.Id && item.RevisionNo == completion.LatestRevisionNo, cancellationToken);
         if (transaction.StatusCode == "COMPLETION_SUBMITTED" && revision.StatusCode == "SUBMITTED")
-            return await BuildRevisionAsync(transaction, revision, cancellationToken);
+            return await BuildRevisionAsync(transaction, revision, identity.UserId, cancellationToken);
         if (transaction.StatusCode is not ("IN_PROGRESS" or "REVISION_REQUESTED") || revision.StatusCode != "DRAFT")
             throw Conflict("TRANSACTION_STATE_CONFLICT", "현재 상태에서는 완료 내용을 제출할 수 없습니다.");
         var roleCodes = await EvidenceRoleCodesAsync(revision.Id, cancellationToken);
@@ -235,7 +239,7 @@ public sealed class WorkService(
         transaction.UpdatedByUserId = identity.UserId;
         db.OutboxEvents.Add(NewOutbox(transaction, "COMPLETION_SUBMITTED", identity.UserId, now));
         await db.SaveChangesAsync(cancellationToken);
-        return await BuildRevisionAsync(transaction, revision, cancellationToken);
+        return await BuildRevisionAsync(transaction, revision, identity.UserId, cancellationToken);
     }
 
     public async Task<CompletionConfirmationResponse> ConfirmAsync(
@@ -345,8 +349,12 @@ public sealed class WorkService(
             join customerUser in db.Users.AsNoTracking() on customer.UserId equals customerUser.Id
             where file.PublicId == fileId && file.StatusCode == "ACTIVE" &&
                   (providerUser.PublicId == userPublicId || customerUser.PublicId == userPublicId)
-            select file).SingleOrDefaultAsync(cancellationToken) ?? throw NotFound("FILE_NOT_FOUND");
-        return (await fileStorage.OpenReadAsync(row.StorageKey, cancellationToken), row.ContentType, row.OriginalFileName);
+            select new { File = file, ViewerUserId = providerUser.PublicId == userPublicId ? providerUser.Id : customerUser.Id })
+            .SingleOrDefaultAsync(cancellationToken) ?? throw NotFound("FILE_NOT_FOUND");
+        var publication = await filePublication.ResolveAsync(row.File, row.ViewerUserId, true, true, cancellationToken);
+        if (!publication.Allowed) throw new WorkBusinessException("FILE_PRIVACY_BLOCKED", publication.Message, 403);
+        var published = publication.PublishedFile!;
+        return (await fileStorage.OpenReadAsync(published.StorageKey, cancellationToken), published.ContentType, published.OriginalFileName);
     }
 
     private async Task<IReadOnlyList<WorkTransactionListItem>> ListAsync(long? providerId, long? customerId, CancellationToken cancellationToken)
@@ -368,7 +376,7 @@ public sealed class WorkService(
             x.AgreedAmount, x.CurrencyCode, x.Status, x.CreatedAt, DisplayStatus(x.Status), StatusGroup(x.Status))).ToArray();
     }
 
-    private async Task<WorkTransactionDetail> BuildDetailAsync(TransactionRecord transaction, bool providerView, CancellationToken cancellationToken)
+    private async Task<WorkTransactionDetail> BuildDetailAsync(TransactionRecord transaction, bool providerView, long viewerUserId, CancellationToken cancellationToken)
     {
         var baseData = await (from request in db.ServiceRequests.AsNoTracking()
                               join category in db.ServiceCategories.AsNoTracking() on request.CategoryId equals category.Id
@@ -402,7 +410,7 @@ public sealed class WorkService(
         {
             var revisions = await db.WorkCompletionRevisions.AsNoTracking().Where(item => item.WorkCompletionId == completion.Id)
                 .OrderBy(item => item.RevisionNo).ToListAsync(cancellationToken);
-            foreach (var item in revisions) revisionResponses.Add(await BuildRevisionAsync(transaction, item, cancellationToken));
+            foreach (var item in revisions) revisionResponses.Add(await BuildRevisionAsync(transaction, item, viewerUserId, cancellationToken));
             revisionResponse = revisionResponses.Last();
             roleCodes = revisionResponse.Evidence.Select(item => item.RoleCode).ToArray();
         }
@@ -444,16 +452,24 @@ public sealed class WorkService(
     }
 
     private async Task<WorkCompletionRevisionResponse> BuildRevisionAsync(
-        TransactionRecord transaction, WorkCompletionRevision revision, CancellationToken cancellationToken)
+        TransactionRecord transaction, WorkCompletionRevision revision, long viewerUserId, CancellationToken cancellationToken)
     {
-        var evidence = await (from link in db.CompletionEvidenceFiles.AsNoTracking()
-                              join file in db.Files.AsNoTracking() on link.FileId equals file.Id
-                              join role in db.CompletionPhotoRoles.AsNoTracking() on link.PhotoRoleId equals role.Id
-                              where link.CompletionRevisionId == revision.Id && file.StatusCode == "ACTIVE"
-                              orderby link.DisplayOrder
-                              select new CompletionEvidenceResponse(file.PublicId, file.OriginalFileName, file.ContentType, file.SizeBytes,
-                                  role.Code, role.Name, link.DisplayOrder, link.Description, "/api/v1/files/" + file.PublicId))
-            .ToListAsync(cancellationToken);
+        var evidenceRows = await (from link in db.CompletionEvidenceFiles.AsNoTracking()
+                                  join file in db.Files.AsNoTracking() on link.FileId equals file.Id
+                                  join role in db.CompletionPhotoRoles.AsNoTracking() on link.PhotoRoleId equals role.Id
+                                  where link.CompletionRevisionId == revision.Id && file.StatusCode == "ACTIVE"
+                                  orderby link.DisplayOrder
+                                  select new { Link = link, File = file, Role = role }).ToListAsync(cancellationToken);
+        var evidence = new List<CompletionEvidenceResponse>(evidenceRows.Count);
+        foreach (var row in evidenceRows)
+        {
+            var publication = await filePublication.ResolveAsync(row.File, viewerUserId, true, true, cancellationToken);
+            var published = publication.PublishedFile ?? row.File;
+            evidence.Add(new(row.File.PublicId, publication.Allowed ? published.OriginalFileName : "evidence", published.ContentType, published.SizeBytes,
+                row.Role.Code, row.Role.Name, row.Link.DisplayOrder, row.Link.Description,
+                publication.Allowed ? "/api/v1/files/" + row.File.PublicId : null,
+                publication.StatusCode, publication.Allowed ? null : publication.Message));
+        }
         var (actualAmount, currency) = ReadActual(revision.ChecklistJson, transaction.CurrencyCode);
         var policy = policyEvaluator.Evaluate(transaction.CompletionPolicySnapshotJson, evidence.Select(item => item.RoleCode).ToArray());
         return new WorkCompletionRevisionResponse(revision.PublicId, revision.RevisionNo, revision.StatusCode, revision.WorkSummary,

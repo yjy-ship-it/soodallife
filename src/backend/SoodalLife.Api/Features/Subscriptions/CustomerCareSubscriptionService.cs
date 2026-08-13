@@ -2,12 +2,13 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Subscriptions;
 
-public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPrivateFileStorage storage)
+public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPrivateFileStorage storage, ICrossDomainFilePublicationResolver filePublication)
 {
     public async Task<IReadOnlyList<SubscriptionServiceItem>> EligibleServices(CancellationToken token)
     {
@@ -133,13 +134,21 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var identity = await Customer(principal, token);
         var row = await VisitQuery(identity.ProfileId).SingleOrDefaultAsync(value => value.visit.PublicId == id, token)
             ?? throw NotFound("SUBSCRIPTION_VISIT_NOT_FOUND", "구독 회차를 찾을 수 없습니다.");
-        var files = await (from link in db.SubscriptionVisitFiles.AsNoTracking()
-                           join file in db.Files.AsNoTracking() on link.FileId equals file.Id
-                           where link.SubscriptionVisitScheduleId == row.visit.Id && file.StatusCode == "ACTIVE"
-                           orderby link.DisplayOrder
-                           select new CustomerSubscriptionVisitFileResponse(file.PublicId, file.OriginalFileName, file.ContentType,
-                               file.SizeBytes, link.DisplayOrder, $"/api/v1/customers/me/care/visits/{row.visit.PublicId}/files/{file.PublicId}"))
-            .ToListAsync(token);
+        var fileRows = await (from link in db.SubscriptionVisitFiles.AsNoTracking()
+                              join file in db.Files.AsNoTracking() on link.FileId equals file.Id
+                              where link.SubscriptionVisitScheduleId == row.visit.Id && file.StatusCode == "ACTIVE"
+                              orderby link.DisplayOrder
+                              select new { Link = link, File = file }).ToListAsync(token);
+        var files = new List<CustomerSubscriptionVisitFileResponse>(fileRows.Count);
+        foreach (var item in fileRows)
+        {
+            var publication = await filePublication.ResolveAsync(item.File, identity.UserId, true, true, token);
+            var published = publication.PublishedFile ?? item.File;
+            files.Add(new(item.File.PublicId, publication.Allowed ? published.OriginalFileName : "evidence", published.ContentType, published.SizeBytes,
+                item.Link.DisplayOrder,
+                publication.Allowed ? $"/api/v1/customers/me/care/visits/{row.visit.PublicId}/files/{item.File.PublicId}" : null,
+                publication.StatusCode, publication.Allowed ? null : publication.Message));
+        }
         var changes = await db.SubscriptionScheduleChanges.AsNoTracking().Where(item => item.SubscriptionVisitScheduleId == row.visit.Id)
             .OrderByDescending(item => item.RequestedAt).ToListAsync(token);
         return new CustomerSubscriptionVisitDetailResponse(MapVisit(row), row.visit.VisitVerificationResultCode, row.visit.WorkCompletedAt,
@@ -159,7 +168,10 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
                           join contract in db.SubscriptionContracts.AsNoTracking() on visit.SubscriptionContractId equals contract.Id
                           where visit.PublicId == visitId && value.PublicId == fileId && contract.CustomerProfileId == identity.ProfileId && value.StatusCode == "ACTIVE"
                           select value).SingleOrDefaultAsync(token) ?? throw NotFound("SUBSCRIPTION_VISIT_FILE_NOT_FOUND", "회차 증빙파일을 찾을 수 없습니다.");
-        return (await storage.OpenReadAsync(file.StorageKey, token), file.ContentType, file.OriginalFileName);
+        var publication = await filePublication.ResolveAsync(file, identity.UserId, true, true, token);
+        if (!publication.Allowed) throw new SubscriptionBusinessException(403, "FILE_PRIVACY_BLOCKED", publication.Message);
+        var published = publication.PublishedFile!;
+        return (await storage.OpenReadAsync(published.StorageKey, token), published.ContentType, published.OriginalFileName);
     }
 
     public async Task<CustomerSubscriptionContractResponse> ChangeContract(Guid id, string action, CustomerContractActionRequest input, ClaimsPrincipal principal, CancellationToken token)
