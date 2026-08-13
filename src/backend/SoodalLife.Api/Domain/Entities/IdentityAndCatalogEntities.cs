@@ -163,6 +163,8 @@ public sealed class CustomerWithdrawalRequest
     public DateTime? ProcessedAt { get; set; }
     public long? ProcessedByUserId { get; set; }
     public string? DecisionReason { get; set; }
+    public string? IdempotencyKey { get; set; }
+    public string? DecisionIdempotencyKey { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
 

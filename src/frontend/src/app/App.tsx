@@ -23,6 +23,7 @@ import { findAdminMenu } from '../admin/menu'
 import { AdminServiceCategoriesPage } from '../admin/AdminServiceCategoriesPage'
 import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderRequirementStandardsPage'
 import { AdminCustomersPage } from '../admin/AdminCustomersPage'
+import { AdminCustomerWithdrawalPage } from '../admin/AdminCustomerWithdrawalPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
 import { AdminWalletsPage } from '../admin/AdminWalletsPage'
 import { AdminProviderExitPage } from '../admin/AdminProviderExitPage'
@@ -58,6 +59,7 @@ import {
   MySoodalPage,
   PasswordResetRequestPage,
 } from '../customer/CustomerAccountPages'
+import { CustomerWithdrawalPage } from '../customer/CustomerWithdrawalPage'
 import {
   CustomerCareContractsPage,
   CustomerCareHomePage,
@@ -166,6 +168,7 @@ function ApplicationRoutes() {
   const customerAfterServiceDisputeMatch = pathname.match(/^\/customer\/after-services\/([0-9a-f-]+)\/dispute$/i)
   const customerReportMatch = pathname.match(/^\/customer\/reports\/([0-9a-f-]+)$/i)
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
+  const adminCustomerWithdrawalMatch = pathname.match(/^\/admin\/customers\/withdrawals\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
   const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
   const adminProviderExitMatch = pathname.match(/^\/admin\/provider-exits\/([0-9a-f-]+)$/i)
@@ -183,6 +186,7 @@ function ApplicationRoutes() {
     if (pathname === '/customer/profile') return <CustomerProfilePage />
     if (pathname === '/customer/addresses') return <CustomerAddressesPage />
     if (pathname === '/customer/security') return <CustomerSecurityPage />
+    if (pathname === '/customer/security/withdrawal') return <CustomerWithdrawalPage />
     if (pathname === '/customer/consents') return <CustomerConsentsPage />
     if (pathname === '/customer/notification-settings') return <CustomerNotificationSettingsPage />
     if (pathname === '/customer/notifications') return <CustomerNotificationCenterPage />
@@ -204,6 +208,8 @@ function ApplicationRoutes() {
     if (pathname === '/admin/services' || pathname === '/admin/pricing') return <AdminServiceCategoriesPage pathname={pathname} />
     if (pathname === '/admin/provider-requirement-standards') return <AdminProviderRequirementStandardsPage pathname={pathname} />
     if (pathname === '/admin/customers') return <AdminCustomersPage pathname={pathname} />
+    if (pathname === '/admin/customers/withdrawals') return <AdminCustomerWithdrawalPage pathname={pathname} />
+    if (adminCustomerWithdrawalMatch) return <AdminCustomerWithdrawalPage pathname={pathname} id={adminCustomerWithdrawalMatch[1]} />
     if (adminCustomerMatch) return <AdminCustomersPage pathname={pathname} customerId={adminCustomerMatch[1]} />
     if (pathname === '/admin/providers') return <AdminProvidersPage pathname={pathname} />
     if (adminProviderMatch) return <AdminProvidersPage pathname={pathname} providerId={adminProviderMatch[1]} />

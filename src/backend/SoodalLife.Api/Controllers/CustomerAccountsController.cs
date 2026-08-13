@@ -48,7 +48,7 @@ public sealed class PublicCustomerAccountController(CustomerAccountService servi
 }
 
 [ApiController, Authorize(Roles = RoleCodes.Customer), Route("api/v1/customer/account")]
-public sealed class CustomerAccountController(CustomerAccountService service) : ControllerBase
+public sealed class CustomerAccountController(CustomerAccountService service, CustomerWithdrawalService withdrawal) : ControllerBase
 {
     [HttpGet("profile")] public Task<ActionResult> Profile(CancellationToken token) => Run(async () => await service.Profile(User, token));
     [HttpPut("profile")] public Task<ActionResult> UpdateProfile(UpdateCustomerProfileRequest input, CancellationToken token) => Run(async () => await service.UpdateProfile(User, input, token));
@@ -79,7 +79,9 @@ public sealed class CustomerAccountController(CustomerAccountService service) : 
         catch (CustomerAccountException exception) { return Error(exception); }
     }
 
-    [HttpPost("withdrawal-requests")] public Task<ActionResult> Withdrawal(CreateWithdrawalRequest input, CancellationToken token) => Run(async () => await service.RequestWithdrawal(User, input, token));
+    [HttpGet("withdrawal")] public Task<ActionResult> WithdrawalDashboard(CancellationToken token) => WithdrawalRun(async () => await withdrawal.DashboardAsync(User, token));
+    [HttpPost("withdrawal-requests")] public Task<ActionResult> Withdrawal(CreateCustomerWithdrawalRequest input, CancellationToken token) => WithdrawalRun(async () => await withdrawal.RequestAsync(User, input, token));
+    [HttpPost("withdrawal-requests/{id:guid}/cancel")] public Task<ActionResult> CancelWithdrawal(Guid id, CancelCustomerWithdrawalRequest input, CancellationToken token) => WithdrawalRun(async () => await withdrawal.CancelAsync(User, id, input, token));
 
     private async Task<ActionResult> Run(Func<Task<object>> action)
     {
@@ -89,4 +91,10 @@ public sealed class CustomerAccountController(CustomerAccountService service) : 
 
     private ObjectResult Error(CustomerAccountException exception) =>
         StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message));
+
+    private async Task<ActionResult> WithdrawalRun(Func<Task<object>> action)
+    {
+        try { return Ok(await action()); }
+        catch (CustomerWithdrawalException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }
+    }
 }

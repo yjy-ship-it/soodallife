@@ -307,6 +307,16 @@
   .adminMain { padding-inline: 20px; }
 }
 
+.withdrawalOverview,.withdrawalPanel { background:#fff;border:1px solid #dce8e4;border-radius:18px;padding:22px;margin-bottom:18px;box-shadow:0 8px 24px rgba(15,118,110,.06); }
+.withdrawalOverview>header,.withdrawalAdminToolbar,.withdrawalAdminActions { display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.withdrawalOverview>header div { display:grid;gap:4px; }.withdrawalOverview>header strong { color:#0f766e;font-size:1.35rem; }
+.withdrawalMetrics,.withdrawalAdminGrid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px; }
+.withdrawalMetrics article,.withdrawalAdminGrid article { display:grid;gap:6px;padding:15px;border-radius:14px;background:#f7f9f8; }.withdrawalMetrics span,.withdrawalAdminGrid span { color:#5d6d68;font-size:.86rem; }
+.withdrawalBlockerList { display:grid;gap:9px; }.withdrawalBlockerList article { display:grid;grid-template-columns:110px 1fr auto;gap:12px;align-items:center;padding:12px;border-radius:12px;background:#fff7ed; }
+.withdrawalBlocker { display:inline-flex;margin:4px;padding:7px 10px;border-radius:999px;background:#fff7ed;color:#9a3412; }.withdrawalReady { padding:16px;border-radius:14px;background:#ecfdf5;color:#0f766e; }
+.withdrawalPanel label { display:grid;gap:8px; }.withdrawalPanel textarea { min-height:110px;padding:12px;border:1px solid #cbd8d3;border-radius:10px;resize:vertical; }.withdrawalPanel dl>div { display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #edf2f0; }
+.withdrawalAdminToolbar { margin-bottom:16px;padding:14px;background:#fff;border:1px solid #dce8e4;border-radius:14px; }.withdrawalAdminToolbar label { display:flex;align-items:center;gap:8px; }
+
 @media (max-width: 620px) {
   .subscriptionAccountingHeader, .subscriptionToolbar { align-items:stretch; flex-direction:column; }
   .subscriptionAccountingMetrics { grid-template-columns:repeat(2,1fr); }
@@ -878,4 +888,5 @@
   .providerDecisionBox { grid-template-columns: 1fr; }.providerDecisionBox details { grid-column: auto; }
   .contentFormGrid,.contentSummary { grid-template-columns:1fr; }
   .caseSummary,.caseActionForm { grid-template-columns:1fr 1fr; }
+  .withdrawalMetrics,.withdrawalAdminGrid { grid-template-columns:1fr 1fr; }.withdrawalOverview>header,.withdrawalAdminToolbar,.withdrawalAdminActions { align-items:stretch;flex-direction:column; }.withdrawalBlockerList article { grid-template-columns:1fr auto; }.withdrawalBlockerList article b { grid-column:1 / -1; }
 }

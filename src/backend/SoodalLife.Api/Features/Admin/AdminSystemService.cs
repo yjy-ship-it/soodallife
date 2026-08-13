@@ -130,7 +130,7 @@ public sealed partial class AdminSystemService(SoodalLifeDbContext db)
                               select new { link.UserId, role.Code }).ToListAsync(token);
         var jobRows = await db.ScheduledJobLeases.AsNoTracking().OrderBy(x => x.JobName).ToListAsync(token);
         var expiredPasswordResets = await db.PasswordResetRequests.AsNoTracking().LongCountAsync(x => x.UsedAt == null && x.ExpiresAt <= DateTime.UtcNow, token);
-        var withdrawalCandidates = await db.CustomerWithdrawalRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "APPROVED", token);
+        var withdrawalCandidates = await db.CustomerWithdrawalRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "APPROVED" || x.StatusCode == "COMPLETED", token);
         var providerExitCandidates = await db.ProviderExitRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "COMPLETED", token);
 
         return new(DateTime.UtcNow,

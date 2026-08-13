@@ -131,15 +131,19 @@ internal sealed class CustomerWithdrawalRequestConfiguration() : EntityConfigura
         Mapping.DateTime(b, nameof(CustomerWithdrawalRequest.ProcessedAt), "processed_at", nullable: true);
         Mapping.NullableLong(b, nameof(CustomerWithdrawalRequest.ProcessedByUserId), "processed_by_user_id");
         Mapping.String(b, nameof(CustomerWithdrawalRequest.DecisionReason), "decision_reason", 1000, nullable: true);
+        Mapping.String(b, nameof(CustomerWithdrawalRequest.IdempotencyKey), "idempotency_key", 150, unicode: false, nullable: true);
+        Mapping.String(b, nameof(CustomerWithdrawalRequest.DecisionIdempotencyKey), "decision_idempotency_key", 150, unicode: false, nullable: true);
         Mapping.RowVersion(b);
         Mapping.Fk<CustomerWithdrawalRequest, User>(b, nameof(CustomerWithdrawalRequest.UserId));
         Mapping.Fk<CustomerWithdrawalRequest, User>(b, nameof(CustomerWithdrawalRequest.ProcessedByUserId));
         b.HasIndex(x => new { x.UserId, x.StatusCode });
-        b.HasIndex(x => new { x.UserId, x.ScopeCode }).IsUnique().HasFilter("[status_code] = 'REQUESTED'");
+        b.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[idempotency_key] IS NOT NULL");
+        b.HasIndex(x => x.DecisionIdempotencyKey).IsUnique().HasFilter("[decision_idempotency_key] IS NOT NULL");
+        b.HasIndex(x => new { x.UserId, x.ScopeCode }).IsUnique().HasFilter("[status_code] IN ('REQUESTED','UNDER_REVIEW','BLOCKED_BY_ACTIVE_WORK','READY_TO_COMPLETE')");
         b.ToTable("customer_withdrawal_requests", t =>
         {
             t.HasCheckConstraint("CK_customer_withdrawal_scope", "[scope_code] IN ('CUSTOMER_ROLE','ACCOUNT')");
-            t.HasCheckConstraint("CK_customer_withdrawal_status", "[status_code] IN ('REQUESTED','APPROVED','REJECTED','CANCELLED')");
+            t.HasCheckConstraint("CK_customer_withdrawal_status", "[status_code] IN ('REQUESTED','UNDER_REVIEW','BLOCKED_BY_ACTIVE_WORK','READY_TO_COMPLETE','APPROVED','COMPLETED','REJECTED','CANCELLED')");
         });
     }
 }

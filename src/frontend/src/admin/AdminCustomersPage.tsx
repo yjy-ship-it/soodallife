@@ -39,7 +39,7 @@ function CustomerList() {
   const reset = () => { setSearchInput(''); setSearch(''); setStatus(''); setHasRequests(''); setHasTransactions(''); setJoinedFrom(''); setJoinedTo(''); setPage(1) }
   const lastPage = Math.max(1, Math.ceil((result?.totalCount ?? 0) / 20))
   return <>
-    <section className="adminPageHeading"><div><p>고객 상담·운영</p><h1>고객 관리</h1></div><span>고객의 요청부터 거래와 A/S까지 업무 흐름을 한곳에서 확인합니다.</span></section>
+    <section className="adminPageHeading"><div><p>고객 상담·운영</p><h1>고객 관리</h1></div><span>고객의 요청부터 거래와 A/S까지 업무 흐름을 한곳에서 확인합니다.</span><button onClick={() => navigate('/admin/customers/withdrawals')}>고객 탈퇴 Queue</button></section>
     <form className="customerFilters" onSubmit={submit}>
       <label className="customerSearch">고객 찾기<input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="이름, 휴대전화, 이메일, 고객번호" /></label>
       <label>회원상태<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1) }}><option value="">전체</option><option value="ACTIVE">정상</option><option value="SUSPENDED">정지</option><option value="WITHDRAWN">탈퇴</option></select></label>

@@ -1,4 +1,4 @@
-import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, WithdrawalReadiness } from './accountTypes'
+import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, WithdrawalDashboard, WithdrawalReadiness, WithdrawalRequest } from './accountTypes'
 
 export class CustomerAccountApiError extends Error {
   readonly status: number
@@ -37,7 +37,9 @@ export const customerAccountApi = {
   consents: () => request<Consent[]>('/api/v1/customer/account/consents'),
   consentHistory: () => request<ConsentHistory[]>('/api/v1/customers/me/consent-history'),
   updateConsent: (legalDocumentVersionId: string, agreed: boolean) => request('/api/v1/customer/account/consents', put({ legalDocumentVersionId, agreed })),
-  requestWithdrawal: (scopeCode: string, reason?: string) => request('/api/v1/customer/account/withdrawal-requests', json({ scopeCode, reason })),
+  withdrawal: () => request<WithdrawalDashboard>('/api/v1/customer/account/withdrawal'),
+  requestWithdrawal: (scopeCode: string, reason: string) => request<WithdrawalRequest>('/api/v1/customer/account/withdrawal-requests', json({ scopeCode, reason, idempotencyKey: crypto.randomUUID() })),
+  cancelWithdrawal: (id: string, reason: string, rowVersion: string) => request<WithdrawalRequest>(`/api/v1/customer/account/withdrawal-requests/${id}/cancel`, json({ reason, rowVersion, idempotencyKey: crypto.randomUUID() })),
   withdrawalReadiness: () => request<WithdrawalReadiness>('/api/v1/customers/me/withdrawal-readiness'),
   mySoodalSummary: () => request<MySoodalSummary>('/api/v1/customers/me/my-soodal/summary'),
   sidos: () => request<AdministrativeArea[]>('/api/v1/administrative-areas/sidos'),
