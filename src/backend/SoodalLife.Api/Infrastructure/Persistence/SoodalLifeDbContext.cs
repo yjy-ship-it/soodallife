@@ -52,6 +52,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<FeeCharge> FeeCharges => Set<FeeCharge>();
     public DbSet<FeeRestore> FeeRestores => Set<FeeRestore>();
     public DbSet<WalletRefundRequest> WalletRefundRequests => Set<WalletRefundRequest>();
+    public DbSet<ProviderExitRequest> ProviderExitRequests => Set<ProviderExitRequest>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<RequestAnswer> RequestAnswers => Set<RequestAnswer>();
     public DbSet<RequestAnswerFile> RequestAnswerFiles => Set<RequestAnswerFile>();

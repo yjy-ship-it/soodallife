@@ -12,6 +12,7 @@ import { ProviderQuoteListPage } from '../providers/ProviderOperations'
 import { ProviderInboxPage, ProviderOperationsHubHomePage, ProviderSchedulePage } from '../providers/ProviderOperationsHubPages'
 import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
 import { ProviderWalletPage } from '../providers/ProviderWalletPage'
+import { ProviderExitPage } from '../providers/ProviderExitPage'
 import { ProviderCareApplicationsPage, ProviderCareContractsPage, ProviderCareHomePage, ProviderCareRequestsPage, ProviderCareScheduleChangesPage, ProviderCareVisitsPage } from '../providers/ProviderCarePages'
 import { ProviderInteriorHomePage, ProviderInteriorProjectsPage } from '../providers/ProviderInteriorPages'
 import { CustomerWorkDetailPage, ProviderWorkDetailPage, WorkTransactionListPage } from '../pages/WorkPages'
@@ -24,6 +25,7 @@ import { AdminProviderRequirementStandardsPage } from '../admin/AdminProviderReq
 import { AdminCustomersPage } from '../admin/AdminCustomersPage'
 import { AdminProvidersPage } from '../admin/AdminProvidersPage'
 import { AdminWalletsPage } from '../admin/AdminWalletsPage'
+import { AdminProviderExitPage } from '../admin/AdminProviderExitPage'
 import { AdminRequestsPage, AdminTransactionsPage } from '../admin/AdminOperationsPages'
 import { AdminAdvertisingContentPage } from '../admin/AdminAdvertisingContentPage'
 import { AdminAfterServiceDisputePage } from '../admin/AdminAfterServiceDisputePage'
@@ -166,6 +168,7 @@ function ApplicationRoutes() {
   const adminCustomerMatch = pathname.match(/^\/admin\/customers\/([0-9a-f-]+)$/i)
   const adminProviderMatch = pathname.match(/^\/admin\/providers\/([0-9a-f-]+)$/i)
   const adminWalletMatch = pathname.match(/^\/admin\/credits\/([0-9a-f-]+)$/i)
+  const adminProviderExitMatch = pathname.match(/^\/admin\/provider-exits\/([0-9a-f-]+)$/i)
   const adminRequestMatch = pathname.match(/^\/admin\/requests\/([0-9a-f-]+)$/i)
   const adminTransactionMatch = pathname.match(/^\/admin\/transactions\/([0-9a-f-]+)$/i)
   const adminTrustMatch = pathname.match(/^\/admin\/trust\/([0-9a-f-]+)$/i)
@@ -206,6 +209,8 @@ function ApplicationRoutes() {
     if (adminProviderMatch) return <AdminProvidersPage pathname={pathname} providerId={adminProviderMatch[1]} />
     if (pathname === '/admin/credits') return <AdminWalletsPage pathname={pathname} />
     if (adminWalletMatch) return <AdminWalletsPage pathname={pathname} providerId={adminWalletMatch[1]} />
+    if (pathname === '/admin/provider-exits') return <AdminProviderExitPage pathname={pathname} />
+    if (adminProviderExitMatch) return <AdminProviderExitPage pathname={pathname} id={adminProviderExitMatch[1]} />
     if (pathname === '/admin/requests') return <AdminRequestsPage pathname={pathname} />
     if (adminRequestMatch) return <AdminRequestsPage pathname={pathname} requestId={adminRequestMatch[1]} />
     if (pathname === '/admin/transactions') return <AdminTransactionsPage pathname={pathname} />
@@ -253,6 +258,7 @@ function ApplicationRoutes() {
     if (pathname === '/provider/schedule') return <ProviderSchedulePage />
     if (pathname === '/provider/quotes') return <ProviderQuoteListPage />
     if (pathname === '/provider/wallet') return <ProviderWalletPage />
+    if (pathname === '/provider/exit') return <ProviderExitPage />
     if (pathname === '/provider/care') return <ProviderCareHomePage />
     if (pathname === '/provider/care/requests') return <ProviderCareRequestsPage />
     if (pathname === '/provider/care/applications') return <ProviderCareApplicationsPage />

@@ -131,6 +131,7 @@ public sealed partial class AdminSystemService(SoodalLifeDbContext db)
         var jobRows = await db.ScheduledJobLeases.AsNoTracking().OrderBy(x => x.JobName).ToListAsync(token);
         var expiredPasswordResets = await db.PasswordResetRequests.AsNoTracking().LongCountAsync(x => x.UsedAt == null && x.ExpiresAt <= DateTime.UtcNow, token);
         var withdrawalCandidates = await db.CustomerWithdrawalRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "APPROVED", token);
+        var providerExitCandidates = await db.ProviderExitRequests.AsNoTracking().LongCountAsync(x => x.StatusCode == "COMPLETED", token);
 
         return new(DateTime.UtcNow,
             new(canConnect ? "CONNECTED" : "UNAVAILABLE", migrationStatus, pendingMigrations.Count, pendingMigrations),
@@ -169,6 +170,7 @@ public sealed partial class AdminSystemService(SoodalLifeDbContext db)
             [
                 new("PASSWORD_RESET", expiredPasswordResets, "REPORT_ONLY", "RETENTION_PERIOD_POLICY_REQUIRED"),
                 new("CUSTOMER_WITHDRAWAL", withdrawalCandidates, "REPORT_ONLY", "RETENTION_AND_LEGAL_HOLD_POLICY_REQUIRED"),
+                new("PROVIDER_EXIT", providerExitCandidates, "REPORT_ONLY", "RETENTION_AND_LEGAL_HOLD_POLICY_REQUIRED"),
                 new("FILE", 0, "NOT_CONFIGURED", "FILE_RETENTION_POLICY_REQUIRED"),
                 new("PERSONAL_DATA", 0, "NOT_CONFIGURED", "DOMAIN_RETENTION_POLICY_REQUIRED"),
             ]);

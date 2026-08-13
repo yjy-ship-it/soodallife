@@ -64,6 +64,8 @@ builder.Services.AddScoped<AdminProviderService>();
 builder.Services.AddScoped<AdminProviderServiceApprovalService>();
 builder.Services.AddScoped<ProviderWalletService>();
 builder.Services.AddScoped<AdminWalletService>();
+builder.Services.AddScoped<IProviderExitReadinessService, ProviderExitReadinessService>();
+builder.Services.AddScoped<ProviderExitService>();
 builder.Services.AddScoped<AdminRequestTransactionService>();
 builder.Services.AddScoped<AdvertisingContentService>();
 builder.Services.AddScoped<AfterServiceDisputeService>();

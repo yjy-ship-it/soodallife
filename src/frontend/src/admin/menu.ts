@@ -14,6 +14,7 @@ export const adminMenuItems: readonly AdminMenuItem[] = [
   { label: '가격·수수료', path: '/admin/pricing', shortLabel: '가격', allowedRoles: adminOnly },
   { label: '고객 관리', path: '/admin/customers', shortLabel: '고객', allowedRoles: adminOnly },
   { label: '공급자 관리', path: '/admin/providers', shortLabel: '공급자', allowedRoles: adminOnly },
+  { label: '공급자 활동 종료', path: '/admin/provider-exits', shortLabel: '종료', allowedRoles: adminOnly },
   { label: '지역·매칭', path: '/admin/matching', shortLabel: '매칭', allowedRoles: adminOnly },
   { label: '충전금 관리', path: '/admin/credits', shortLabel: '충전금', allowedRoles: adminOnly },
   { label: '요청·견적 관리', path: '/admin/requests', shortLabel: '견적', allowedRoles: adminOnly },
