@@ -1,0 +1,7 @@
+export interface ProviderTrustGrade { code:string; label:string; minimumScore:number; maximumScore:number; description:string }
+export interface ProviderTrustPolicyComponent { code:string; name:string; weight:number; description:string }
+export interface ProviderTrustEvent { id:string; occurredAt:string; eventTypeCode:string; eventLabel:string; scoreBefore:number|null; scoreDelta:number|null; scoreAfter:number|null; gradeBeforeLabel:string|null; gradeAfterLabel:string|null; reason:string; policyVersion:string|null }
+export interface ProviderTrustDashboard { providerId:string; score:number|null; gradeCode:string; gradeLabel:string; evaluationStatusCode:string; statusNotice:string; policyVersion:string|null; calculatedAt:string|null; grades:ProviderTrustGrade[]; policyComponents:ProviderTrustPolicyComponent[]; events:ProviderTrustEvent[] }
+
+async function read<T>(response:Response):Promise<T>{if(response.ok)return response.json() as Promise<T>;const body=await response.json().catch(()=>null) as {message?:string}|null;throw new Error(body?.message??'신뢰도 정보를 불러오지 못했습니다.')}
+export const getProviderTrust=()=>fetch('/api/v1/providers/me/trust',{credentials:'include'}).then(read<ProviderTrustDashboard>)

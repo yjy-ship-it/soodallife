@@ -7,6 +7,7 @@ export interface AuthenticationContextValue {
   status: AuthenticationStatus
   user: AuthenticatedUser | null
   login: (loginOrEmail: string, password: string) => Promise<AuthenticatedUser>
+  refresh: () => Promise<AuthenticatedUser>
   logout: () => Promise<void>
 }
 

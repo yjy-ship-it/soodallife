@@ -35,7 +35,26 @@ builder.Logging.AddConsole();
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter()));
 builder.Services.AddOpenApi();
-builder.Services.AddDataProtection().SetApplicationName("SoodalLife");
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("SoodalLife");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+    if (OperatingSystem.IsWindows())
+    {
+        dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+    }
+}
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddPolicy("ProductionUi", policy =>
+{
+    if (allowedOrigins.Length == 0) return;
+    policy.WithOrigins(allowedOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+}));
 builder.Services.Configure<PrivacyProtectionOptions>(builder.Configuration.GetSection(PrivacyProtectionOptions.SectionName));
 builder.Services.AddSingleton<SoodalLife.Api.Infrastructure.Security.IPersonalDataProtector, DataProtectionPersonalDataProtector>();
 builder.Services.AddSingleton<IPersonalDataSearchHasher, HmacPersonalDataSearchHasher>();
@@ -68,6 +87,7 @@ builder.Services.AddScoped<AdminCustomerService>();
 builder.Services.AddScoped<AdminProviderService>();
 builder.Services.AddScoped<AdminProviderServiceApprovalService>();
 builder.Services.AddScoped<ProviderWalletService>();
+builder.Services.AddScoped<SoodalLife.Api.Features.Trust.ProviderTrustService>();
 builder.Services.AddScoped<AdminWalletService>();
 builder.Services.AddScoped<IProviderExitReadinessService, ProviderExitReadinessService>();
 builder.Services.AddScoped<ProviderExitService>();
@@ -206,6 +226,7 @@ if (args.Contains("--privacy-backfill", StringComparer.OrdinalIgnoreCase))
 
 app.UseHttpsRedirection();
 
+app.UseCors("ProductionUi");
 app.UseAuthentication();
 app.UseAuthorization();
 

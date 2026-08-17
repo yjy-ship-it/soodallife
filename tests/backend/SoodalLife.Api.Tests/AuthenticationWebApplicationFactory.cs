@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.CustomerAccounts;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
@@ -54,8 +55,10 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             services.RemoveAll<DbContextOptions<SoodalLifeDbContext>>();
             services.RemoveAll<SoodalLifeDbContext>();
+            services.RemoveAll<IIdentityVerificationAdapter>();
             services.AddDbContext<SoodalLifeDbContext>((provider, options) => options.UseInMemoryDatabase(_databaseName)
                 .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>(), provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataReadInterceptor>()));
+            services.AddSingleton<IIdentityVerificationAdapter, TestIdentityVerificationAdapter>();
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }
@@ -82,6 +85,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             {
                 LoginId = credential.LoginId,
                 NormalizedLoginId = credential.LoginId.ToUpperInvariant(),
+                PhoneVerificationStatusCode = "VERIFIED",
                 StatusCode = "ACTIVE",
             };
             user.PasswordHash = passwordHasher.HashPassword(user, credential.Password);
@@ -111,6 +115,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             LoginId = OtherCustomerCredential.LoginId,
             NormalizedLoginId = OtherCustomerCredential.LoginId.ToUpperInvariant(),
+            PhoneVerificationStatusCode = "VERIFIED",
             StatusCode = "ACTIVE",
         };
         otherCustomer.PasswordHash = passwordHasher.HashPassword(otherCustomer, OtherCustomerCredential.Password);
@@ -235,6 +240,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             TransactionTypeCode = "ONE_TIME",
             RequestMethodText = "테스트",
             OnsiteRequirementText = "필수",
+            IsEmergencyAllowed = true,
             SubscriptionOptionText = "선택",
             StandardWorkUnitText = "1회",
             BasePriceAmount = 120000m,
@@ -320,8 +326,8 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             new CategoryFieldDefinition
             {
-                SourceFieldId = "TEST-FIELD-1", OwnerMiddleCategoryId = middle.Id, FieldKey = "request_detail",
-                Label = "요청 내용", FieldTypeCode = "LONG_TEXT", IsRequired = true,
+                SourceFieldId = "TEST-FIELD-1", OwnerMiddleCategoryId = middle.Id, FieldKey = "work_scope_detail",
+                Label = "작업 요청 상세", FieldTypeCode = "LONG_TEXT", IsRequired = true,
                 ValidationRuleText = "20자 이상", DisplayOrder = 1, StatusCode = "ACTIVE",
             },
             new CategoryFieldDefinition
@@ -452,6 +458,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             LoginId = credential.LoginId,
             NormalizedLoginId = credential.LoginId.ToUpperInvariant(),
+            PhoneVerificationStatusCode = "VERIFIED",
             StatusCode = "ACTIVE",
         };
         user.PasswordHash = passwordHasher.HashPassword(user, credential.Password);
@@ -507,6 +514,19 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
     private static TestCredential NewCredential(string prefix) => new(
         $"test-{prefix}-{Guid.NewGuid():N}",
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+}
+
+internal sealed class TestIdentityVerificationAdapter : IIdentityVerificationAdapter
+{
+    internal const string VerificationToken = "TEST-PHONE-VERIFIED";
+
+    public Task<IdentityVerificationStatus> GetStatusAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new IdentityVerificationStatus("TEST_INTEGRATED", true));
+
+    public Task<PhoneIdentityVerificationResult> VerifyPhoneAsync(string phone, string? verificationToken, CancellationToken cancellationToken) =>
+        Task.FromResult(verificationToken == VerificationToken
+            ? new PhoneIdentityVerificationResult("VERIFIED", true, phone)
+            : new PhoneIdentityVerificationResult("REJECTED", false, null));
 }
 
 public sealed record TestCredential(string LoginId, string Password);

@@ -30,23 +30,7 @@ public sealed class AuthenticationController(
                 "아이디 또는 비밀번호를 확인해 주세요."));
         }
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.PublicId.ToString()),
-            new(ClaimTypes.Name, user.LoginId),
-        };
-        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationConstants.Scheme));
-        await HttpContext.SignInAsync(
-            AuthenticationConstants.Scheme,
-            principal,
-            new AuthenticationProperties
-            {
-                IsPersistent = true,
-                AllowRefresh = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
-            });
+        await SignIn(user);
 
         if (user.Roles.Contains(RoleCodes.Admin, StringComparer.Ordinal))
         {
@@ -57,6 +41,17 @@ public sealed class AuthenticationController(
                 cancellationToken);
         }
 
+        return Ok(user);
+    }
+
+    [Authorize]
+    [HttpPost("refresh")]
+    public async Task<ActionResult<AuthenticatedUserResponse>> Refresh(CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var publicId)) return Unauthorized();
+        var user = await authenticationService.CurrentAsync(publicId, cancellationToken);
+        if (user is null) return Unauthorized();
+        await SignIn(user);
         return Ok(user);
     }
 
@@ -77,6 +72,17 @@ public sealed class AuthenticationController(
                 cancellationToken);
         }
         return NoContent();
+    }
+
+    private Task SignIn(AuthenticatedUserResponse user)
+    {
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user.PublicId.ToString()), new(ClaimTypes.Name, user.LoginId) };
+        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationConstants.Scheme));
+        return HttpContext.SignInAsync(AuthenticationConstants.Scheme, principal, new AuthenticationProperties
+        {
+            IsPersistent = true, AllowRefresh = true, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+        });
     }
 }
 

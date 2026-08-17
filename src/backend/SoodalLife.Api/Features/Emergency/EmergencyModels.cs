@@ -27,7 +27,7 @@ public sealed record EmergencyProviderResponseResult(Guid Id, string Status, int
 public sealed record EmergencyCustomerResponseItem(Guid Id, Guid ProviderId, string ProviderName, string Status,
     int? EtaMinutes, DateTime? EstimatedArrivalAt, string? Conditions, decimal? TrustScore, string? TrustGrade,
     int PublicReviewCount, bool IsApproved, bool PersonalInformationWithheld, string RowVersion);
-public sealed record SelectEmergencyProviderInput(Guid ResponseId, string IdempotencyKey, string RowVersion);
+public sealed record SelectEmergencyProviderInput(Guid ResponseId, string IdempotencyKey, string RowVersion, string DetailAddress);
 public sealed record EmergencySelectionResult(Guid TransactionId, Guid ProviderId, Guid ChatRoomId, string Status,
     string PricingStatus, bool WalletCharged);
 public sealed record EmergencyProgressInput(string EventType, string? Note, string IdempotencyKey);

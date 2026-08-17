@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Work;
@@ -49,6 +50,15 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         identity.Profile.BusinessTypeText = Clean(input.BusinessTypeText, 100);
         identity.Profile.BusinessItemText = Clean(input.BusinessItemText, 100);
         identity.Profile.Introduction = Clean(input.Introduction, 1000);
+        identity.Profile.PublicIntroductionHtml = ValidatePublicHtml(input.PublicIntroductionHtml);
+        identity.Profile.PublicPhone = Clean(input.PublicPhone, 30);
+        identity.Profile.PublicEmail = ValidatePublicEmail(input.PublicEmail);
+        identity.Profile.PublicAddress = Clean(input.PublicAddress, 500);
+        identity.Profile.PublicBlogUrl = ValidateHttpsUrl(input.PublicBlogUrl, "BLOG_URL_INVALID");
+        identity.Profile.PublicWebsiteUrl = ValidateHttpsUrl(input.PublicWebsiteUrl, "WEBSITE_URL_INVALID");
+        identity.Profile.PublicLogoUrl = ValidatePublicImageUrl(input.PublicLogoUrl, "LOGO_URL_INVALID");
+        identity.Profile.PublicPhotoUrlsJson = JsonSerializer.Serialize((input.PublicPhotoUrls ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Take(5).Select(x => ValidatePublicImageUrl(x, "PHOTO_URL_INVALID")!).ToArray());
         identity.Profile.UpdatedAt = DateTime.UtcNow;
         identity.Profile.UpdatedByUserId = identity.UserId;
         identity.User.Email = email;
@@ -324,6 +334,348 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
                           document.IssuedAt, document.ExpiresAt, document.Note, document.CreatedAt)).ToListAsync(token);
     }
 
+    public async Task<ProviderProfileResponse> UploadPromotionLogoAsync(ClaimsPrincipal principal, IFormFile upload, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var image = await ValidatePromotionImageAsync(upload, token);
+        var stored = await StorePromotionImagesAsync(identity, [image], "PROVIDER_PUBLIC_LOGO", token);
+        identity.Profile.PublicLogoUrl = PromotionImageUrl(stored[0].PublicId);
+        identity.Profile.UpdatedAt = DateTime.UtcNow;
+        identity.Profile.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(token);
+        return await GetProfileAsync(principal, token);
+    }
+
+    public async Task<ProviderProfileResponse> UploadPromotionLogoContentAsync(ClaimsPrincipal principal, ProviderPromotionImageContentInput input, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var image = ValidatePromotionImageContent(input);
+        var stored = await StorePromotionImagesAsync(identity, [image], "PROVIDER_PUBLIC_LOGO", token);
+        identity.Profile.PublicLogoUrl = PromotionImageUrl(stored[0].PublicId);
+        identity.Profile.UpdatedAt = DateTime.UtcNow;
+        identity.Profile.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(token);
+        return await GetProfileAsync(principal, token);
+    }
+
+    public async Task<ProviderPromotionStorageStatusResponse> CheckPromotionStorageAsync(ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var key = $"provider-promotion/{identity.Profile.PublicId:N}/.write-check-{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await using var content = new MemoryStream([0x53, 0x4c]);
+            await fileStorage.SaveAsync(key, content, token);
+            await fileStorage.DeleteIfExistsAsync(key, token);
+            return new(true, "이미지 저장소를 사용할 수 있습니다.");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            try { await fileStorage.DeleteIfExistsAsync(key, token); } catch { }
+            throw new ProviderConfigurationException("PROMOTION_IMAGE_STORAGE_UNAVAILABLE",
+                "이미지 저장 폴더에 쓸 수 없습니다. 서버의 App_Data 권한을 확인해 주세요.", StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    public async Task<ProviderProfileResponse> UploadPromotionPhotosAsync(ClaimsPrincipal principal, IReadOnlyList<IFormFile> uploads, CancellationToken token)
+    {
+        if (uploads.Count is < 1 or > 5)
+            throw Invalid("PROMOTION_PHOTO_COUNT_INVALID", "홍보 사진은 한 번에 1개 이상, 최대 5개까지 등록할 수 있습니다.");
+        var identity = await GetIdentityAsync(principal, token);
+        var images = new List<ValidatedPromotionImage>(uploads.Count);
+        foreach (var upload in uploads) images.Add(await ValidatePromotionImageAsync(upload, token));
+        var stored = await StorePromotionImagesAsync(identity, images, "PROVIDER_PUBLIC_PHOTO", token);
+        identity.Profile.PublicPhotoUrlsJson = JsonSerializer.Serialize(stored.Select(x => PromotionImageUrl(x.PublicId)).ToArray());
+        identity.Profile.UpdatedAt = DateTime.UtcNow;
+        identity.Profile.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(token);
+        return await GetProfileAsync(principal, token);
+    }
+
+    public async Task<ProviderProfileResponse> UploadPromotionPhotoContentAsync(ClaimsPrincipal principal, ProviderPromotionPhotoContentInput input, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var image = ValidatePromotionImageContent(input.File);
+        List<string> existingUrls = input.ReplaceExisting ? [] : ParseUrls(identity.Profile.PublicPhotoUrlsJson).ToList();
+        if (!input.ReplaceExisting && existingUrls.Count >= 5)
+            throw Invalid("PROMOTION_PHOTO_COUNT_INVALID", "홍보 사진은 최대 5개까지 등록할 수 있습니다.");
+
+        var existingIds = existingUrls.Select(url => Guid.TryParse(url.Split('/').LastOrDefault(), out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty).ToArray();
+        var hash = Convert.ToHexString(SHA256.HashData(image.Bytes)).ToLowerInvariant();
+        if (!input.ReplaceExisting && await dbContext.Files.AsNoTracking().AnyAsync(x => existingIds.Contains(x.PublicId) && x.Sha256Hex == hash, token))
+            return await GetProfileAsync(principal, token);
+
+        var stored = await StorePromotionImagesAsync(identity, [image], "PROVIDER_PUBLIC_PHOTO", token);
+        existingUrls.Add(PromotionImageUrl(stored[0].PublicId));
+        identity.Profile.PublicPhotoUrlsJson = JsonSerializer.Serialize(existingUrls);
+        identity.Profile.UpdatedAt = DateTime.UtcNow;
+        identity.Profile.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(token);
+        return await GetProfileAsync(principal, token);
+    }
+
+    public async Task<ProviderPromotionImageChunkResponse> UploadPromotionImageChunkAsync(ClaimsPrincipal principal,
+        ProviderPromotionImageChunkInput input, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        var purpose = input.Purpose.Trim().ToUpperInvariant();
+        if (input.UploadId == Guid.Empty || purpose is not ("LOGO" or "PHOTO"))
+            throw Invalid("PROMOTION_IMAGE_CHUNK_INVALID", "이미지 업로드 정보를 확인해 주세요.");
+        if (input.TotalChunks is < 1 or > 80 || input.ChunkIndex < 0 || input.ChunkIndex >= input.TotalChunks ||
+            string.IsNullOrWhiteSpace(input.Base64Chunk) || input.Base64Chunk.Length > 90_000)
+            throw Invalid("PROMOTION_IMAGE_CHUNK_INVALID", "이미지 조각 정보가 올바르지 않습니다.");
+
+        var chunkParent = $"provider-promotion/{identity.Profile.PublicId:N}";
+        var chunkPrefix = $"{chunkParent}/chunks-{input.UploadId:N}";
+        var completedFile = await dbContext.Files.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.PublicId == input.UploadId && x.StatusCode == "ACTIVE" &&
+            (x.PurposeCode == "PROVIDER_PUBLIC_LOGO" || x.PurposeCode == "PROVIDER_PUBLIC_PHOTO"), token);
+        if (completedFile is not null)
+        {
+            var completedUrl = PromotionImageUrl(input.UploadId);
+            if (identity.Profile.PublicLogoUrl == completedUrl || ParseUrls(identity.Profile.PublicPhotoUrlsJson).Contains(completedUrl))
+                return new(true, await GetProfileAsync(principal, token));
+            var expectedPurpose = purpose == "LOGO" ? "PROVIDER_PUBLIC_LOGO" : "PROVIDER_PUBLIC_PHOTO";
+            if (completedFile.UploadedByUserId != identity.UserId || completedFile.PurposeCode != expectedPurpose)
+                throw new ProviderConfigurationException("PROMOTION_IMAGE_UPLOAD_CONFLICT",
+                    "이미지 업로드 정보가 일치하지 않습니다. 이미지를 다시 선택해 주세요.", StatusCodes.Status409Conflict);
+            if (purpose == "LOGO") identity.Profile.PublicLogoUrl = completedUrl;
+            else
+            {
+                List<string> recoveredUrls = input.ReplaceExisting ? [] : ParseUrls(identity.Profile.PublicPhotoUrlsJson).ToList();
+                if (!recoveredUrls.Contains(completedUrl) && recoveredUrls.Count < 5) recoveredUrls.Add(completedUrl);
+                identity.Profile.PublicPhotoUrlsJson = JsonSerializer.Serialize(recoveredUrls);
+            }
+            identity.Profile.UpdatedAt = DateTime.UtcNow;
+            identity.Profile.UpdatedByUserId = identity.UserId;
+            await dbContext.SaveChangesAsync(token);
+            await DeletePromotionChunksAsync(chunkPrefix, token);
+            return new(true, await GetProfileAsync(principal, token));
+        }
+
+        byte[] chunk;
+        try { chunk = Convert.FromBase64String(input.Base64Chunk); }
+        catch (FormatException) { throw Invalid("PROMOTION_IMAGE_CHUNK_INVALID", "이미지 조각을 읽을 수 없습니다."); }
+        if (chunk.Length is < 1 or > 65_536)
+            throw Invalid("PROMOTION_IMAGE_CHUNK_INVALID", "이미지 조각의 크기가 올바르지 않습니다.");
+
+        try { await fileStorage.PrepareBoundedUploadDirectoryAsync(chunkParent, chunkPrefix, token); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new ProviderConfigurationException("PROMOTION_IMAGE_UPLOAD_LIMIT",
+                "처리 중인 이미지가 많습니다. 잠시 후 다시 시도해 주세요.", StatusCodes.Status429TooManyRequests);
+        }
+        var chunkKey = $"{chunkPrefix}/{input.ChunkIndex:D2}.part";
+        try
+        {
+            await using var content = new MemoryStream(chunk, writable: false);
+            await fileStorage.SaveAsync(chunkKey, content, token);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                await using var existing = await fileStorage.OpenReadAsync(chunkKey, token);
+                using var memory = new MemoryStream();
+                await existing.CopyToAsync(memory, token);
+                if (!memory.ToArray().AsSpan().SequenceEqual(chunk))
+                    throw new ProviderConfigurationException("PROMOTION_IMAGE_CHUNK_CONFLICT",
+                        "같은 이미지 업로드의 조각 정보가 변경되었습니다. 이미지를 다시 선택해 주세요.", StatusCodes.Status409Conflict);
+            }
+            catch (ProviderConfigurationException) { throw; }
+            catch (Exception readException) when (readException is IOException or UnauthorizedAccessException)
+            {
+                throw new ProviderConfigurationException("PROMOTION_IMAGE_CHUNK_UNAVAILABLE",
+                    "이미지 조각을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.", StatusCodes.Status503ServiceUnavailable);
+            }
+        }
+
+        if (input.ChunkIndex != input.TotalChunks - 1) return new(false, null);
+
+        using var assembled = new MemoryStream();
+        try
+        {
+            for (var index = 0; index < input.TotalChunks; index++)
+            {
+                await using var part = await fileStorage.OpenReadAsync($"{chunkPrefix}/{index:D2}.part", token);
+                await part.CopyToAsync(assembled, token);
+                if (assembled.Length > 5_242_880)
+                    throw Invalid("PROMOTION_IMAGE_SIZE_INVALID", "로고와 홍보 사진은 파일당 5MB 이하만 등록할 수 있습니다.");
+            }
+        }
+        catch (ProviderConfigurationException) { throw; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new ProviderConfigurationException("PROMOTION_IMAGE_CHUNK_INCOMPLETE",
+                "이미지 전송이 완료되지 않았습니다. 다시 저장해 주세요.", StatusCodes.Status409Conflict);
+        }
+
+        var image = ValidatePromotionImageBytes(input.FileName, input.ContentType.ToLowerInvariant(), assembled.ToArray());
+        if (purpose == "LOGO")
+        {
+            var stored = await StorePromotionImagesAsync(identity, [image], "PROVIDER_PUBLIC_LOGO", token, [input.UploadId]);
+            identity.Profile.PublicLogoUrl = PromotionImageUrl(stored[0].PublicId);
+        }
+        else
+        {
+            List<string> existingUrls = input.ReplaceExisting ? [] : ParseUrls(identity.Profile.PublicPhotoUrlsJson).ToList();
+            if (!input.ReplaceExisting && existingUrls.Count >= 5)
+                throw Invalid("PROMOTION_PHOTO_COUNT_INVALID", "홍보 사진은 최대 5개까지 등록할 수 있습니다.");
+            var existingIds = existingUrls.Select(url => Guid.TryParse(url.Split('/').LastOrDefault(), out var id) ? id : Guid.Empty)
+                .Where(id => id != Guid.Empty).ToArray();
+            var hash = Convert.ToHexString(SHA256.HashData(image.Bytes)).ToLowerInvariant();
+            if (!input.ReplaceExisting && await dbContext.Files.AsNoTracking().AnyAsync(x =>
+                    existingIds.Contains(x.PublicId) && x.Sha256Hex == hash, token))
+            {
+                await DeletePromotionChunksAsync(chunkPrefix, token);
+                return new(true, await GetProfileAsync(principal, token));
+            }
+            var stored = await StorePromotionImagesAsync(identity, [image], "PROVIDER_PUBLIC_PHOTO", token, [input.UploadId]);
+            existingUrls.Add(PromotionImageUrl(stored[0].PublicId));
+            identity.Profile.PublicPhotoUrlsJson = JsonSerializer.Serialize(existingUrls);
+        }
+        identity.Profile.UpdatedAt = DateTime.UtcNow;
+        identity.Profile.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(token);
+        await DeletePromotionChunksAsync(chunkPrefix, token);
+        return new(true, await GetProfileAsync(principal, token));
+    }
+
+    private async Task DeletePromotionChunksAsync(string prefix, CancellationToken token)
+    {
+        try { await fileStorage.DeleteDirectoryIfExistsAsync(prefix, token); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    public async Task<(Stream Content, string ContentType)> OpenPromotionImageAsync(Guid fileId, CancellationToken token)
+    {
+        var url = PromotionImageUrl(fileId);
+        var file = await dbContext.Files.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.PublicId == fileId && x.StatusCode == "ACTIVE" &&
+            (x.PurposeCode == "PROVIDER_PUBLIC_LOGO" || x.PurposeCode == "PROVIDER_PUBLIC_PHOTO"), token);
+        if (file is null || !await dbContext.ProviderProfiles.AsNoTracking().AnyAsync(x =>
+                x.PublicLogoUrl == url || x.PublicPhotoUrlsJson != null && x.PublicPhotoUrlsJson.Contains(fileId.ToString()), token))
+            throw new ProviderConfigurationException("PROMOTION_IMAGE_NOT_FOUND", "공개 중인 홍보 이미지를 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+        return (await fileStorage.OpenReadAsync(file.StorageKey, token), file.ContentType);
+    }
+
+    private async Task<IReadOnlyList<StoredFile>> StorePromotionImagesAsync(ProviderIdentity identity,
+        IReadOnlyList<ValidatedPromotionImage> images, string purpose, CancellationToken token,
+        IReadOnlyList<Guid>? fileIds = null)
+    {
+        var now = DateTime.UtcNow;
+        var rows = images.Select((image, index) =>
+        {
+            var publicId = fileIds?[index] ?? Guid.NewGuid();
+            var key = $"provider-promotion/{identity.Profile.PublicId:N}/{publicId:N}{image.Extension}";
+            return new StoredFile
+            {
+                PublicId = publicId,
+                PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key,
+                StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = image.Name,
+                ContentType = image.ContentType, SizeBytes = image.Bytes.LongLength,
+                Sha256Hex = Convert.ToHexString(SHA256.HashData(image.Bytes)).ToLowerInvariant(), StatusCode = "PENDING",
+                MalwareScanStatusCode = "NOT_INTEGRATED", PrivacyInspectionStatusCode = "NOT_INTEGRATED",
+                SanitizationStatusCode = "NOT_INTEGRATED", UploadedByUserId = identity.UserId, CreatedAt = now,
+            };
+        }).ToArray();
+        dbContext.Files.AddRange(rows);
+        await dbContext.SaveChangesAsync(token);
+        try
+        {
+            for (var index = 0; index < rows.Length; index++)
+            {
+                await using var content = new MemoryStream(images[index].Bytes, writable: false);
+                await fileStorage.SaveAsync(rows[index].StorageKey, content, token);
+                rows[index].StatusCode = "ACTIVE";
+                rows[index].ActivatedAt = now;
+                rows[index].ScanResultText = "NOT_INTEGRATED";
+            }
+            await dbContext.SaveChangesAsync(token);
+            return rows;
+        }
+        catch (Exception exception)
+        {
+            foreach (var row in rows)
+            {
+                try { await fileStorage.DeleteIfExistsAsync(row.StorageKey, token); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            dbContext.Files.RemoveRange(rows);
+            await dbContext.SaveChangesAsync(token);
+            if (exception is IOException or UnauthorizedAccessException)
+                throw new ProviderConfigurationException("PROMOTION_IMAGE_STORAGE_UNAVAILABLE",
+                    "이미지 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.", StatusCodes.Status503ServiceUnavailable);
+            throw;
+        }
+    }
+
+    private static async Task<ValidatedPromotionImage> ValidatePromotionImageAsync(IFormFile upload, CancellationToken token)
+    {
+        if (upload.Length is <= 0 or > 5_242_880)
+            throw Invalid("PROMOTION_IMAGE_SIZE_INVALID", "로고와 홍보 사진은 파일당 5MB 이하만 등록할 수 있습니다.");
+        var name = Path.GetFileName(upload.FileName);
+        if (string.IsNullOrWhiteSpace(name) || name != upload.FileName || name.Length > 255)
+            throw Invalid("PROMOTION_IMAGE_NAME_INVALID", "안전한 이미지 파일명을 사용해 주세요.");
+        var contentType = upload.ContentType.ToLowerInvariant();
+        var extension = Path.GetExtension(name).ToLowerInvariant();
+        var allowed = (contentType, extension) switch
+        {
+            ("image/jpeg", ".jpg" or ".jpeg") => true,
+            ("image/png", ".png") => true,
+            ("image/webp", ".webp") => true,
+            _ => false,
+        };
+        if (!allowed) throw Invalid("PROMOTION_IMAGE_TYPE_INVALID", "JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
+        await using var input = upload.OpenReadStream();
+        using var memory = new MemoryStream();
+        await input.CopyToAsync(memory, token);
+        var bytes = memory.ToArray();
+        return ValidatePromotionImageBytes(name, contentType, bytes);
+    }
+
+    private static ValidatedPromotionImage ValidatePromotionImageContent(ProviderPromotionImageContentInput input)
+    {
+        if (string.IsNullOrWhiteSpace(input.Base64Content) || input.Base64Content.Length > 7_100_000)
+            throw Invalid("PROMOTION_IMAGE_SIZE_INVALID", "로고와 홍보 사진은 파일당 5MB 이하만 등록할 수 있습니다.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(input.Base64Content); }
+        catch (FormatException) { throw Invalid("PROMOTION_IMAGE_CONTENT_INVALID", "이미지 내용을 읽을 수 없습니다."); }
+        return ValidatePromotionImageBytes(input.FileName, input.ContentType.ToLowerInvariant(), bytes);
+    }
+
+    private static ValidatedPromotionImage ValidatePromotionImageBytes(string fileName, string contentType, byte[] bytes)
+    {
+        if (bytes.Length is <= 0 or > 5_242_880)
+            throw Invalid("PROMOTION_IMAGE_SIZE_INVALID", "로고와 홍보 사진은 파일당 5MB 이하만 등록할 수 있습니다.");
+        var name = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(name) || name != fileName || name.Length > 255)
+            throw Invalid("PROMOTION_IMAGE_NAME_INVALID", "안전한 이미지 파일명을 사용해 주세요.");
+        var extension = Path.GetExtension(name).ToLowerInvariant();
+        var allowed = (contentType, extension) switch
+        {
+            ("image/jpeg", ".jpg" or ".jpeg") => true,
+            ("image/png", ".png") => true,
+            ("image/webp", ".webp") => true,
+            _ => false,
+        };
+        if (!allowed) throw Invalid("PROMOTION_IMAGE_TYPE_INVALID", "JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
+        var valid = contentType switch
+        {
+            "image/jpeg" => bytes.Length >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff,
+            "image/png" => bytes.Length >= 8 && bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            "image/webp" => bytes.Length >= 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8),
+            _ => false,
+        };
+        if (!valid) throw Invalid("PROMOTION_IMAGE_SIGNATURE_INVALID", "이미지 확장자와 실제 파일 형식이 일치하지 않습니다.");
+        return new(bytes, name, contentType, extension);
+    }
+
+    private static string PromotionImageUrl(Guid fileId) => $"/api/v1/provider-promotion-images/{fileId}";
+
     public async Task<ProviderDocumentResponse> UploadDocumentAsync(ClaimsPrincipal principal, RegisterProviderDocumentInput input, IFormFile upload, CancellationToken token)
     {
         var identity = await GetIdentityAsync(principal, token);
@@ -595,9 +947,50 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
     private static string MaskBusinessNumber(string? value) => string.IsNullOrWhiteSpace(value) || value.Length < 10 ? "미등록" : $"{value[..3]}-**-{value[^5..]}";
     private static ProviderProfileResponse MapProfile(ProviderIdentity identity, string? rejection) => new(
         identity.Profile.PublicId, identity.Profile.BusinessName, identity.Profile.RepresentativeName, identity.Profile.ContactName,
-        identity.User.Phone, identity.User.Email, MaskBusinessNumber(identity.Profile.BusinessRegistrationNo), identity.Profile.BusinessAddress,
-        identity.Profile.BusinessTypeText, identity.Profile.BusinessItemText, identity.Profile.Introduction, null,
+        identity.User.Phone, identity.User.Email, identity.Profile.BusinessRegistrationNo is null ? null : MaskBusinessNumber(identity.Profile.BusinessRegistrationNo), identity.Profile.BusinessAddress,
+        identity.Profile.BusinessTypeText, identity.Profile.BusinessItemText, identity.Profile.Introduction,
+        identity.Profile.PublicIntroductionHtml, identity.Profile.PublicPhone, identity.Profile.PublicEmail,
+        identity.Profile.PublicAddress, identity.Profile.PublicBlogUrl, identity.Profile.PublicWebsiteUrl,
+        identity.Profile.PublicLogoUrl, ParseUrls(identity.Profile.PublicPhotoUrlsJson), null,
         identity.Profile.ApprovalStatusCode, identity.Profile.ActivityStatusCode, identity.Profile.TrustScore,
         identity.Profile.TrustScore is null ? "평가 전" : "산정 완료", rejection, Convert.ToBase64String(identity.Profile.RowVersion));
+    private static IReadOnlyList<string> ParseUrls(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<string[]>(json) ?? []; } catch (JsonException) { return []; }
+    }
+    private static string? ValidatePublicEmail(string? value)
+    {
+        var email = Clean(value, 320)?.ToLowerInvariant();
+        if (email is not null && (!email.Contains('@') || email.StartsWith('@') || email.EndsWith('@')))
+            throw Invalid("PUBLIC_EMAIL_INVALID", "공개 이메일 형식을 확인해 주세요.");
+        return email;
+    }
+    private static string? ValidateHttpsUrl(string? value, string code)
+    {
+        var text = Clean(value, 1000);
+        if (text is null) return null;
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw Invalid(code, "공개 링크는 https:// 주소만 입력해 주세요.");
+        return uri.ToString();
+    }
+    private static string? ValidatePublicImageUrl(string? value, string code)
+    {
+        var text = Clean(value, 1000);
+        if (text is null) return null;
+        const string prefix = "/api/v1/provider-promotion-images/";
+        if (text.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParse(text[prefix.Length..], out _)) return text;
+        return ValidateHttpsUrl(text, code);
+    }
+    private static string? ValidatePublicHtml(string? value)
+    {
+        var html = Clean(value, 8000);
+        if (html is null) return null;
+        var lower = html.ToLowerInvariant();
+        string[] blocked = ["<script", "<iframe", "<object", "<embed", "<form", "javascript:", "data:", " onerror=", " onload="];
+        if (blocked.Any(lower.Contains)) throw Invalid("PUBLIC_INTRODUCTION_HTML_UNSAFE", "공급자 소개에 허용되지 않는 HTML이 포함되어 있습니다.");
+        return html;
+    }
     private sealed record ProviderIdentity(long UserId, User User, ProviderProfile Profile);
+    private sealed record ValidatedPromotionImage(byte[] Bytes, string Name, string ContentType, string Extension);
 }

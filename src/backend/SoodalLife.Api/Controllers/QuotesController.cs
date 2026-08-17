@@ -60,8 +60,8 @@ public sealed class QuotesController(QuoteService quoteService) : ControllerBase
 
     [Authorize(Roles = RoleCodes.Customer)]
     [HttpPost("quotes/{quoteId:guid}/accept")]
-    public Task<ActionResult<AcceptQuoteResponse>> Accept(Guid quoteId, CancellationToken cancellationToken) =>
-        Execute(() => quoteService.AcceptAsync(User, quoteId, cancellationToken));
+    public Task<ActionResult<AcceptQuoteResponse>> Accept(Guid quoteId, [FromBody] AcceptQuoteRequest input, CancellationToken cancellationToken) =>
+        Execute(() => quoteService.AcceptAsync(User, quoteId, input, cancellationToken));
 
     private async Task<ActionResult<T>> Execute<T>(Func<Task<T>> action)
     {

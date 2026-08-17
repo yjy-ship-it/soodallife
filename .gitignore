@@ -6,6 +6,9 @@ tmp/
 **/bin/
 **/obj/
 artifacts/phase4-build/
+artifacts/deployment-validation/
+artifacts/test-deployment-validation/
+artifacts/production/
 *.user
 *.suo
 *.userosscache
@@ -26,6 +29,7 @@ pnpm-debug.log*
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.*.example
 **/appsettings.*.local.json
 **/secrets.json
 **/App_Data/private-files/
@@ -43,3 +47,11 @@ Desktop.ini
 **/TestResults/
 **/coverage/
 **/coverage.*
+
+# Generated deployment packages
+/artifacts/
+/*.zip
+
+# Generated documents and private receipts
+/docs/output/
+/docs/source/Receipt-*.pdf

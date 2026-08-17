@@ -1,7 +1,6 @@
 import {
-  businessInformationVerificationUrl,
+  familySites,
   serviceCompany,
-  serviceDomains,
   servicePolicyLinks,
 } from '../config/serviceCompany'
 import './ServiceFooter.css'
@@ -24,8 +23,6 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
     provider: '공급자 서비스',
     admin: '본사 관리자 서비스',
   }[variant]
-  const serviceUrl = serviceDomains[variant]
-
   return (
     <footer className="serviceFooter" data-variant={variant} aria-label={`${audienceLabel} 공통 푸터`}>
       <div className="serviceFooterInner">
@@ -65,21 +62,6 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
               <div><dt>통신판매업 신고번호</dt><dd>{serviceCompany.ecommerceRegistrationNumber ?? <PendingValue />}</dd></div>
               <div className="serviceFooterAddress"><dt>주소</dt><dd>{serviceCompany.address}</dd></div>
             </dl>
-            <div className="serviceFooterDomains" aria-label="서비스 도메인">
-              <span>{audienceLabel} 주소</span>
-              <a href={serviceUrl}>{serviceUrl.replace('https://', '')}</a>
-              <span>공통 API</span>
-              <a href={serviceDomains.api}>{serviceDomains.api.replace('https://', '')}</a>
-            </div>
-            {businessInformationVerificationUrl ? (
-              <a className="businessVerification" href={businessInformationVerificationUrl} target="_blank" rel="noreferrer">
-                사업자정보 확인
-              </a>
-            ) : (
-              <span className="businessVerification isPending" aria-disabled="true">
-                사업자정보 확인 <small>준비 중</small>
-              </span>
-            )}
           </section>
 
           <section className="serviceFooterContact" aria-labelledby="service-footer-support">
@@ -96,13 +78,11 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
           </section>
 
           <section className="serviceFooterContact" aria-labelledby="service-footer-partnership">
-            <h3 id="service-footer-partnership">사업제휴</h3>
-            <ContactLink href={serviceCompany.partnershipEmail ? `mailto:${serviceCompany.partnershipEmail}` : null}>
-              {serviceCompany.partnershipEmail}
-            </ContactLink>
+            <h3 id="service-footer-partnership">패밀리 사이트</h3>
+            {familySites.map(site => <a href={site.href} target="_blank" rel="noopener noreferrer" key={site.href}>{site.label}</a>)}
             <h3 className="serviceFooterSubheading">개인정보보호 문의</h3>
-            <ContactLink href={serviceCompany.privacyEmail ? `mailto:${serviceCompany.privacyEmail}` : null}>
-              {serviceCompany.privacyEmail}
+            <ContactLink href={`tel:${serviceCompany.privacyContact.replaceAll('-', '')}`}>
+              {serviceCompany.privacyContact}
             </ContactLink>
           </section>
         </div>

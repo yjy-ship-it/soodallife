@@ -24,7 +24,9 @@ const put = (value: unknown): RequestInit => ({ method: 'PUT', body: JSON.string
 export const customerAccountApi = {
   loginAvailability: (value: string) => request<Availability>(`/api/v1/public/customer-account/availability/login-id?value=${encodeURIComponent(value)}`),
   emailAvailability: (value: string) => request<Availability>(`/api/v1/public/customer-account/availability/email?value=${encodeURIComponent(value)}`),
+  phoneAvailability: (value: string) => request<Availability>(`/api/v1/public/customer-account/availability/phone?value=${encodeURIComponent(value)}`),
   legalDocuments: () => request<LegalDocument[]>('/api/v1/public/customer-account/legal-documents'),
+  identityVerificationStatus: () => request<{ statusCode: string; isVerified: boolean }>('/api/v1/public/customer-account/identity-verification/status'),
   register: (value: unknown) => request('/api/v1/public/customer-account/register', json(value)),
   requestPasswordReset: (loginOrEmail: string) => request('/api/v1/public/customer-account/password-reset/requests', json({ loginOrEmail })),
   profile: () => request<CustomerProfile>('/api/v1/customer/account/profile'),

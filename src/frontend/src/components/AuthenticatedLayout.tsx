@@ -24,7 +24,7 @@ export function AuthenticatedLayout({ children }: PropsWithChildren) {
     <div className="appShell">
       <header className="topBar">
         <button className="brandButton" type="button" onClick={() => navigate('/roles')}>
-          <span className="brandMark" aria-hidden="true">S</span>
+          <img className="brandMark brandMarkImage" src="/brand/soodal-life-mark.png" alt="" aria-hidden="true" />
           <span>SOODAL LIFE</span>
         </button>
         <div className="accountArea">

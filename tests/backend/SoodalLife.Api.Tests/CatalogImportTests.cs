@@ -100,6 +100,6 @@ public sealed class CatalogImportTests
         }
 
         Assert.NotNull(directory);
-        return Directory.GetFiles(Path.Combine(directory.FullName, "docs", "source"), "*.xlsx").Single();
+        return Path.Combine(directory.FullName, "docs", "source", "수달_라이프_전체_서비스_카테고리_및_수수료_관리대장_v1.2.xlsx");
     }
 }

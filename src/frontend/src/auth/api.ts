@@ -62,3 +62,9 @@ export async function logout(): Promise<void> {
     throw await parseError(response)
   }
 }
+
+export async function refresh(): Promise<AuthenticatedUser> {
+  const response = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'include' })
+  if (!response.ok) throw await parseError(response)
+  return (await response.json()) as AuthenticatedUser
+}

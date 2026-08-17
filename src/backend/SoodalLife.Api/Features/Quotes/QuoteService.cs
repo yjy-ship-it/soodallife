@@ -271,9 +271,13 @@ public sealed class QuoteService(
         var provider = await dbContext.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == providerPublicId, cancellationToken)
             ?? throw NotFound();
         var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
-        if (!await dbContext.Quotes.AsNoTracking().AnyAsync(x => x.ServiceRequestId == request.Id &&
-                x.ProviderProfileId == provider.Id && visibleStatuses.Contains(x.StatusCode), cancellationToken))
+        var visibleQuoteStatus = await dbContext.Quotes.AsNoTracking()
+            .Where(x => x.ServiceRequestId == request.Id && x.ProviderProfileId == provider.Id && visibleStatuses.Contains(x.StatusCode))
+            .Select(x => x.StatusCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (visibleQuoteStatus is null)
             throw NotFound();
+        var mayRevealDirectContact = visibleQuoteStatus == "ACCEPTED";
 
         var serviceLink = await dbContext.ProviderServiceCategories.AsNoTracking().SingleOrDefaultAsync(x =>
             x.ProviderProfileId == provider.Id && x.CategoryId == request.CategoryId && x.StatusCode == "ACTIVE", cancellationToken);
@@ -305,18 +309,35 @@ public sealed class QuoteService(
         }
 
         return new CustomerProviderProfileResponse(
-            provider.PublicId, provider.BusinessName, provider.ApprovalStatusCode, provider.ActivityStatusCode,
+            provider.PublicId, provider.BusinessName, provider.PublicIntroductionHtml,
+            mayRevealDirectContact ? provider.PublicPhone : null,
+            mayRevealDirectContact ? provider.PublicEmail : null,
+            mayRevealDirectContact ? provider.PublicAddress : null,
+            provider.PublicBlogUrl,
+            provider.PublicWebsiteUrl, provider.PublicLogoUrl, ParsePublicPhotoUrls(provider.PublicPhotoUrlsJson),
+            provider.ApprovalStatusCode, provider.ActivityStatusCode,
             serviceApproval, activeServices, CalculatedTrustScore(trust), CalculatedTrustScore(trust).HasValue ? trust?.GradeCode : null,
             trust?.EvaluationStatusCode ?? "NEW_OR_EVALUATING", TrustDisplay(trust), completed,
             reviews.PublicCount, reviews.Averages, requirements.Configured, requirements.RequiredCount,
             requirements.ApprovedCount, requirements.Satisfied, recent);
     }
 
+    private static IReadOnlyList<string> ParsePublicPhotoUrls(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<string[]>(json) ?? []; }
+        catch (System.Text.Json.JsonException) { return []; }
+    }
+
     public async Task<AcceptQuoteResponse> AcceptAsync(
         ClaimsPrincipal principal,
         Guid quotePublicId,
+        AcceptQuoteRequest input,
         CancellationToken cancellationToken)
     {
+        var detailAddress = NullIfEmpty(input.DetailAddress);
+        if (detailAddress is null) throw Invalid("DETAIL_ADDRESS_REQUIRED", "견적을 선택하려면 상세주소를 입력해 주세요.", "detailAddress");
+        if (detailAddress.Length > 500) throw Invalid("DETAIL_ADDRESS_TOO_LONG", "상세주소는 500자 이내로 입력해 주세요.", "detailAddress");
         var customer = await GetCustomerIdentityAsync(principal, cancellationToken);
         var requestLockId = await (from quote in dbContext.Quotes.AsNoTracking()
                                    join request in dbContext.ServiceRequests.AsNoTracking() on quote.ServiceRequestId equals request.Id
@@ -475,6 +496,7 @@ public sealed class QuoteService(
                 other.UpdatedByUserId = customer.UserId;
             }
             request.StatusCode = "ACCEPTED";
+            request.DetailAddress = detailAddress;
             request.AcceptedAt = now;
             request.UpdatedAt = now;
             request.UpdatedByUserId = customer.UserId;

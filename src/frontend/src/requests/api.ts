@@ -4,9 +4,10 @@ export class RequestApiError extends Error { readonly status: number; readonly f
 async function readJson<T>(response: Response): Promise<T> { if (!response.ok) { let body: ApiErrorBody | null = null; try { body = await response.json() as ApiErrorBody } catch { /* safe fallback */ } throw new RequestApiError(body?.message ?? '요청을 처리하지 못했습니다.', response.status, body?.fieldErrors) } return response.status === 204 ? undefined as T : response.json() as Promise<T> }
 const get = <T,>(path: string) => fetch(path, { credentials: 'include' }).then(readJson<T>)
 const send = <T,>(method: string, path: string, body?: unknown) => fetch(path, { method, credentials: 'include', headers: body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }).then(readJson<T>)
-export const getMajorCategories = () => get<Category[]>('/api/v1/categories/majors')
-export const getMiddleCategories = (id: string) => get<Category[]>(`/api/v1/categories/${id}/middles`)
-export const getServiceCategories = (id: string) => get<Category[]>(`/api/v1/categories/${id}/services`)
+const emergencyQuery = (emergencyOnly: boolean) => emergencyOnly ? '?emergencyOnly=true' : ''
+export const getMajorCategories = (emergencyOnly = false) => get<Category[]>(`/api/v1/categories/majors${emergencyQuery(emergencyOnly)}`)
+export const getMiddleCategories = (id: string, emergencyOnly = false) => get<Category[]>(`/api/v1/categories/${id}/middles${emergencyQuery(emergencyOnly)}`)
+export const getServiceCategories = (id: string, emergencyOnly = false) => get<Category[]>(`/api/v1/categories/${id}/services${emergencyQuery(emergencyOnly)}`)
 export const getRequestFields = (id: string) => get<RequestField[]>(`/api/v1/categories/${id}/request-fields`)
 export const getAdministrativeAreas = () => get<AdministrativeArea[]>('/api/v1/administrative-areas/sigungu')
 export const getSidoAreas = () => get<AdministrativeArea[]>('/api/v1/administrative-areas/sidos')

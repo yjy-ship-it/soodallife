@@ -30,7 +30,9 @@ public sealed record CustomerInteriorCompletion(DateOnly CompletedDate,string? H
 public sealed record CustomerInteriorProjectDetail(Guid Id,string ProjectNumber,string ServiceName,string RequestTitle,string? RequestDescription,string AreaName,string? DetailAddress,string StatusCode,string StatusDisplay,decimal? SiteVisitTrustSnapshot,decimal? ContractorTrustSnapshot,DateOnly? StartDate,DateOnly? ExpectedCompletionDate,CustomerInteriorCompletion? Completion,CustomerInteriorProviderSelection? ProviderSelection,string RowVersion,IReadOnlyList<CustomerInteriorSiteVisit> SiteVisits,IReadOnlyList<CustomerInteriorQuote> Quotes,IReadOnlyList<CustomerInteriorDesign> Designs,CustomerInteriorContract? Contract,IReadOnlyList<CustomerInteriorWorkStage> WorkStages,IReadOnlyList<CustomerInteriorChange> Changes,IReadOnlyList<CustomerInteriorDefect> Defects,IReadOnlyList<CustomerInteriorDispute> Disputes,IReadOnlyList<CustomerInteriorEvent> Events,bool ReviewAvailable,Guid? ReviewTransactionId);
 
 public sealed record CustomerCreateInteriorProjectRequest(Guid ServiceRequestId,[param:Required,StringLength(150)]string IdempotencyKey);
-public sealed record CustomerSelectSiteVisitRequest([param:Required,StringLength(150)]string IdempotencyKey);
+public sealed record CustomerSelectSiteVisitRequest(
+    [param:Required,StringLength(500,MinimumLength=2)]string DetailAddress,
+    [param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record CustomerSelectInteriorProviderRequest(Guid QuoteRevisionId,[param:Required,StringLength(150)]string IdempotencyKey,[param:Required(AllowEmptyStrings=true)]string RowVersion);
 public sealed record CustomerAgreeInteriorContractRequest([param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record CustomerConfirmInteriorPaymentRequest([param:Required,StringLength(30)]string ConfirmationTypeCode,decimal Amount,DateTime ConfirmedAt,Guid? EvidenceFileId,string? Note,[param:Required,StringLength(150)]string IdempotencyKey);

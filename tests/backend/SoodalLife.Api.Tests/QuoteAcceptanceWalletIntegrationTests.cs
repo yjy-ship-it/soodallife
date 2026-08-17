@@ -73,21 +73,21 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
 
         var selectedQuote = await CreateAndSubmitQuote(selectedProvider, request.Id, "수전 교체 견적", 120000m);
         var otherQuote = await CreateAndSubmitQuote(otherProvider, request.Id, "비교 견적", 125000m);
-        var acceptedResponse = await customer.PostAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", null);
+        var acceptedResponse = await customer.PostAsJsonAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" });
         Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);
         var acceptedJson = await acceptedResponse.Content.ReadAsStringAsync();
         Assert.DoesNotContain("chargedFeeAmount", acceptedJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("walletLedgerEntryId", acceptedJson, StringComparison.OrdinalIgnoreCase);
         var accepted = JsonSerializer.Deserialize<AcceptQuoteResponse>(acceptedJson, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
-        var repeated = await customer.PostAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", null);
+        var repeated = await customer.PostAsJsonAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" });
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
         Assert.Equal(accepted.TransactionId, (await repeated.Content.ReadFromJsonAsync<AcceptQuoteResponse>())!.TransactionId);
-        Assert.Equal(HttpStatusCode.Conflict, (await customer.PostAsync($"/api/v1/quotes/{otherQuote.Id}/accept", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await customer.PostAsJsonAsync($"/api/v1/quotes/{otherQuote.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" })).StatusCode);
 
         var selectedWork = await selectedProvider.GetFromJsonAsync<WorkTransactionDetail>($"/api/v1/providers/me/transactions/{accepted.TransactionId}");
         Assert.Equal("01012345678", selectedWork!.CustomerPhone);
-        Assert.Equal("101동 1203호", selectedWork.DetailAddress);
+        Assert.Equal("대구광역시 동구 테스트로 1", selectedWork.DetailAddress);
         Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync($"/api/v1/providers/me/transactions/{accepted.TransactionId}")).StatusCode);
         var otherAfter = await otherProvider.GetFromJsonAsync<ProviderMatchedRequestDetail>($"/api/v1/providers/me/matched-requests/{request.Id}");
         Assert.Null(otherAfter!.CustomerPhone);
@@ -96,6 +96,8 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
         var transaction = await db.Transactions.SingleAsync(item => item.PublicId == accepted.TransactionId);
+        var acceptedRequest = await db.ServiceRequests.SingleAsync(item => item.Id == transaction.ServiceRequestId);
+        Assert.NotNull(acceptedRequest.DetailAddressEncrypted);
         Assert.Equal(3000m, transaction.CalculatedFeeAmount);
         Assert.Equal(3000m, transaction.ActualChargedFeeAmount);
         Assert.NotNull(transaction.CategoryFeePolicyId);
@@ -166,8 +168,8 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         var first = await CreateAndSubmitQuote(firstProvider, request.Id, "첫 번째 점검 견적", 80000m);
         var second = await CreateAndSubmitQuote(secondProvider, request.Id, "두 번째 점검 견적", 85000m);
         var responses = await Task.WhenAll(
-            customer.PostAsync($"/api/v1/quotes/{first.Id}/accept", null),
-            customer.PostAsync($"/api/v1/quotes/{second.Id}/accept", null));
+            customer.PostAsJsonAsync($"/api/v1/quotes/{first.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" }),
+            customer.PostAsJsonAsync($"/api/v1/quotes/{second.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" }));
         Assert.Single(responses, item => item.StatusCode == HttpStatusCode.OK);
         Assert.Single(responses, item => item.StatusCode == HttpStatusCode.Conflict);
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();

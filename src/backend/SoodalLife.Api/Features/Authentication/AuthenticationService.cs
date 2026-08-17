@@ -9,6 +9,7 @@ namespace SoodalLife.Api.Features.Authentication;
 public interface IAuthenticationService
 {
     Task<AuthenticatedUserResponse?> AuthenticateAsync(string loginOrEmail, string password, CancellationToken cancellationToken);
+    Task<AuthenticatedUserResponse?> CurrentAsync(Guid publicId, CancellationToken cancellationToken);
 }
 
 internal sealed class AuthenticationService(
@@ -67,5 +68,16 @@ internal sealed class AuthenticationService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new AuthenticatedUserResponse(user.PublicId, user.LoginId, roles);
+    }
+
+    public async Task<AuthenticatedUserResponse?> CurrentAsync(Guid publicId, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == publicId && x.StatusCode == "ACTIVE", cancellationToken);
+        if (user is null) return null;
+        var roles = await (from userRole in dbContext.UserRoles.AsNoTracking()
+                           join role in dbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+                           where userRole.UserId == user.Id && userRole.RevokedAt == null && role.IsActive
+                           orderby role.Code select role.Code).ToListAsync(cancellationToken);
+        return roles.Count == 0 ? null : new AuthenticatedUserResponse(user.PublicId, user.LoginId, roles);
     }
 }

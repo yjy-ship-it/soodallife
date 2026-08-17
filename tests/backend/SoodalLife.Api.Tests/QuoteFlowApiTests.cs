@@ -85,15 +85,17 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         Assert.DoesNotContain("phone", profileJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("email", profileJson, StringComparison.OrdinalIgnoreCase);
 
-        var acceptedResponse = await customer.PostAsync($"/api/v1/quotes/{draft.Id}/accept", null);
+        var missingAddress = await customer.PostAsJsonAsync($"/api/v1/quotes/{draft.Id}/accept", new { detailAddress = "" });
+        Assert.Equal(HttpStatusCode.BadRequest, missingAddress.StatusCode);
+        var acceptedResponse = await customer.PostAsJsonAsync($"/api/v1/quotes/{draft.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" });
         Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);
         var accepted = (await acceptedResponse.Content.ReadFromJsonAsync<AcceptQuoteResponse>())!;
         Assert.Equal("CREATED", accepted.TransactionStatus);
         Assert.Equal(460m, accepted.AgreedAmount);
-        var repeated = (await (await customer.PostAsync($"/api/v1/quotes/{draft.Id}/accept", null))
+        var repeated = (await (await customer.PostAsJsonAsync($"/api/v1/quotes/{draft.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" }))
             .Content.ReadFromJsonAsync<AcceptQuoteResponse>())!;
         Assert.Equal(accepted.TransactionId, repeated.TransactionId);
-        Assert.Equal(HttpStatusCode.Conflict, (await customer.PostAsync($"/api/v1/quotes/{otherDraft.Id}/accept", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await customer.PostAsJsonAsync($"/api/v1/quotes/{otherDraft.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" })).StatusCode);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
@@ -145,7 +147,7 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
 
         await provider.PostAsync($"/api/v1/quotes/{draft.Id}/submit", null);
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync($"/api/v1/quotes/{draft.Id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.PostAsync($"/api/v1/quotes/{draft.Id}/accept", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.PostAsJsonAsync($"/api/v1/quotes/{draft.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await customer.PostAsJsonAsync($"/api/v1/requests/{request.Id}/quotes", input)).StatusCode);
     }
 

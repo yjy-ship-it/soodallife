@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Catalog;
 using SoodalLife.Api.Features.ServiceRequests;
+using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
 
@@ -27,6 +30,62 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         var fields = await client.GetFromJsonAsync<List<RequestFieldResponse>>($"/api/v1/categories/{factory.Catalog.ServiceId}/request-fields");
         Assert.Equal(3, fields!.Count);
         Assert.Contains(fields, field => field.InputType == "SELECT" && field.Options.SequenceEqual(["주거", "상가"]));
+    }
+
+    [Fact]
+    public async Task ProjectService_RemainsAvailableInRequestCatalogAndCanCreateDraft()
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var serviceId = await db.ServiceCategories
+            .Where(category => category.PublicId == factory.Catalog.ServiceId)
+            .Select(category => category.Id)
+            .SingleAsync();
+        var policy = await db.CategoryPolicies.SingleAsync(item => item.CategoryId == serviceId);
+        var originalTransactionType = policy.TransactionTypeCode;
+
+        try
+        {
+            policy.TransactionTypeCode = "PROJECT";
+            await db.SaveChangesAsync();
+
+            using var client = CreateClient();
+            await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+
+            var majors = await client.GetFromJsonAsync<List<CategoryResponse>>("/api/v1/categories/majors");
+            Assert.Contains(majors!, item => item.Id == factory.Catalog.MajorId);
+            var fields = await client.GetFromJsonAsync<List<RequestFieldResponse>>($"/api/v1/categories/{factory.Catalog.ServiceId}/request-fields");
+            Assert.NotEmpty(fields!);
+
+            var response = await client.PostAsJsonAsync("/api/v1/requests", new
+            {
+                categoryId = factory.Catalog.ServiceId,
+                idempotencyKey = $"project-draft-{Guid.NewGuid():N}",
+            });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+        finally
+        {
+            policy.TransactionTypeCode = originalTransactionType;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task EmergencyCategoryHierarchy_OnlyReturnsEmergencyEnabledServices()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+
+        var majors = await client.GetFromJsonAsync<List<CategoryResponse>>("/api/v1/categories/majors?emergencyOnly=true");
+        Assert.Contains(majors!, item => item.Id == factory.Catalog.MajorId);
+
+        var middles = await client.GetFromJsonAsync<List<CategoryResponse>>($"/api/v1/categories/{factory.Catalog.MajorId}/middles?emergencyOnly=true");
+        var middle = Assert.Single(middles!);
+
+        var services = await client.GetFromJsonAsync<List<CategoryResponse>>($"/api/v1/categories/{middle.Id}/services?emergencyOnly=true");
+        Assert.Contains(services!, item => item.Id == factory.Catalog.ServiceId);
+        Assert.DoesNotContain(services!, item => item.Id == factory.Catalog.OtherServiceId);
     }
 
     [Fact]

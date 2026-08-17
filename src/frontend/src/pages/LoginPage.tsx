@@ -7,11 +7,13 @@ import { BrandLogo } from '../components/BrandLogo'
 
 export function LoginPage() {
   const { login } = useAuthentication()
-  const [loginOrEmail, setLoginOrEmail] = useState('')
+  const [loginOrEmail, setLoginOrEmail] = useState(() => localStorage.getItem('soodal.rememberedLoginId') ?? '')
   const [password, setPassword] = useState('')
+  const [rememberLoginId, setRememberLoginId] = useState(() => Boolean(localStorage.getItem('soodal.rememberedLoginId')))
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const returnUrl = getSafeReturnUrl()
+  const isProviderLogin = window.location.hostname.toLowerCase().startsWith('partner.') || returnUrl?.startsWith('/provider') === true
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -20,6 +22,8 @@ export function LoginPage() {
 
     try {
       const user = await login(loginOrEmail, password)
+      if (rememberLoginId) localStorage.setItem('soodal.rememberedLoginId', loginOrEmail.trim())
+      else localStorage.removeItem('soodal.rememberedLoginId')
       navigate(getSafeReturnUrl() ?? getInitialAuthenticatedPath(user), true)
     } catch (requestError) {
       setError(
@@ -49,11 +53,11 @@ export function LoginPage() {
       <section className="loginPanel" aria-label="로그인">
         <div className="loginCard">
           <div className="mobileBrand"><BrandLogo /></div>
-          <h2>로그인</h2>
-          <p className="panelDescription">등록된 계정으로 서비스를 시작하세요.</p>
+          <h2>{isProviderLogin ? '공급자 로그인' : '로그인'}</h2>
+          <p className="panelDescription">{isProviderLogin ? '수달 파트너스 계정으로 공급자 서비스를 시작하세요.' : '등록된 계정으로 서비스를 시작하세요.'}</p>
 
           <form onSubmit={handleSubmit} noValidate>
-            <label htmlFor="loginOrEmail">아이디 또는 이메일</label>
+            <label htmlFor="loginOrEmail">아이디</label>
             <input
               id="loginOrEmail"
               name="loginOrEmail"
@@ -63,6 +67,12 @@ export function LoginPage() {
               onChange={(event) => setLoginOrEmail(event.target.value)}
               required
             />
+
+            <label className="rememberLoginId" htmlFor="rememberLoginId">
+              <input id="rememberLoginId" type="checkbox" checked={rememberLoginId} onChange={(event) => setRememberLoginId(event.target.checked)} />
+              아이디 저장
+            </label>
+            <small className="loginAutofillNote">비밀번호는 사이트가 저장하지 않으며, 브라우저의 안전한 비밀번호 저장 기능으로 자동 입력할 수 있습니다.</small>
 
             <label htmlFor="password">비밀번호</label>
             <input
@@ -82,7 +92,7 @@ export function LoginPage() {
             </button>
           </form>
           <div className="loginLinks">
-            <button type="button" onClick={() => navigate(`/signup${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`)}>고객 회원가입</button>
+            <button type="button" onClick={() => navigate(isProviderLogin ? '/provider/signup' : `/signup${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`)}>{isProviderLogin ? '공급자 회원가입' : '고객 회원가입'}</button>
             <button type="button" onClick={() => navigate('/password-reset')}>비밀번호를 잊으셨나요?</button>
           </div>
           <p className="securityNote">계정 정보는 암호화된 연결을 통해 안전하게 전송됩니다.</p>

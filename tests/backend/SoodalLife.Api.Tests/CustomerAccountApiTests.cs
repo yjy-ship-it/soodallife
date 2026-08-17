@@ -30,7 +30,7 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
             "login" => value with { LoginId = "1!" },
             "email" => value with { Email = "invalid" },
             "phone" => value with { Phone = "02-123-4567" },
-            "password" => value with { Password = "weakpassword", PasswordConfirmation = "weakpassword" },
+            "password" => value with { Password = "short7", PasswordConfirmation = "short7" },
             _ => value with { PasswordConfirmation = "Bb!12345678" },
         };
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/v1/public/customer-account/register", value)).StatusCode);
@@ -191,7 +191,8 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
     [Fact]
     public async Task IdentityVerificationAdapterReportsNotIntegratedWithoutFakeVerification()
     {
-        using var client = Client(); var status = await client.GetFromJsonAsync<IdentityVerificationStatus>("/api/v1/public/customer-account/identity-verification/status");
+        var adapter = new NotIntegratedIdentityVerificationAdapter();
+        var status = await adapter.GetStatusAsync(CancellationToken.None);
         Assert.Equal("NOT_INTEGRATED", status!.StatusCode); Assert.False(status.IsVerified);
     }
 
@@ -234,11 +235,25 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
     { var (_, client) = await RegisteredClient(); Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/v1/customer/account/addresses/{Guid.NewGuid()}")).StatusCode); }
 
     [Fact]
-    public async Task DeletingDefaultAddressDoesNotSelectAnotherAddressImplicitly()
+    public async Task DefaultAddressCannotBeDeletedUntilAnotherAddressIsSelectedAsDefault()
     {
         var (_, client) = await RegisteredClient(); var first = await CreateAddress(client, "기본", true); await CreateAddress(client, "보조", false);
-        (await client.DeleteAsync($"/api/v1/customer/account/addresses/{first.Id}?concurrencyToken={Uri.EscapeDataString(first.ConcurrencyToken)}")).EnsureSuccessStatusCode();
-        Assert.DoesNotContain((await client.GetFromJsonAsync<List<CustomerAddressResponse>>("/api/v1/customer/account/addresses"))!, x => x.IsDefault);
+        var denied = await client.DeleteAsync($"/api/v1/customer/account/addresses/{first.Id}?concurrencyToken={Uri.EscapeDataString(first.ConcurrencyToken)}");
+        Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+        var items = (await client.GetFromJsonAsync<List<CustomerAddressResponse>>("/api/v1/customer/account/addresses"))!;
+        Assert.Single(items, x => x.IsDefault && x.Id == first.Id);
+        var second = items.Single(x => x.Id != first.Id);
+        var promoted = await client.PutAsJsonAsync($"/api/v1/customer/account/addresses/{second.Id}", Address(second.AddressName, true, second.ConcurrencyToken));
+        promoted.EnsureSuccessStatusCode();
+        var refreshedFirst = (await client.GetFromJsonAsync<List<CustomerAddressResponse>>("/api/v1/customer/account/addresses"))!.Single(x => x.Id == first.Id);
+        (await client.DeleteAsync($"/api/v1/customer/account/addresses/{first.Id}?concurrencyToken={Uri.EscapeDataString(refreshedFirst.ConcurrencyToken)}")).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task FirstAddressBecomesDefaultEvenWhenCheckboxIsNotSelected()
+    {
+        var (_, client) = await RegisteredClient(); var first = await CreateAddress(client, "첫 주소", false);
+        Assert.True(first.IsDefault);
     }
 
     [Fact]
@@ -312,7 +327,7 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
     private async Task<CustomerAddressResponse> CreateAddress(HttpClient client, string name, bool isDefault)
     { var response = await client.PostAsJsonAsync("/api/v1/customer/account/addresses", Address(name, isDefault, null)); response.EnsureSuccessStatusCode(); return (await response.Content.ReadFromJsonAsync<CustomerAddressResponse>())!; }
     private static SaveCustomerAddressRequest Address(string name, bool isDefault, string? token) => new(name, "홍고객", "12345", "대구광역시 테스트로 1", "101호", null, null, null, isDefault, token);
-    private static RegisterCustomerRequest Registration(string login, string email, List<LegalDocumentResponse> docs, bool optional = false) => new(login, "테스트 고객", email, "010-1234-5678", "Aa!12345678", "Aa!12345678", docs.Select(x => new RegistrationConsentRequest(x.VersionId, x.RequirementCode == "REQUIRED" || optional)).ToArray());
+    private static RegisterCustomerRequest Registration(string login, string email, List<LegalDocumentResponse> docs, bool optional = false) => new(login, "테스트 고객", email, "010-1234-5678", "Aa!12345678", "Aa!12345678", TestIdentityVerificationAdapter.VerificationToken, docs.Select(x => new RegistrationConsentRequest(x.VersionId, x.RequirementCode == "REQUIRED" || optional)).ToArray());
     private static string Login() => $"c{Guid.NewGuid():N}"[..20];
     private async Task LoginAs(HttpClient client, string role) { var credential = factory.Credentials[role]; (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(credential.LoginId, credential.Password))).EnsureSuccessStatusCode(); }
     private HttpClient Client() => factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });

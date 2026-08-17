@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Catalog;
@@ -129,16 +130,19 @@ public sealed class PublicCatalogQueryService(SoodalLifeDbContext db)
 
     private async Task<IReadOnlyList<PublicServiceRequestFieldResponse>> PublicFieldsAsync(long serviceId, long middleId, CancellationToken token)
     {
-        return await (from assignment in db.CategoryFieldAssignments.AsNoTracking()
-                      join field in db.CategoryFieldDefinitions.AsNoTracking() on assignment.FieldDefinitionId equals field.Id
-                      where assignment.IsActive && field.StatusCode == "ACTIVE" &&
-                            (assignment.TargetCategoryId == serviceId ||
-                             (assignment.TargetCategoryId == middleId && !db.CategoryFieldAssignments.Any(overrideItem =>
-                                 overrideItem.FieldDefinitionId == field.Id && overrideItem.TargetCategoryId == serviceId)))
-                      orderby assignment.DisplayOrder, field.Id
-                      select new PublicServiceRequestFieldResponse(
-                          field.PublicId, field.Label, field.FieldTypeCode, assignment.IsRequired,
-                          field.UnitText, assignment.DisplayOrder)).ToListAsync(token);
+        var rows = await (from assignment in db.CategoryFieldAssignments.AsNoTracking()
+                          join field in db.CategoryFieldDefinitions.AsNoTracking() on assignment.FieldDefinitionId equals field.Id
+                          where assignment.IsActive && field.StatusCode == "ACTIVE" &&
+                                (assignment.TargetCategoryId == serviceId ||
+                                 (assignment.TargetCategoryId == middleId && !db.CategoryFieldAssignments.Any(overrideItem =>
+                                     overrideItem.FieldDefinitionId == field.Id && overrideItem.TargetCategoryId == serviceId)))
+                          orderby assignment.DisplayOrder, field.Id
+                          select new { Field = field, Assignment = assignment }).ToListAsync(token);
+        return rows
+            .Where(row => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(row.Field))
+            .Select(row => new PublicServiceRequestFieldResponse(
+                row.Field.PublicId, row.Field.Label, row.Field.FieldTypeCode, row.Assignment.IsRequired,
+                row.Field.UnitText, row.Assignment.DisplayOrder)).ToArray();
     }
 
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;

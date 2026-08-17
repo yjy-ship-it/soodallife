@@ -181,6 +181,7 @@ public sealed class CatalogReferenceDataImporter(
             policy.TransactionTypeCode = code.StartsWith("FEE-Q", StringComparison.Ordinal) ? "ONE_TIME"
                 : code == "FEE-I1" ? "PROJECT" : "SUBSCRIPTION";
             policy.AppliesToText = Required(row, "적용 거래");
+            policy.CalculationMethodText = code == "FEE-I1" ? "SELECTED_QUOTE_TIER:FEE-Q1-FEE-Q7" : policy.CalculationMethodText;
             policy.MinBaseAmount = ParseDecimal(row, "기본요금 하한(원)");
             policy.MaxBaseAmount = ParseDecimal(row, "기본요금 상한(원)");
             policy.DisplayFeeAmount = ParseDecimal(row, "견적 화면 표시액(원)");

@@ -6171,7 +6171,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .IsUnicode(false)
                         .HasColumnType("varchar(30)")
-                        .HasDefaultValue("POLICY_PENDING")
+                        .HasDefaultValue("PENDING_SELECTION")
                         .HasColumnName("fee_assessment_status_code");
 
                     b.Property<DateOnly?>("ProjectStartDate")
@@ -6287,7 +6287,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("interior_projects", null, t =>
                         {
-                            t.HasCheckConstraint("CK_interior_projects_fee", "[fee_assessment_status_code] IN ('POLICY_PENDING','NOT_APPLICABLE','ASSESSED')");
+                            t.HasCheckConstraint("CK_interior_projects_fee", "[fee_assessment_status_code] IN ('POLICY_PENDING','PENDING_SELECTION','NOT_APPLICABLE','ASSESSED')");
 
                             t.HasCheckConstraint("CK_interior_projects_status", "[status_code] IN ('CONSULTATION','SITE_VISIT_SELECTION','SITE_VISIT_SCHEDULED','SITE_VISIT_COMPLETED','ESTIMATE_IN_PROGRESS','ESTIMATE_READY','CONTRACT_PENDING','CONTRACTED','CONSTRUCTION','INSPECTION','COMPLETED','DEFECT_MANAGEMENT','CANCELLED')");
                         });
@@ -9786,6 +9786,48 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(1000)")
                         .HasColumnName("introduction");
+
+                    b.Property<string>("PublicAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("public_address");
+
+                    b.Property<string>("PublicBlogUrl")
+                        .HasMaxLength(1000)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1000)")
+                        .HasColumnName("public_blog_url");
+
+                    b.Property<string>("PublicEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)")
+                        .HasColumnName("public_email");
+
+                    b.Property<string>("PublicIntroductionHtml")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(8000)")
+                        .HasColumnName("public_introduction_html");
+
+                    b.Property<string>("PublicLogoUrl")
+                        .HasMaxLength(1000)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1000)")
+                        .HasColumnName("public_logo_url");
+
+                    b.Property<string>("PublicPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("public_phone");
+
+                    b.Property<string>("PublicPhotoUrlsJson")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("public_photo_urls_json");
+
+                    b.Property<string>("PublicWebsiteUrl")
+                        .HasMaxLength(1000)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1000)")
+                        .HasColumnName("public_website_url");
 
                     b.Property<short?>("PrivacyProtectionVersion")
                         .HasColumnType("smallint")
@@ -14436,7 +14478,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");
 
-                            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE')");
+                            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO')");
 
                             t.HasCheckConstraint("CK_files_sanitization_status", "[sanitization_status_code] IS NULL OR [sanitization_status_code] IN ('NOT_INTEGRATED','NOT_REQUIRED','PENDING','PROCESSING','COMPLETED','FAILED')");
 

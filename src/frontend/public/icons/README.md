@@ -1,9 +1,7 @@
-# 승인 로고 기반 PWA 아이콘 경로
+# 승인 로고 기반 PWA 아이콘
 
-승인된 수달 라이프 로고 원본이 전달되면 다음 파일을 생성하고 `manifest.webmanifest`에 등록합니다.
+승인된 브랜드 보드에서 분리한 투명 배경 마크를 공통 PWA 아이콘으로 사용합니다.
 
-- `icon-192.png`
-- `icon-512.png`
-- `maskable-512.png`
+- `/brand/soodal-life-mark.png`
 
-현재는 임의 로고나 기존 Vite 아이콘을 사용하지 않습니다.
+`manifest.webmanifest`, 브라우저 파비콘 및 Apple Touch Icon이 같은 승인 마크를 참조합니다.

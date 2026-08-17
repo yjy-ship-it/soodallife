@@ -11,20 +11,28 @@ namespace SoodalLife.Api.Controllers;
 public sealed class CatalogController(CatalogQueryService catalogQueryService) : ControllerBase
 {
     [HttpGet("majors")]
-    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMajors(CancellationToken cancellationToken) =>
-        Ok(await catalogQueryService.GetMajorCategoriesAsync(cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMajors(
+        [FromQuery] bool emergencyOnly,
+        CancellationToken cancellationToken) =>
+        Ok(await catalogQueryService.GetMajorCategoriesAsync(emergencyOnly, cancellationToken));
 
     [HttpGet("{majorId:guid}/middles")]
-    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMiddles(Guid majorId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMiddles(
+        Guid majorId,
+        [FromQuery] bool emergencyOnly,
+        CancellationToken cancellationToken)
     {
-        var categories = await catalogQueryService.GetMiddleCategoriesAsync(majorId, cancellationToken);
+        var categories = await catalogQueryService.GetMiddleCategoriesAsync(majorId, emergencyOnly, cancellationToken);
         return categories is null ? NotFound() : Ok(categories);
     }
 
     [HttpGet("{middleId:guid}/services")]
-    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetServices(Guid middleId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetServices(
+        Guid middleId,
+        [FromQuery] bool emergencyOnly,
+        CancellationToken cancellationToken)
     {
-        var categories = await catalogQueryService.GetServicesAsync(middleId, cancellationToken);
+        var categories = await catalogQueryService.GetServicesAsync(middleId, emergencyOnly, cancellationToken);
         return categories is null ? NotFound() : Ok(categories);
     }
 
@@ -37,7 +45,7 @@ public sealed class CatalogController(CatalogQueryService catalogQueryService) :
 }
 
 [ApiController]
-[Authorize(Roles = RoleCodes.Customer + "," + RoleCodes.Provider)]
+[AllowAnonymous]
 [Route("api/v1/administrative-areas")]
 public sealed class AdministrativeAreasController(CatalogQueryService catalogQueryService) : ControllerBase
 {

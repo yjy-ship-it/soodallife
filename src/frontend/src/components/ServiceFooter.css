@@ -126,43 +126,6 @@
   flex-basis: 100%;
 }
 
-.serviceFooterDomains {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 5px 10px;
-  max-width: 520px;
-  padding: 12px 14px;
-  margin-top: 14px;
-  border: 1px solid #d6e2dc;
-  border-radius: 10px;
-  background: rgb(255 255 255 / 46%);
-  font-size: .72rem;
-}
-
-.serviceFooterDomains span {
-  color: #607068;
-  font-weight: 760;
-}
-
-.serviceFooterDomains a {
-  min-width: 0;
-  overflow: hidden;
-  color: #246749;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.businessVerification {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 13px;
-  color: #57675f;
-  font-size: .72rem;
-  font-weight: 750;
-  text-underline-offset: 3px;
-}
-
 .serviceFooterContact h3 {
   margin: 1px 0 13px;
   color: #263e34;
@@ -267,10 +230,6 @@
 
   .serviceFooterDetails {
     gap: 9px;
-  }
-
-  .serviceFooterDomains {
-    grid-template-columns: 1fr;
   }
 
   .serviceFooterNotice {

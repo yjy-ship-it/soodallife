@@ -50,5 +50,5 @@ export const getCustomerQuote = (quoteId: string) =>
   fetch(`/api/v1/quotes/${quoteId}`, { credentials: 'include' }).then(readJson<CustomerQuoteDetail>)
 export const getCustomerProviderProfile = (providerId: string, requestId: string) =>
   fetch(`/api/v1/customer/providers/${providerId}?requestId=${encodeURIComponent(requestId)}`, { credentials: 'include' }).then(readJson<CustomerProviderProfile>)
-export const acceptQuote = (quoteId: string) =>
-  json('POST', `/api/v1/quotes/${quoteId}/accept`).then(readJson<AcceptQuoteResult>)
+export const acceptQuote = (quoteId: string, detailAddress: string) =>
+  json('POST', `/api/v1/quotes/${quoteId}/accept`, { detailAddress }).then(readJson<AcceptQuoteResult>)

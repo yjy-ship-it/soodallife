@@ -3,11 +3,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using SoodalLife.Api.Features.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
-using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
 
@@ -17,6 +17,7 @@ public sealed partial class CustomerAccountService(
     SoodalLifeDbContext db,
     IPasswordHasher<User> passwordHasher,
     IPasswordResetDeliveryAdapter resetDelivery,
+    IIdentityVerificationAdapter identityVerification,
     IPersonalDataSearchHasher searchHasher,
     IPersonalDataReader personalDataReader)
 {
@@ -37,17 +38,29 @@ public sealed partial class CustomerAccountService(
         return new(!exists, normalized.ToLowerInvariant());
     }
 
-    public Task<List<LegalDocumentResponse>> ActiveDocuments(CancellationToken token)
+    public async Task<AvailabilityResponse> PhoneAvailable(string value, CancellationToken token)
+    {
+        var phone = NormalizePhone(value);
+        var exists = searchHasher.IsConfigured
+            ? await db.Users.AsNoTracking().AnyAsync(x => x.PhoneSearchHash != null && x.PhoneSearchHash.SequenceEqual(searchHasher.Phone(phone)) || x.PhoneSearchHash == null && x.Phone == phone, token)
+            : await db.Users.AsNoTracking().AnyAsync(x => x.Phone == phone, token);
+        return new(!exists, FormatPhone(phone) ?? phone);
+    }
+
+    public async Task<List<LegalDocumentResponse>> ActiveDocuments(CancellationToken token)
     {
         var now = DateTime.UtcNow;
-        return (from document in db.LegalDocuments.AsNoTracking()
-                join version in db.LegalDocumentVersions.AsNoTracking() on document.Id equals version.LegalDocumentId
-                where document.IsActive && (document.AudienceCode == "CUSTOMER" || document.AudienceCode == "ALL") &&
-                      version.IsActive && version.EffectiveFrom <= now && (version.EffectiveTo == null || version.EffectiveTo > now)
-                orderby document.DisplayOrder, version.VersionNo descending
-                select new LegalDocumentResponse(document.PublicId, version.PublicId, document.Code, document.RequirementCode,
-                    version.Title, version.Content, version.VersionNo, version.EffectiveFrom, version.EffectiveTo, document.IsPlaceholder || version.IsPlaceholder))
-            .GroupBy(x => x.Id).Select(x => x.First()).ToListAsync(token);
+        var rows = await (from document in db.LegalDocuments.AsNoTracking()
+                          join version in db.LegalDocumentVersions.AsNoTracking() on document.Id equals version.LegalDocumentId
+                          where document.IsActive && (document.AudienceCode == "CUSTOMER" || document.AudienceCode == "ALL") &&
+                                version.IsActive && version.EffectiveFrom <= now && (version.EffectiveTo == null || version.EffectiveTo > now)
+                          orderby document.DisplayOrder, version.VersionNo descending
+                          select new LegalDocumentResponse(document.PublicId, version.PublicId, document.Code, document.RequirementCode,
+                              version.Title, version.Content, version.VersionNo, version.EffectiveFrom, version.EffectiveTo,
+                              document.IsPlaceholder || version.IsPlaceholder))
+            .ToListAsync(token);
+
+        return rows.GroupBy(x => x.Id).Select(x => x.First()).ToList();
     }
 
     public async Task<CustomerRegistrationResponse> Register(RegisterCustomerRequest input, HttpContext context, CancellationToken token)
@@ -55,13 +68,21 @@ public sealed partial class CustomerAccountService(
         var login = input.LoginId.Trim();
         var normalizedLogin = NormalizeLogin(login);
         if (!LoginIdPattern().IsMatch(login)) throw Bad("LOGIN_ID_INVALID", "아이디는 영문자로 시작하고 영문, 숫자, -, _를 사용한 4~256자로 입력해 주세요.");
-        var email = NormalizeEmail(input.Email).ToLowerInvariant();
-        EnsureEmail(email);
+        var email = string.IsNullOrWhiteSpace(input.Email) ? null : NormalizeEmail(input.Email).ToLowerInvariant();
+        if (email is not null) EnsureEmail(email);
         var phone = NormalizePhone(input.Phone);
         EnsurePassword(input.Password, input.PasswordConfirmation);
+        var verificationStatus = await identityVerification.GetStatusAsync(token);
+        var verification = await identityVerification.VerifyPhoneAsync(phone, input.PhoneVerificationToken, token);
+        var externalVerificationUnavailable = verificationStatus.StatusCode == "NOT_INTEGRATED";
+        if (!externalVerificationUnavailable && (!verification.IsVerified || !string.Equals(NormalizePhone(verification.VerifiedPhone ?? string.Empty), phone, StringComparison.Ordinal)))
+            throw Bad("PHONE_IDENTITY_VERIFICATION_REQUIRED", "휴대전화 본인인증을 완료해 주세요.");
+        if (externalVerificationUnavailable && input.PhoneVerificationToken != "NOT_INTEGRATED")
+            throw Bad("PHONE_CONFIRMATION_REQUIRED", "휴대전화 번호 확인 버튼을 눌러 주세요.");
 
         if (await db.Users.AnyAsync(x => x.NormalizedLoginId == normalizedLogin, token)) throw Conflict("LOGIN_ID_DUPLICATE", "이미 사용 중인 아이디입니다.");
-        if (!(await EmailAvailable(email, token)).Available) throw Conflict("EMAIL_DUPLICATE", "이미 사용 중인 이메일입니다.");
+        if (!(await PhoneAvailable(phone, token)).Available) throw Conflict("PHONE_DUPLICATE", "이미 등록된 휴대전화 번호입니다.");
+        if (email is not null && !(await EmailAvailable(email, token)).Available) throw Conflict("EMAIL_DUPLICATE", "이미 사용 중인 이메일입니다.");
 
         var now = DateTime.UtcNow;
         var activeVersions = await (from document in db.LegalDocuments
@@ -83,8 +104,8 @@ public sealed partial class CustomerAccountService(
         {
             var user = new User
             {
-                LoginId = login, NormalizedLoginId = normalizedLogin, Email = email, NormalizedEmail = email.ToUpperInvariant(), Phone = phone,
-                EmailVerificationStatusCode = "NOT_INTEGRATED", PhoneVerificationStatusCode = "NOT_INTEGRATED", StatusCode = "ACTIVE",
+                LoginId = login, NormalizedLoginId = normalizedLogin, Email = email, NormalizedEmail = email?.ToUpperInvariant(), Phone = phone,
+                EmailVerificationStatusCode = "NOT_INTEGRATED", PhoneVerificationStatusCode = externalVerificationUnavailable ? "NOT_INTEGRATED" : "VERIFIED", StatusCode = "ACTIVE",
                 CreatedAt = now, UpdatedAt = now,
             };
             user.PasswordHash = passwordHasher.HashPassword(user, input.Password);
@@ -106,7 +127,7 @@ public sealed partial class CustomerAccountService(
         catch (DbUpdateException)
         {
             if (transaction is not null) await transaction.RollbackAsync(token);
-            throw Conflict("REGISTRATION_DUPLICATE", "이미 등록된 아이디 또는 이메일입니다.");
+            throw Conflict("REGISTRATION_DUPLICATE", "이미 등록된 아이디, 휴대전화 또는 이메일입니다.");
         }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
@@ -171,13 +192,15 @@ public sealed partial class CustomerAccountService(
     {
         var identity = await Identity(principal, token);
         var areaId = await AreaId(input.AdministrativeAreaId, token);
-        if (input.IsDefault) await UnsetDefault(identity.Profile.Id, null, identity.User.Id, token);
+        var hasDefault = await db.CustomerAddresses.AnyAsync(x => x.CustomerProfileId == identity.Profile.Id && x.IsActive && x.IsDefault, token);
+        var makeDefault = input.IsDefault || !hasDefault;
+        if (makeDefault) await UnsetDefault(identity.Profile.Id, null, identity.User.Id, token);
         var now = DateTime.UtcNow;
         var item = new CustomerAddress
         {
             CustomerProfileId = identity.Profile.Id, AddressName = input.AddressName.Trim(), RecipientName = Clean(input.RecipientName),
             PostalCode = input.PostalCode.Trim(), RoadAddress = input.RoadAddress.Trim(), DetailAddress = input.DetailAddress.Trim(),
-            AdministrativeAreaId = areaId, Latitude = input.Latitude, Longitude = input.Longitude, IsDefault = input.IsDefault, IsActive = true,
+            AdministrativeAreaId = areaId, Latitude = input.Latitude, Longitude = input.Longitude, IsDefault = makeDefault, IsActive = true,
             CreatedAt = now, CreatedByUserId = identity.User.Id, UpdatedAt = now, UpdatedByUserId = identity.User.Id,
         };
         db.CustomerAddresses.Add(item);
@@ -192,6 +215,8 @@ public sealed partial class CustomerAccountService(
         var item = await db.CustomerAddresses.SingleOrDefaultAsync(x => x.PublicId == id && x.CustomerProfileId == identity.Profile.Id && x.IsActive, token)
             ?? throw NotFound("CUSTOMER_ADDRESS_NOT_FOUND", "주소를 찾을 수 없습니다.");
         ApplyConcurrency(item, input.ConcurrencyToken);
+        if (item.IsDefault && !input.IsDefault)
+            throw Bad("DEFAULT_ADDRESS_REQUIRED", "기본주소는 해제할 수 없습니다. 다른 주소를 기본주소로 설정해 주세요.");
         if (input.IsDefault) await UnsetDefault(identity.Profile.Id, item.Id, identity.User.Id, token);
         item.AddressName = input.AddressName.Trim(); item.RecipientName = Clean(input.RecipientName); item.PostalCode = input.PostalCode.Trim();
         item.RoadAddress = input.RoadAddress.Trim(); item.DetailAddress = input.DetailAddress.Trim(); item.AdministrativeAreaId = await AreaId(input.AdministrativeAreaId, token);
@@ -206,6 +231,8 @@ public sealed partial class CustomerAccountService(
         var item = await db.CustomerAddresses.SingleOrDefaultAsync(x => x.PublicId == id && x.CustomerProfileId == identity.Profile.Id && x.IsActive, token)
             ?? throw NotFound("CUSTOMER_ADDRESS_NOT_FOUND", "주소를 찾을 수 없습니다.");
         ApplyConcurrency(item, concurrencyToken);
+        if (item.IsDefault)
+            throw Bad("DEFAULT_ADDRESS_DELETE_BLOCKED", "기본주소는 삭제할 수 없습니다. 다른 주소를 기본주소로 설정한 후 삭제해 주세요.");
         item.IsActive = false; item.IsDefault = false; item.UpdatedAt = DateTime.UtcNow; item.UpdatedByUserId = identity.User.Id;
         await SaveConcurrency(token);
     }
@@ -358,9 +385,9 @@ public sealed partial class CustomerAccountService(
     private static void EnsureEmail(string value) { if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(value)) throw Bad("EMAIL_INVALID", "이메일 형식을 확인해 주세요."); }
     private static void EnsurePassword(string value, string confirmation)
     {
-        if (value != confirmation) throw Bad("PASSWORD_CONFIRMATION_MISMATCH", "비밀번호 확인이 일치하지 않습니다.");
-        if (value.Length < 10 || !value.Any(char.IsUpper) || !value.Any(char.IsLower) || !value.Any(char.IsDigit) || value.All(char.IsLetterOrDigit))
-            throw Bad("PASSWORD_POLICY_VIOLATION", "비밀번호는 10자 이상이며 영문 대·소문자, 숫자, 특수문자를 포함해야 합니다.");
+        if (value != confirmation) throw Bad("PASSWORD_CONFIRMATION_MISMATCH", "비밀번호를 다시 확인하세요.");
+        if (!AccountPasswordPolicy.IsSatisfied(value))
+            throw Bad("PASSWORD_POLICY_VIOLATION", "비밀번호가 규칙에 맞지 않습니다.");
     }
     private static byte[] Hash(string value) => SHA256.HashData(Encoding.UTF8.GetBytes(value));
     private static string MaskIdentifier(string value) { var text = value.Trim(); var at = text.IndexOf('@'); return at > 1 ? $"{text[0]}***{text[(at - 1)..]}" : text.Length > 3 ? $"{text[..2]}***{text[^1]}" : "***"; }

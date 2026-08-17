@@ -2,7 +2,7 @@
 
 ## 1. 분석 대상과 검증 방법
 
-- 파일: `docs/source/수달_라이프_전체_서비스_카테고리_및_수수료_관리대장_v1.1.xlsx`
+- 파일: `docs/source/수달_라이프_전체_서비스_카테고리_및_수수료_관리대장_v1.2.xlsx`
 - 검증 SHA-256: `9043553C1FC4875A6B82BAF4726340A81F0B09E10B33905F085C22314EBA3530`
 - 분석 방식: 원본을 수정하지 않고 XLSX OOXML의 workbook, relationship, shared string, worksheet XML을 직접 읽어 시트명, 실제 헤더, 데이터 행, 값 분포를 확인했다.
 - 이번 단계에서는 import 코드, SQL, seed, Migration을 만들지 않았다.

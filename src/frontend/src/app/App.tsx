@@ -12,6 +12,7 @@ import { ProviderQuoteListPage } from '../providers/ProviderOperations'
 import { ProviderInboxPage, ProviderOperationsHubHomePage, ProviderSchedulePage } from '../providers/ProviderOperationsHubPages'
 import { ProviderAfterServiceDetailPage, ProviderAfterServiceListPage, ProviderDisputeDetailPage, ProviderDisputeListPage } from '../providers/ProviderAftercarePages'
 import { ProviderWalletPage } from '../providers/ProviderWalletPage'
+import { ProviderTrustPage } from '../providers/ProviderTrustPage'
 import { ProviderExitPage } from '../providers/ProviderExitPage'
 import { ProviderCareApplicationsPage, ProviderCareContractsPage, ProviderCareHomePage, ProviderCareRequestsPage, ProviderCareScheduleChangesPage, ProviderCareVisitsPage } from '../providers/ProviderCarePages'
 import { ProviderInteriorHomePage, ProviderInteriorProjectsPage } from '../providers/ProviderInteriorPages'
@@ -95,12 +96,35 @@ function usePathname() {
 function ApplicationRoutes() {
   const pathname = usePathname()
   const { status, user } = useAuthentication()
+  const hostname = window.location.hostname.toLowerCase()
+  const isPartnerRoot = pathname === '/' && hostname.startsWith('partner.')
+  const isAdminRoot = pathname === '/' && hostname.startsWith('admin.')
+
+  // The customer, provider, and admin sites share one frontend bundle. Keep
+  // each domain's root entry on the correct service instead of rendering the
+  // customer home for every host. Perform navigation in an effect so every
+  // render executes the same hooks and React cannot abort with a hook-order
+  // error while the root path changes.
+  useEffect(() => {
+    if (isPartnerRoot) {
+      navigate('/provider/start', true)
+    } else if (isAdminRoot) {
+      navigate('/admin', true)
+    }
+  }, [isAdminRoot, isPartnerRoot])
 
   useEffect(() => {
     if (status === 'authenticated' && user && pathname === '/login') {
       navigate(getSafeReturnUrl() ?? getInitialAuthenticatedPath(user), true)
     }
   }, [pathname, status, user])
+
+  if (isPartnerRoot) {
+    return <main className="loadingScreen" aria-live="polite">공급자 서비스로 이동하고 있습니다.</main>
+  }
+  if (isAdminRoot) {
+    return <main className="loadingScreen" aria-live="polite">관리자 서비스로 이동하고 있습니다.</main>
+  }
 
   const serviceDetailMatch = pathname.match(/^\/services\/([0-9a-f-]+)$/i)
   const noticeDetailMatch = pathname.match(/^\/notices\/([0-9a-f-]+)$/i)
@@ -268,6 +292,7 @@ function ApplicationRoutes() {
     if (pathname === '/provider/schedule') return <ProviderSchedulePage />
     if (pathname === '/provider/quotes') return <ProviderQuoteListPage />
     if (pathname === '/provider/wallet') return <ProviderWalletPage />
+    if (pathname === '/provider/trust') return <ProviderTrustPage />
     if (pathname === '/provider/exit') return <ProviderExitPage />
     if (pathname === '/provider/care') return <ProviderCareHomePage />
     if (pathname === '/provider/care/requests') return <ProviderCareRequestsPage />

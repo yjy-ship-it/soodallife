@@ -10,6 +10,14 @@ export interface ProviderProfile {
   businessTypeText: string | null
   businessItemText: string | null
   introduction: string | null
+  publicIntroductionHtml: string | null
+  publicPhone: string | null
+  publicEmail: string | null
+  publicAddress: string | null
+  publicBlogUrl: string | null
+  publicWebsiteUrl: string | null
+  publicLogoUrl: string | null
+  publicPhotoUrls: string[]
   providerType: string | null
   approvalStatus: string
   activityStatus: string

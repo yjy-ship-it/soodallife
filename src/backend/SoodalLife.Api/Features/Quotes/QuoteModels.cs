@@ -149,6 +149,14 @@ public sealed record CustomerProviderReviewResponse(
 public sealed record CustomerProviderProfileResponse(
     Guid Id,
     string BusinessName,
+    string? IntroductionHtml,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PublicPhone,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PublicEmail,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PublicAddress,
+    string? PublicBlogUrl,
+    string? PublicWebsiteUrl,
+    string? PublicLogoUrl,
+    IReadOnlyList<string> PublicPhotoUrls,
     string ApprovalStatus,
     string ActivityStatus,
     string ServiceApprovalStatus,
@@ -177,6 +185,8 @@ public sealed record QuoteSubmissionReadinessResponse(
     string WalletStatus,
     bool CanSubmit,
     string? UnavailableReason);
+
+public sealed record AcceptQuoteRequest(string DetailAddress);
 
 public sealed record AcceptQuoteResponse(
     Guid TransactionId,

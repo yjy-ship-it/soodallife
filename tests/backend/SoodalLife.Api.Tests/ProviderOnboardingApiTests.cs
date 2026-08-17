@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
@@ -15,17 +18,52 @@ namespace SoodalLife.Api.Tests;
 
 public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFactory factory) : IClassFixture<AuthenticationWebApplicationFactory>
 {
+    [Fact] public void StoredFilePurposeConstraint_AllowsProviderPromotionImages()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var constraint = db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(StoredFile))!.GetCheckConstraints()
+            .Single(x => x.Name == "CK_files_purpose").Sql;
+        Assert.Contains("PROVIDER_PUBLIC_LOGO", constraint);
+        Assert.Contains("PROVIDER_PUBLIC_PHOTO", constraint);
+    }
+
+    [Fact] public async Task LoginIdAvailability_ReturnsTrimmedNormalizedValue()
+    {
+        using var client = Client();
+        var loginId = $"provider-{Guid.NewGuid():N}";
+        var response = await client.GetAsync($"/api/v1/public/provider-registration/availability/login-id?value=%20{loginId}%20");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(body.RootElement.GetProperty("available").GetBoolean());
+        Assert.Equal(loginId, body.RootElement.GetProperty("normalizedValue").GetString());
+    }
+
     [Fact] public async Task PublicProviderRegistration_CreatesPendingInactiveProvider()
     {
         using var client = Client(); var credential = NewCredential();
         var response = await client.PostAsJsonAsync("/api/v1/public/provider-registration", Registration(credential));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ProviderRegistrationResponse>();
-        Assert.Equal("PENDING", body!.ApprovalStatus); Assert.Equal("INACTIVE", body.ActivityStatus); Assert.Contains(RoleCodes.Provider, body.Roles);
+        Assert.Equal("PENDING", body!.ApprovalStatus); Assert.Equal("INACTIVE", body.ActivityStatus); Assert.Contains(RoleCodes.Customer, body.Roles); Assert.Contains(RoleCodes.Provider, body.Roles);
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var userId = await db.Users.Where(x => x.PublicId == body.UserId).Select(x => x.Id).SingleAsync();
         var profileId = await db.ProviderProfiles.Where(x => x.PublicId == body.ProviderId).Select(x => x.Id).SingleAsync();
+        Assert.True(await db.CustomerProfiles.AnyAsync(x => x.UserId == userId));
         var wallet = await db.ProviderWallets.SingleAsync(x => x.ProviderProfileId == profileId && x.CurrencyCode == "KRW");
         Assert.Equal(0, wallet.AvailableBalance); Assert.Equal(0, wallet.ReservedBalance); Assert.Equal("ACTIVE", wallet.StatusCode);
+    }
+
+    [Fact] public async Task PublicProviderRegistration_RejectsUnverifiedPhone()
+    {
+        using var client = Client(); var credential = NewCredential();
+        var input = new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password,
+            email = (string?)null, phone = "01012345678", phoneVerificationToken = "INVALID",
+            businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자",
+            businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스",
+            businessItemText = "생활서비스", introduction = "테스트 공급자", consents = Array.Empty<object>() };
+        var response = await client.PostAsJsonAsync("/api/v1/public/provider-registration", input);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact] public async Task ProviderRegistration_PreservesCustomerRole_WhenRoleIsAdded()
@@ -35,6 +73,8 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ProviderRegistrationResponse>();
         Assert.Contains(RoleCodes.Customer, body!.Roles); Assert.Contains(RoleCodes.Provider, body.Roles);
+        var currentUser = await client.GetFromJsonAsync<AuthenticatedUserResponse>("/api/v1/me");
+        Assert.Contains(RoleCodes.Customer, currentUser!.Roles); Assert.Contains(RoleCodes.Provider, currentUser.Roles);
     }
 
     [Fact] public async Task ProviderRegistration_RejectsDuplicateLoginId()
@@ -65,6 +105,144 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.Equal(HttpStatusCode.OK, (await provider.GetAsync("/api/v1/providers/me")).StatusCode);
         using var customer = Client(); await Login(customer, factory.Credentials[RoleCodes.Customer]);
         Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync("/api/v1/providers/me")).StatusCode);
+    }
+
+    [Fact] public async Task ProviderPromotionLogo_UploadsFiveMbLimitedImage_AndOnlyCurrentImageIsPublic()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        using var firstContent = PromotionImageUpload("file", 1);
+        var firstResponse = await provider.PostAsync("/api/v1/providers/me/promotion-images/logo", firstContent);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        var first = await firstResponse.Content.ReadFromJsonAsync<ProviderProfileResponse>();
+        Assert.StartsWith("/api/v1/provider-promotion-images/", first!.PublicLogoUrl);
+        using var anonymous = Client();
+        var publicImage = await anonymous.GetAsync(first.PublicLogoUrl);
+        Assert.Equal(HttpStatusCode.OK, publicImage.StatusCode);
+        Assert.Equal("image/png", publicImage.Content.Headers.ContentType!.MediaType);
+
+        using var replacementContent = PromotionImageUpload("file", 1);
+        var replacement = await (await provider.PostAsync("/api/v1/providers/me/promotion-images/logo", replacementContent))
+            .Content.ReadFromJsonAsync<ProviderProfileResponse>();
+        Assert.NotEqual(first.PublicLogoUrl, replacement!.PublicLogoUrl);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync(first.PublicLogoUrl)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync(replacement.PublicLogoUrl)).StatusCode);
+        var validProfile = replacement with { RepresentativeName = replacement.RepresentativeName ?? "대표자", ContactName = replacement.ContactName ?? "담당자" };
+        var profileUpdate = await provider.PutAsJsonAsync("/api/v1/providers/me", validProfile);
+        Assert.True(profileUpdate.IsSuccessStatusCode, await profileUpdate.Content.ReadAsStringAsync());
+    }
+
+    [Fact] public async Task ProviderPromotionStorageStatus_VerifiesCurrentProviderWriteAccess()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var response = await provider.GetAsync("/api/v1/providers/me/promotion-images/storage-status");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var status = await response.Content.ReadFromJsonAsync<ProviderPromotionStorageStatusResponse>();
+        Assert.True(status!.Writable); Assert.Contains("사용할 수", status.Message);
+    }
+
+    [Fact] public async Task ProviderPromotionImages_AcceptSequentialJsonContentWithoutMultipart()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+        var logoResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/logo-content",
+            new { fileName = "logo.png", contentType = "image/png", base64Content = png });
+        Assert.Equal(HttpStatusCode.OK, logoResponse.StatusCode);
+        var logo = await logoResponse.Content.ReadFromJsonAsync<ProviderProfileResponse>();
+        Assert.StartsWith("/api/v1/provider-promotion-images/", logo!.PublicLogoUrl);
+
+        var firstResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/photo-content",
+            new { file = new { fileName = "first.png", contentType = "image/png", base64Content = png }, replaceExisting = true });
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        var first = await firstResponse.Content.ReadFromJsonAsync<ProviderProfileResponse>(); Assert.Single(first!.PublicPhotoUrls);
+        var duplicateResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/photo-content",
+            new { file = new { fileName = "first.png", contentType = "image/png", base64Content = png }, replaceExisting = false });
+        var duplicate = await duplicateResponse.Content.ReadFromJsonAsync<ProviderProfileResponse>();
+        Assert.Single(duplicate!.PublicPhotoUrls);
+    }
+
+    [Fact] public async Task ProviderPromotionImageChunks_ReassembleAndAllowFinalRetry()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var signature = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        var png = new byte[70 * 1024]; signature.CopyTo(png, 0);
+        var uploadId = Guid.NewGuid(); const int split = 64 * 1024;
+        var firstResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/chunks", new
+        {
+            uploadId, purpose = "LOGO", replaceExisting = true, fileName = "chunked-logo.png", contentType = "image/png",
+            chunkIndex = 0, totalChunks = 2, base64Chunk = Convert.ToBase64String(png[..split])
+        });
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        var first = await firstResponse.Content.ReadFromJsonAsync<ProviderPromotionImageChunkResponse>();
+        Assert.False(first!.Completed); Assert.Null(first.Profile);
+
+        var lastChunk = new
+        {
+            uploadId, purpose = "LOGO", replaceExisting = true, fileName = "chunked-logo.png", contentType = "image/png",
+            chunkIndex = 1, totalChunks = 2, base64Chunk = Convert.ToBase64String(png[split..])
+        };
+        var completedResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/chunks", lastChunk);
+        Assert.Equal(HttpStatusCode.OK, completedResponse.StatusCode);
+        var completed = await completedResponse.Content.ReadFromJsonAsync<ProviderPromotionImageChunkResponse>();
+        Assert.True(completed!.Completed); Assert.EndsWith(uploadId.ToString(), completed.Profile!.PublicLogoUrl);
+
+        var retryResponse = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/chunks", lastChunk);
+        Assert.Equal(HttpStatusCode.OK, retryResponse.StatusCode);
+        var retry = await retryResponse.Content.ReadFromJsonAsync<ProviderPromotionImageChunkResponse>();
+        Assert.True(retry!.Completed); Assert.Equal(completed.Profile.PublicLogoUrl, retry.Profile!.PublicLogoUrl);
+    }
+
+    [Fact] public async Task ProviderPromotionImageChunks_RecoversStoredButUnlinkedLogo()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var uploadId = Guid.NewGuid();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var loginId = factory.Credentials[RoleCodes.Provider].LoginId;
+            var identity = await (from user in db.Users join profile in db.ProviderProfiles on user.Id equals profile.UserId
+                                  where user.LoginId == loginId select new { user.Id, Profile = profile }).SingleAsync();
+            var key = $"provider-promotion/{identity.Profile.PublicId:N}/{uploadId:N}.png";
+            db.Files.Add(new StoredFile
+            {
+                PublicId = uploadId, PurposeCode = "PROVIDER_PUBLIC_LOGO", StorageContainer = "development-private",
+                StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = "recover.png",
+                ContentType = "image/png", SizeBytes = 68, Sha256Hex = new string('a', 64), StatusCode = "ACTIVE",
+                MalwareScanStatusCode = "NOT_INTEGRATED", PrivacyInspectionStatusCode = "NOT_INTEGRATED",
+                SanitizationStatusCode = "NOT_INTEGRATED", UploadedByUserId = identity.Id, CreatedAt = DateTime.UtcNow,
+                ActivatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        var response = await provider.PostAsJsonAsync("/api/v1/providers/me/promotion-images/chunks", new
+        {
+            uploadId, purpose = "LOGO", replaceExisting = true, fileName = "recover.png", contentType = "image/png",
+            chunkIndex = 0, totalChunks = 1, base64Chunk = "AA=="
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var recovered = await response.Content.ReadFromJsonAsync<ProviderPromotionImageChunkResponse>();
+        Assert.True(recovered!.Completed); Assert.EndsWith(uploadId.ToString(), recovered.Profile!.PublicLogoUrl);
+    }
+
+    [Fact] public async Task ProviderPromotionPhotos_AcceptsAtMostFiveImages()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        using var five = PromotionImageUpload("files", 5);
+        var response = await provider.PostAsync("/api/v1/providers/me/promotion-images/photos", five);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var profile = await response.Content.ReadFromJsonAsync<ProviderProfileResponse>();
+        Assert.Equal(5, profile!.PublicPhotoUrls.Count);
+        using var six = PromotionImageUpload("files", 6);
+        Assert.Equal(HttpStatusCode.BadRequest, (await provider.PostAsync("/api/v1/providers/me/promotion-images/photos", six)).StatusCode);
+    }
+
+    [Fact] public async Task ProviderPromotionImage_RejectsOversizeAndMismatchedContent()
+    {
+        using var provider = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var oversizeBytes = new byte[5 * 1024 * 1024 + 1]; oversizeBytes[0] = 0xff; oversizeBytes[1] = 0xd8; oversizeBytes[2] = 0xff;
+        using var oversize = PromotionImageUpload("file", 1, oversizeBytes, "image/jpeg", "large.jpg");
+        Assert.Equal(HttpStatusCode.BadRequest, (await provider.PostAsync("/api/v1/providers/me/promotion-images/logo", oversize)).StatusCode);
+        using var mismatch = PromotionImageUpload("file", 1, Encoding.UTF8.GetBytes("not an image"));
+        Assert.Equal(HttpStatusCode.BadRequest, (await provider.PostAsync("/api/v1/providers/me/promotion-images/logo", mismatch)).StatusCode);
     }
 
     [Fact] public async Task PendingProvider_CanConfigureOnboardingService_ButRemainsInactive()
@@ -178,7 +356,7 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
     }
     private async Task CreateCustomer(TestCredential credential)
     {
-        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var hasher = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.IPasswordHasher<User>>(); var user = new User { LoginId = credential.LoginId, NormalizedLoginId = credential.LoginId.ToUpperInvariant(), StatusCode = "ACTIVE", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; user.PasswordHash = hasher.HashPassword(user, credential.Password); db.Users.Add(user); await db.SaveChangesAsync(); var role = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Customer); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = DateTime.UtcNow }); db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "Role preservation", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync();
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var hasher = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.IPasswordHasher<User>>(); var user = new User { LoginId = credential.LoginId, NormalizedLoginId = credential.LoginId.ToUpperInvariant(), StatusCode = "ACTIVE", PhoneVerificationStatusCode = "VERIFIED", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; user.PasswordHash = hasher.HashPassword(user, credential.Password); db.Users.Add(user); await db.SaveChangesAsync(); var role = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Customer); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = DateTime.UtcNow }); db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "Role preservation", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync();
     }
     private async Task EnsureEvidencePolicy()
     {
@@ -190,9 +368,20 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         db.CategoryProviderRequirementEvidenceTypes.Add(new CategoryProviderRequirementEvidenceType { RequirementAssignmentId = assignment.Id, DocumentTypeId = type.Id, IsRequired = true, DisplayOrder = 1, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
     }
-    private static object Registration(TestCredential credential, string? email = null) => new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password, email, phone = "01012345678", businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "테스트 공급자", consents = Array.Empty<object>() };
+    private static object Registration(TestCredential credential, string? email = null) => new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password, email, phone = "01012345678", phoneVerificationToken = "TEST-PHONE-VERIFIED", businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "테스트 공급자", consents = Array.Empty<object>() };
     private static object ExistingRoleInput() => new { businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "복수 역할", consents = Array.Empty<object>() };
     private static MultipartFormDataContent PdfUpload(Guid typeId, string text) { var body = new MultipartFormDataContent(); body.Add(new StringContent(typeId.ToString()), "documentTypeId"); var bytes = new ByteArrayContent(Encoding.ASCII.GetBytes(text)); bytes.Headers.ContentType = new MediaTypeHeaderValue("application/pdf"); body.Add(bytes, "file", "evidence.pdf"); return body; }
+    private static MultipartFormDataContent PromotionImageUpload(string field, int count, byte[]? data = null, string contentType = "image/png", string fileName = "promotion.png")
+    {
+        var body = new MultipartFormDataContent();
+        var bytes = data ?? Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        for (var index = 0; index < count; index++)
+        {
+            var content = new ByteArrayContent(bytes); content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            body.Add(content, field, count == 1 ? fileName : $"promotion-{index + 1}.png");
+        }
+        return body;
+    }
     private HttpClient Client() => factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
     private static TestCredential NewCredential() => new($"provider-{Guid.NewGuid():N}", "Valid!Provider123");
     private static async Task Login(HttpClient client, TestCredential credential) { var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { loginOrEmail = credential.LoginId, password = credential.Password }); Assert.Equal(HttpStatusCode.OK, response.StatusCode); }

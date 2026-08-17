@@ -29,7 +29,7 @@ export function AdminLayout({ pathname, children }: AdminLayoutProps) {
     <div className="adminShell">
       <aside className={`adminSidebar ${menuOpen ? 'isOpen' : ''}`} aria-label="본사 관리자 업무 메뉴">
         <button className="adminBrand" type="button" onClick={() => goTo('/admin')}>
-          <span className="adminBrandMark" aria-hidden="true">S</span>
+          <img className="adminBrandMark" src="/brand/soodal-life-mark.png" alt="" aria-hidden="true" />
           <span><strong>SOODAL LIFE</strong><small>수달 오피스</small></span>
         </button>
         <nav className="adminNav">

@@ -1,4 +1,5 @@
 import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from '@microsoft/signalr'
+import { apiUrl } from '../config/apiEndpoint'
 
 export type ChatResourceType='TRANSACTION'|'SUBSCRIPTION'|'INTERIOR'|'AFTER_SERVICE'
 export type ChatRoom = { id:string; resourceTypeCode:ChatResourceType; resourceId:string; transactionId:string|null; roomTypeCode:string; statusCode:string; counterpartyRoleCode:string; counterpartyDisplayName:string; serviceName:string; resourceNumber:string; lastMessagePreview:string|null; lastMessageAt:string|null; unreadCount:number; rowVersion?:string }
@@ -44,7 +45,7 @@ export async function openSubscriptionVisitChat(audience:'customer'|'provider',v
 }
 
 export function connectChat(roomId:string,onMessage:(message:ChatMessage)=>void,onRead:()=>void):HubConnection{
-  const connection=new HubConnectionBuilder().withUrl('/hubs/chat').withAutomaticReconnect([0,2000,5000,10000]).configureLogging(LogLevel.Warning).build()
+  const connection=new HubConnectionBuilder().withUrl(apiUrl('/hubs/chat'),{withCredentials:true}).withAutomaticReconnect([0,2000,5000,10000]).configureLogging(LogLevel.Warning).build()
   connection.on('messageCreated',onMessage)
   connection.on('messagesRead',onRead)
   connection.onreconnected(()=>connection.invoke('JoinRoom',roomId).catch(()=>undefined))

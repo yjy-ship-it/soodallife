@@ -8,5 +8,13 @@
   "display": "standalone",
   "background_color": "#F7F9F8",
   "theme_color": "#0F766E",
-  "categories": ["lifestyle", "business"]
+  "categories": ["lifestyle", "business"],
+  "icons": [
+    {
+      "src": "/brand/soodal-life-mark.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }

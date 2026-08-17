@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soodal-life-shell-v1'
+const CACHE_NAME = 'soodal-life-shell-v2'
 const APP_SHELL = ['/', '/manifest.webmanifest']
 
 self.addEventListener('install', event => {

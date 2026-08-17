@@ -183,6 +183,14 @@ public sealed class ProviderProfile
     public string? BusinessTypeText { get; set; }
     public string? BusinessItemText { get; set; }
     public string? Introduction { get; set; }
+    public string? PublicIntroductionHtml { get; set; }
+    public string? PublicPhone { get; set; }
+    public string? PublicEmail { get; set; }
+    public string? PublicAddress { get; set; }
+    public string? PublicBlogUrl { get; set; }
+    public string? PublicWebsiteUrl { get; set; }
+    public string? PublicLogoUrl { get; set; }
+    public string? PublicPhotoUrlsJson { get; set; }
     public string ApprovalStatusCode { get; set; } = "PENDING";
     public string ActivityStatusCode { get; set; } = "INACTIVE";
     public decimal? TrustScore { get; set; }

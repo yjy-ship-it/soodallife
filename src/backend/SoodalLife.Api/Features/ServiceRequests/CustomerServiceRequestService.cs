@@ -20,7 +20,7 @@ public sealed class CustomerServiceRequestService(
     IPrivateFileStorage fileStorage,
     ServiceRequestFilePrivacyResolver filePrivacyResolver)
 {
-    private const long MaximumFileSize = 10 * 1024 * 1024;
+    private const long MaximumFileSize = 5 * 1024 * 1024;
     private static readonly IReadOnlyDictionary<string, FileRule> AllowedFiles =
         new Dictionary<string, FileRule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -556,7 +556,8 @@ public sealed class CustomerServiceRequestService(
     {
         var category = await db.ServiceCategories.SingleAsync(x => x.Id == categoryId, token);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var policy = await db.CategoryPolicies.Where(x => x.CategoryId == category.Id && x.TransactionTypeCode == "ONE_TIME" &&
+        var policy = await db.CategoryPolicies.Where(x => x.CategoryId == category.Id &&
+                (x.TransactionTypeCode == "ONE_TIME" || x.TransactionTypeCode == "PROJECT") &&
                 x.EffectiveFrom <= today && (x.EffectiveTo == null || x.EffectiveTo > today))
             .OrderByDescending(x => x.EffectiveFrom).FirstOrDefaultAsync(token)
             ?? throw Invalid("CATEGORY_NOT_ACTIVE", "현재 적용 가능한 서비스 정책이 없습니다.", "categoryId");
@@ -568,7 +569,9 @@ public sealed class CustomerServiceRequestService(
                                        o.FieldDefinitionId == field.Id && o.TargetCategoryId == category.Id)))
                             orderby assignment.DisplayOrder, assignment.Id
                             select new AssignedField(field, assignment)).ToListAsync(token);
-        return new(category, policy, fields);
+        return new(category, policy, fields
+            .Where(x => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(x.Field))
+            .ToList());
     }
 
     private async Task<long?> ResolveAreaIdAsync(Guid? publicId, CancellationToken token)

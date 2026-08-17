@@ -14,6 +14,9 @@ public sealed class PublicCustomerAccountController(CustomerAccountService servi
     [HttpGet("availability/email")]
     public Task<ActionResult> Email([FromQuery] string value, CancellationToken token) => Run(async () => await service.EmailAvailable(value, token));
 
+    [HttpGet("availability/phone")]
+    public Task<ActionResult> Phone([FromQuery] string value, CancellationToken token) => Run(async () => await service.PhoneAvailable(value, token));
+
     [HttpGet("legal-documents")]
     public Task<ActionResult> Documents(CancellationToken token) => Run(async () => await service.ActiveDocuments(token));
 

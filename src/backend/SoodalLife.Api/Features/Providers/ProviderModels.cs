@@ -12,6 +12,14 @@ public sealed record ProviderProfileResponse(
     string? BusinessTypeText,
     string? BusinessItemText,
     string? Introduction,
+    string? PublicIntroductionHtml,
+    string? PublicPhone,
+    string? PublicEmail,
+    string? PublicAddress,
+    string? PublicBlogUrl,
+    string? PublicWebsiteUrl,
+    string? PublicLogoUrl,
+    IReadOnlyList<string> PublicPhotoUrls,
     string? ProviderType,
     string ApprovalStatus,
     string ActivityStatus,
@@ -31,7 +39,28 @@ public sealed record UpdateProviderProfileInput(
     string? BusinessTypeText,
     string? BusinessItemText,
     string? Introduction,
+    string? PublicIntroductionHtml,
+    string? PublicPhone,
+    string? PublicEmail,
+    string? PublicAddress,
+    string? PublicBlogUrl,
+    string? PublicWebsiteUrl,
+    string? PublicLogoUrl,
+    IReadOnlyList<string>? PublicPhotoUrls,
     string? ConcurrencyToken);
+
+public sealed record ProviderPromotionImageResponse(
+    Guid FileId,
+    string Url,
+    string ContentType,
+    long SizeBytes);
+
+public sealed record ProviderPromotionStorageStatusResponse(bool Writable, string Message);
+public sealed record ProviderPromotionImageContentInput(string FileName, string ContentType, string Base64Content);
+public sealed record ProviderPromotionPhotoContentInput(ProviderPromotionImageContentInput File, bool ReplaceExisting);
+public sealed record ProviderPromotionImageChunkInput(Guid UploadId, string Purpose, bool ReplaceExisting,
+    string FileName, string ContentType, int ChunkIndex, int TotalChunks, string Base64Chunk);
+public sealed record ProviderPromotionImageChunkResponse(bool Completed, ProviderProfileResponse? Profile);
 
 public sealed record ProviderServiceCategoryResponse(
     Guid CategoryId,
@@ -115,7 +144,7 @@ public sealed record ProviderLegalDocumentResponse(Guid Id, Guid VersionId, stri
     string Title, string Content, int Version, DateTime EffectiveFrom, DateTime? EffectiveTo, bool IsPlaceholder);
 public sealed record ProviderConsentInput(Guid LegalDocumentVersionId, bool Agreed);
 public sealed record RegisterProviderRequest(string LoginId, string Password, string PasswordConfirmation,
-    string? Email, string? Phone, string BusinessName, string RepresentativeName, string ContactName,
+    string? Email, string? Phone, string? PhoneVerificationToken, string BusinessName, string RepresentativeName, string ContactName,
     string? BusinessRegistrationNumber, string? BusinessAddress, string? BusinessTypeText,
     string? BusinessItemText, string? Introduction, IReadOnlyList<ProviderConsentInput> Consents);
 public sealed record AddProviderRoleRequest(string BusinessName, string RepresentativeName, string ContactName,
@@ -132,3 +161,4 @@ public sealed class ProviderConfigurationException(
     public string BusinessCode { get; } = businessCode;
     public int StatusCode { get; } = statusCode;
 }
+public sealed record BusinessRegistrationAvailabilityResponse(string NormalizedValue, bool Valid, bool Available);

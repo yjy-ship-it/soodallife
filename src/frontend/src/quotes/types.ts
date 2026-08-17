@@ -77,7 +77,7 @@ export interface CustomerQuoteComparison {
 }
 export interface CustomerQuoteDetail extends QuoteDetail { providerId: string; comparison: CustomerQuoteComparison }
 export interface ProviderReview { id: string; bodyText: string; submittedAt: string; ratings: RatingAverage[] }
-export interface CustomerProviderProfile { id: string; businessName: string; approvalStatus: string; activityStatus: string; serviceApprovalStatus: string; activeServices: string[]; trustScore: number | null; trustGrade: string | null; trustEvaluationStatus: string; trustDisplay: string; completedServiceCount: number; publicReviewCount: number; ratingItemAverages: RatingAverage[]; requirementsConfigured: boolean; requiredEvidenceCount: number; approvedEvidenceCount: number; requiredEvidenceSatisfied: boolean; recentReviews: ProviderReview[] }
+export interface CustomerProviderProfile { id: string; businessName: string; introductionHtml: string | null; publicPhone: string | null; publicEmail: string | null; publicAddress: string | null; publicBlogUrl: string | null; publicWebsiteUrl: string | null; publicLogoUrl: string | null; publicPhotoUrls: string[]; approvalStatus: string; activityStatus: string; serviceApprovalStatus: string; activeServices: string[]; trustScore: number | null; trustGrade: string | null; trustEvaluationStatus: string; trustDisplay: string; completedServiceCount: number; publicReviewCount: number; ratingItemAverages: RatingAverage[]; requirementsConfigured: boolean; requiredEvidenceCount: number; approvedEvidenceCount: number; requiredEvidenceSatisfied: boolean; recentReviews: ProviderReview[] }
 
 export interface AcceptQuoteResult {
   transactionId: string

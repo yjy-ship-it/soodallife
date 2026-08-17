@@ -5,6 +5,9 @@ import { BrandLogo } from '../components/BrandLogo'
 import { ServiceFooter } from '../components/ServiceFooter'
 import { BusinessChatShortcut } from '../chat/BusinessChatShortcut'
 import { TransactionDirectPaymentPanel } from '../work/TransactionDirectPaymentPanel'
+import { customerAccountApi } from './accountApi'
+import { getProviderProfile } from '../providers/api'
+import { DEFAULT_ADDRESS_CHANGED_EVENT, loadDefaultAddress } from './defaultAddress'
 import './customer.css'
 
 type CustomerAppLayoutProps = PropsWithChildren<{ actions?: ReactNode }>
@@ -36,6 +39,9 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
   const isCustomer = user?.roles.includes('CUSTOMER') ?? false
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
+  const [customerName, setCustomerName] = useState('')
+  const [defaultRegion, setDefaultRegion] = useState('')
+  const [providerSwitch, setProviderSwitch] = useState<{ label: string; href: string }>({ label: '공급자 등록', href: '/provider/signup' })
   const [online, setOnline] = useState(navigator.onLine)
 
   useEffect(() => { const update = () => setOnline(navigator.onLine); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
@@ -48,10 +54,38 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
   }, [isCustomer, pathname])
 
   useEffect(() => {
+    if (status !== 'authenticated') return
+    if (!user?.roles.includes('PROVIDER')) {
+      setProviderSwitch({ label: '공급자 등록', href: '/provider/signup' })
+      return
+    }
+    getProviderProfile()
+      .then(profile => setProviderSwitch(profile.approvalStatus === 'APPROVED' && profile.activityStatus === 'ACTIVE'
+        ? { label: '공급자 홈', href: 'https://partner.soodallife.kr/provider' }
+        : { label: '공급자 등록 현황', href: 'https://partner.soodallife.kr/provider/onboarding' }))
+      .catch(() => setProviderSwitch({ label: '공급자 등록 현황', href: 'https://partner.soodallife.kr/provider/onboarding' }))
+  }, [status, user?.roles])
+
+  useEffect(() => {
     if (!isCustomer) return
     fetch('/api/v1/chat/unread-count', { credentials: 'include' })
       .then(response => response.ok ? response.json() as Promise<{ count: number }> : Promise.reject())
       .then(value => setChatUnreadCount(value.count)).catch(() => setChatUnreadCount(0))
+  }, [isCustomer, pathname])
+
+  useEffect(() => {
+    if (!isCustomer) { setCustomerName(''); return }
+    customerAccountApi.profile()
+      .then(profile => setCustomerName(profile.name || profile.loginId))
+      .catch(() => setCustomerName(user?.loginId ?? ''))
+  }, [isCustomer, user?.loginId])
+
+  useEffect(() => {
+    if (!isCustomer) { setDefaultRegion(''); return }
+    const refresh = () => { void loadDefaultAddress().then(value => setDefaultRegion(value?.regionLabel ?? '')).catch(() => setDefaultRegion('')) }
+    refresh()
+    window.addEventListener(DEFAULT_ADDRESS_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(DEFAULT_ADDRESS_CHANGED_EVENT, refresh)
   }, [isCustomer, pathname])
 
   const go = (path: string, isPublic: boolean) => {
@@ -69,15 +103,15 @@ export function CustomerAppLayout({ children, actions }: CustomerAppLayoutProps)
             <button type="button" onClick={() => navigate('/services')}>서비스</button>
             <button type="button" onClick={() => navigate('/care')}>수달 케어</button>
             <button type="button" onClick={() => navigate('/interior')}>수달 인테리어</button>
-            <button type="button" onClick={() => navigate('/emergency')}>긴급출동</button>
+            <button type="button" className="emergencyNavButton" onClick={() => navigate('/emergency')}><span aria-hidden="true">🚨</span> 긴급출동</button>
             <button type="button" onClick={() => navigate('/support')}>고객센터</button>
           </nav>
           <div className="customerHeaderActions">
-            {isCustomer && <button className="customerLoginButton" type="button" onClick={() => navigate('/customer/messages')}>메시지{chatUnreadCount > 0 ? ` ${chatUnreadCount > 99 ? '99+' : chatUnreadCount}` : ''}</button>}
-            <button className="headerLocation" type="button" disabled title="지역 선택 기능 준비 중">지역 선택</button>
+            {isCustomer && <button className="customerLoginButton" type="button" onClick={() => navigate('/customer/messages')}>채팅{chatUnreadCount > 0 ? ` ${chatUnreadCount > 99 ? '99+' : chatUnreadCount}` : ''}</button>}
+            {isCustomer && <span className="headerRegion" title={`기본주소 지역: ${defaultRegion || '미설정'}`}>{defaultRegion || '기본지역 미설정'}</span>}
             <button className="headerIconButton" type="button" onClick={() => navigate('/services/search')} aria-label="서비스 검색"><Icon name="search" /></button>
             {isCustomer && <button className="headerIconButton notificationBell" type="button" onClick={() => navigate('/customer/notifications')} aria-label={`알림 ${unreadCount}개`}><Icon name="bell" />{unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}</button>}
-            {status === 'authenticated' ? <div className="customerAccountMenu"><button type="button" onClick={() => navigate(isCustomer ? '/customer' : '/roles')}>{isCustomer ? '마이수달' : '역할 선택'}</button><button type="button" onClick={() => void signOut()}>로그아웃</button></div> : <button className="customerLoginButton" type="button" onClick={() => navigate(createLoginPath(pathname))}>로그인</button>}
+            {status === 'authenticated' ? <div className="customerAccountMenu"><button type="button" onClick={() => navigate(isCustomer ? '/customer' : '/roles')}>{isCustomer ? '마이수달' : '역할 선택'}</button><button type="button" onClick={() => providerSwitch.href.startsWith('http') ? window.location.assign(providerSwitch.href) : navigate(providerSwitch.href)}>{providerSwitch.label}</button><button className="customerLogoutButton" type="button" title={`로그인 계정: ${customerName || user?.loginId || ''}`} onClick={() => void signOut()}>로그아웃 · {customerName || user?.loginId}</button></div> : <button className="customerLoginButton" type="button" onClick={() => navigate(createLoginPath(pathname))}>로그인</button>}
           </div>
         </div>
       </header>

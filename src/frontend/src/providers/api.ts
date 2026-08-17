@@ -16,10 +16,41 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T
 }
 
-const request = <T,>(path: string, init?: RequestInit) => fetch(path, { credentials: 'include', ...init }).then(readJson<T>)
+const request = <T,>(path: string, init?: RequestInit) => fetch(path, { credentials: 'include', ...init }).then(readJson<T>).catch(error => {
+  if (error instanceof ProviderApiError) throw error
+  if (error instanceof TypeError) throw new ProviderApiError('서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.', 0)
+  throw error
+})
 
 export const getProviderProfile = () => request<ProviderProfile>('/api/v1/providers/me')
 export const updateProviderProfile = (value: Partial<ProviderProfile>) => request<ProviderProfile>('/api/v1/providers/me', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
+const imageChunkSize = 64 * 1024
+const imageUploadIds = new WeakMap<File,string>()
+const imageUploadId = (file:File) => { const existing=imageUploadIds.get(file); if(existing)return existing; const created=crypto.randomUUID(); imageUploadIds.set(file,created); return created }
+const wait = (milliseconds:number) => new Promise(resolve=>window.setTimeout(resolve,milliseconds))
+const encodeImageChunk = (bytes:Uint8Array) => { let binary=''; for(let offset=0;offset<bytes.length;offset+=32768)binary+=String.fromCharCode(...bytes.subarray(offset,offset+32768)); return btoa(binary) }
+const uploadProviderPromotionImage = async (file:File, purpose:'LOGO'|'PHOTO', replaceExisting:boolean) => {
+  const bytes=new Uint8Array(await file.arrayBuffer())
+  const totalChunks=Math.ceil(bytes.length/imageChunkSize)
+  const uploadId=imageUploadId(file)
+  let profile:ProviderProfile|null=null
+  for(let chunkIndex=0;chunkIndex<totalChunks;chunkIndex++) {
+    const chunk=bytes.subarray(chunkIndex*imageChunkSize,Math.min(bytes.length,(chunkIndex+1)*imageChunkSize))
+    const body=JSON.stringify({uploadId,purpose,replaceExisting,fileName:file.name,contentType:file.type,chunkIndex,totalChunks,base64Chunk:encodeImageChunk(chunk)})
+    let result:{completed:boolean;profile:ProviderProfile|null}|null=null
+    for(let attempt=0;attempt<3;attempt++) {
+      try { result=await request<{completed:boolean;profile:ProviderProfile|null}>('/api/v1/providers/me/promotion-images/chunks',{method:'POST',headers:{'Content-Type':'application/json'},body}); break }
+      catch(error) { if(!(error instanceof ProviderApiError)||error.status!==0||attempt===2)throw error; await wait(400*(attempt+1)) }
+    }
+    if(!result) throw new ProviderApiError('이미지 조각을 전송하지 못했습니다. 다시 시도해 주세요.',0)
+    if(result.completed) profile=result.profile
+  }
+  if(!profile) throw new ProviderApiError('이미지 업로드를 완료하지 못했습니다. 다시 시도해 주세요.',0)
+  return profile
+}
+export const uploadProviderPromotionLogo = (file: File) => uploadProviderPromotionImage(file,'LOGO',true)
+export const uploadProviderPromotionPhoto = (file: File, replaceExisting: boolean) => uploadProviderPromotionImage(file,'PHOTO',replaceExisting)
+export const getProviderPromotionStorageStatus = () => request<{ writable:boolean; message:string }>('/api/v1/providers/me/promotion-images/storage-status')
 export const getProviderDashboard = () => request<ProviderDashboard>('/api/v1/providers/me/onboarding-dashboard')
 export const getProviderOperationsDashboard = () => request<ProviderOperationsDashboard>('/api/v1/providers/me/operations-dashboard')
 export const getProviderOperationsHub = (query: { group?:string; domain?:string; page?:number; pageSize?:number } = {}) => {
@@ -47,6 +78,10 @@ export const uploadProviderDocument = (typeId: string, file: File, documentNumbe
 export const linkProviderEvidence = (verificationId: string, documentId: string) => request<ProviderRequirement>(`/api/v1/providers/me/requirements/${verificationId}/evidence`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId }) })
 export const resubmitProviderService = (categoryId: string) => request<void>(`/api/v1/providers/me/service-categories/${categoryId}/resubmit`, { method: 'POST' })
 export const getProviderLegalDocuments = () => request<ProviderLegalDocument[]>('/api/v1/public/provider-registration/legal-documents')
+export const getIdentityVerificationStatus = () => request<{ statusCode: string; isVerified: boolean }>('/api/v1/public/customer-account/identity-verification/status')
+export const getPhoneAvailability = (value: string) => request<{ available: boolean; normalizedValue?: string }>(`/api/v1/public/customer-account/availability/phone?value=${encodeURIComponent(value)}`)
+export const getLoginAvailability = (value: string) => request<{ available: boolean; normalizedValue?: string }>(`/api/v1/public/provider-registration/availability/login-id?value=${encodeURIComponent(value)}`)
+export const getBusinessRegistrationAvailability = (value: string) => request<{ valid: boolean; available: boolean; normalizedValue: string }>(`/api/v1/public/provider-registration/availability/business-registration-number?value=${encodeURIComponent(value)}`)
 export const registerProvider = (value: unknown) => request<{ userId: string; providerId: string; loginId: string; roles: string[] }>('/api/v1/public/provider-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
 export const addProviderRole = (value: unknown) => request<{ userId: string; providerId: string; loginId: string; roles: string[] }>('/api/v1/provider-registration/role', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
 export const getProviderAfterServices = () => request<ProviderAfterServiceListItem[]>('/api/v1/providers/me/after-services')

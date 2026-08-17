@@ -8,7 +8,7 @@ namespace SoodalLife.Api.Controllers;
 [ApiController]
 [Authorize(Roles = RoleCodes.Provider)]
 [Route("api/v1/providers/me")]
-public sealed class ProvidersController(ProviderConfigurationService providerService) : ControllerBase
+public sealed class ProvidersController(ProviderConfigurationService providerService, ILogger<ProvidersController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ProviderProfileResponse>> Get(CancellationToken cancellationToken) =>
@@ -62,6 +62,35 @@ public sealed class ProvidersController(ProviderConfigurationService providerSer
     [HttpGet("documents")]
     public Task<ActionResult> Documents(CancellationToken token) => Run(async () => await providerService.GetDocumentsAsync(User, token));
 
+    [HttpPost("promotion-images/logo")]
+    [RequestSizeLimit(5_500_000)]
+    public Task<ActionResult> UploadPromotionLogo(IFormFile file, CancellationToken token) =>
+        Run(async () => await providerService.UploadPromotionLogoAsync(User, file, token));
+
+    [HttpPost("promotion-images/logo-content")]
+    [RequestSizeLimit(8_000_000)]
+    public Task<ActionResult> UploadPromotionLogoContent(ProviderPromotionImageContentInput input, CancellationToken token) =>
+        Run(async () => await providerService.UploadPromotionLogoContentAsync(User, input, token));
+
+    [HttpGet("promotion-images/storage-status")]
+    public Task<ActionResult> PromotionStorageStatus(CancellationToken token) =>
+        Run(async () => await providerService.CheckPromotionStorageAsync(User, token));
+
+    [HttpPost("promotion-images/photos")]
+    [RequestSizeLimit(26_500_000)]
+    public Task<ActionResult> UploadPromotionPhotos(List<IFormFile> files, CancellationToken token) =>
+        Run(async () => await providerService.UploadPromotionPhotosAsync(User, files, token));
+
+    [HttpPost("promotion-images/photo-content")]
+    [RequestSizeLimit(8_000_000)]
+    public Task<ActionResult> UploadPromotionPhotoContent(ProviderPromotionPhotoContentInput input, CancellationToken token) =>
+        Run(async () => await providerService.UploadPromotionPhotoContentAsync(User, input, token));
+
+    [HttpPost("promotion-images/chunks")]
+    [RequestSizeLimit(120_000)]
+    public Task<ActionResult> UploadPromotionImageChunk(ProviderPromotionImageChunkInput input, CancellationToken token) =>
+        RunPromotionUpload(async () => await providerService.UploadPromotionImageChunkAsync(User, input, token));
+
     [HttpPost("documents")]
     [RequestSizeLimit(10_485_760)]
     public Task<ActionResult> UploadDocument([FromForm] RegisterProviderDocumentInput input, IFormFile file, CancellationToken token) =>
@@ -94,6 +123,18 @@ public sealed class ProvidersController(ProviderConfigurationService providerSer
     {
         try { return Ok(await action()); }
         catch (ProviderConfigurationException exception) { return Error(exception); }
+    }
+
+    private async Task<ActionResult> RunPromotionUpload(Func<Task<object>> action)
+    {
+        try { return Ok(await action()); }
+        catch (ProviderConfigurationException exception) { return Error(exception); }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Provider promotion image upload failed. TraceId={TraceId}", HttpContext.TraceIdentifier);
+            return StatusCode(StatusCodes.Status500InternalServerError, ApiErrorResponse.Create(HttpContext,
+                "PROMOTION_IMAGE_UPLOAD_FAILED", $"이미지 저장 처리 중 오류가 발생했습니다. 오류번호: {HttpContext.TraceIdentifier}"));
+        }
     }
 
     private ObjectResult Error(ProviderConfigurationException exception) =>

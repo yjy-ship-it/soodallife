@@ -105,6 +105,14 @@ internal sealed class ProviderProfileConfiguration() : EntityConfiguration<Provi
         Mapping.String(b, nameof(ProviderProfile.BusinessTypeText), "business_type_text", 100, nullable: true);
         Mapping.String(b, nameof(ProviderProfile.BusinessItemText), "business_item_text", 100, nullable: true);
         Mapping.String(b, nameof(ProviderProfile.Introduction), "introduction", 1000, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.PublicIntroductionHtml), "public_introduction_html", 8000, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.PublicPhone), "public_phone", 30, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.PublicEmail), "public_email", 320, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.PublicAddress), "public_address", 500, nullable: true);
+        Mapping.String(b, nameof(ProviderProfile.PublicBlogUrl), "public_blog_url", 1000, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ProviderProfile.PublicWebsiteUrl), "public_website_url", 1000, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ProviderProfile.PublicLogoUrl), "public_logo_url", 1000, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ProviderProfile.PublicPhotoUrlsJson), "public_photo_urls_json", null, nullable: true);
         Mapping.String(b, nameof(ProviderProfile.ApprovalStatusCode), "approval_status_code", 20, unicode: false, defaultValue: "PENDING");
         Mapping.String(b, nameof(ProviderProfile.ActivityStatusCode), "activity_status_code", 20, unicode: false, defaultValue: "INACTIVE");
         Mapping.Decimal(b, nameof(ProviderProfile.TrustScore), "trust_score", nullable: true, precision: 9, scale: 4);
@@ -291,7 +299,7 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         b.ToTable("files", t =>
         {
             t.HasCheckConstraint("CK_files_size_bytes", "[size_bytes] >= 0");
-            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE')");
+            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO')");
             t.HasCheckConstraint("CK_files_status", "[status_code] IN ('PENDING','ACTIVE','QUARANTINED','DELETED')");
             t.HasCheckConstraint("CK_files_malware_scan_status", "[malware_scan_status_code] IS NULL OR [malware_scan_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','CLEAN','INFECTED','FAILED')");
             t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");

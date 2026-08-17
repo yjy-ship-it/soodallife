@@ -8,27 +8,30 @@
 }
 
 .customerAppShell { min-height: 100vh; color: var(--color-text-primary); background: var(--color-background); --service-bottom-nav-height: var(--customer-bottom-nav-height); }
+.emergencyNavButton { border-color: #dc2626 !important; background: #fff7f7 !important; color: #991b1b !important; font-weight: 800 !important; }
+.emergencyNavButton span { font-size: 1.05rem; }
 .skipLink { position: fixed; z-index: 100; top: 8px; left: 8px; padding: 10px 14px; color: #fff; background: var(--color-brand-deep); transform: translateY(-150%); }
 .skipLink:focus { transform: none; }
 .customerHeader { position: sticky; z-index: 40; top: 0; border-bottom: 1px solid var(--color-border); background: rgb(255 255 255 / 94%); backdrop-filter: blur(14px); }
-.customerHeaderInner { display: flex; width: min(var(--customer-content-width), calc(100% - 40px)); min-height: 76px; align-items: center; gap: clamp(20px, 4vw, 54px); margin: auto; }
+.customerHeaderInner { display: flex; width: min(1480px, calc(100% - 28px)); min-height: 76px; align-items: center; gap: clamp(10px, 1.5vw, 24px); margin: auto; }
 .brandLogo { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 10px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
-.brandLogoPlaceholder { display: grid; width: 44px; height: 44px; place-items: center; border: 1px dashed var(--color-brand-main); border-radius: 13px; color: var(--color-brand-deep); background: #effcf8; font-size: 8px; font-weight: 850; line-height: 1.2; text-align: center; }
+.brandLogoMark { display: block; width: 54px; height: 54px; flex: 0 0 auto; object-fit: contain; }
 .brandLogoText { display: grid; gap: 1px; }
 .brandLogoText strong { color: var(--color-brand-deep); font-size: 1.05rem; letter-spacing: -.04em; }
 .brandLogoText small { color: #71837c; font-size: .56rem; font-weight: 850; letter-spacing: .13em; }
-.customerDesktopNav { display: flex; align-items: center; gap: 4px; }
-.customerDesktopNav button { min-height: 44px; padding: 0 13px; border: 0; border-radius: 10px; color: #40524b; background: transparent; font-weight: 750; cursor: pointer; }
+.customerDesktopNav { display: flex; min-width: 0; align-items: center; gap: 2px; white-space: nowrap; }
+.customerDesktopNav button { min-height: 44px; padding: 0 clamp(7px, .7vw, 12px); border: 0; border-radius: 10px; color: #40524b; background: transparent; font-size: clamp(.78rem, 1vw, .93rem); font-weight: 750; white-space: nowrap; cursor: pointer; }
 .customerDesktopNav button:hover, .customerDesktopNav button:focus-visible { color: var(--color-brand-deep); background: #ecf9f5; }
-.customerHeaderActions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.headerLocation, .customerLoginButton, .customerAccountMenu button { min-height: 42px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: 10px; color: #40524b; background: #fff; font-weight: 750; }
-.headerLocation:disabled { color: #81908a; cursor: not-allowed; }
+.customerHeaderActions { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; margin-left: auto; white-space: nowrap; }
+.headerRegion, .customerLoginButton, .customerAccountMenu button { min-height: 42px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 10px; color: #40524b; background: #fff; font-size: .86rem; font-weight: 750; white-space: nowrap; }
+.headerRegion { display: inline-flex; max-width: 170px; align-items: center; overflow: hidden; color: #52645d; text-overflow: ellipsis; }
 .headerIconButton { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-brand-deep); background: #fff; cursor: pointer; }
 .headerIconButton svg { width: 21px; height: 21px; }
 .notificationBell { position: relative; }
 .notificationBell span { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 4px; border: 2px solid #fff; border-radius: 10px; color: #fff; background: #dc2626; font-size: .65rem; line-height: 15px; font-weight: 800; }
 .customerLoginButton { border-color: var(--color-brand-deep); color: #fff; background: var(--color-brand-deep); cursor: pointer; }
 .customerAccountMenu { display: flex; gap: 5px; }
+.customerLogoutButton { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
 .customerMain { min-height: 55vh; }
 .customerOfflineNotice { position: sticky; z-index: 20; top: var(--customer-header-height); padding: 11px 20px; color: #6b4d12; background: #fff0be; text-align: center; font-weight: 800; }
 .customerHero { display: grid; width: min(var(--customer-content-width), calc(100% - 40px)); grid-template-columns: minmax(0, 1.6fr) minmax(260px, .7fr); gap: clamp(30px, 6vw, 90px); align-items: center; min-height: 540px; padding: 70px 0; margin: auto; }
@@ -106,6 +109,7 @@ button.noticeCard { cursor: pointer; }
 .detailColumns h2 { margin: 0 0 20px; color: #304b43; font-size: 1.1rem; }
 .pricePrimary { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 20px; border-radius: 14px; background: #edfaf6; }
 .pricePrimary strong { color: var(--color-brand-deep); font-size: 1.55rem; }
+.standardPriceNotice { padding: 12px 14px; border-left: 3px solid #14b8a6; border-radius: 8px; color: #4f625b; background: #f4faf8; line-height: 1.65; }
 .detailColumns small { color: #71807b; line-height: 1.6; }
 .serviceFacts { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin: 0; }
 .serviceFacts div { padding: 14px; border-radius: 11px; background: #f5f8f7; }
@@ -130,6 +134,25 @@ button.noticeCard { cursor: pointer; }
 .publicContentDetail > span { color: #71807a; }
 .publicContentDetail p { color: #53655e; line-height: 1.85; white-space: pre-wrap; }
 .publicContentDetail button { min-height: 42px; padding: 0 15px; border: 1px solid var(--color-brand-deep); border-radius: 9px; color: var(--color-brand-deep); background: #fff; cursor: pointer; }
+.companyHeading > span { display: block; max-width: 720px; color: #60716a; font-size: 1.05rem; line-height: 1.8; }
+.companyIntroduction { display: grid; width: min(var(--customer-content-width), calc(100% - 40px)); gap: 24px; padding-bottom: 90px; margin: auto; }
+.companyLead, .companyBrand { display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 34px; border: 1px solid var(--color-border); border-radius: 22px; background: #fff; }
+.companyLead p { max-width: 800px; margin: 0; color: #425b53; font-size: 1.1rem; font-weight: 700; line-height: 1.85; }
+.companyLead a { flex: 0 0 auto; padding: 13px 17px; border-radius: 11px; color: #fff; background: var(--color-brand-deep); font-weight: 800; text-decoration: none; }
+.companyValues, .companyBusiness > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.companyValues article, .companyBusiness article { padding: 28px; border: 1px solid var(--color-border); border-radius: 18px; background: #fff; }
+.companyValues span, .companyBusiness header p, .companyBrand > div > p { color: var(--color-brand-main); font-size: .75rem; font-weight: 900; letter-spacing: .1em; }
+.companyValues h2, .companyBusiness h2, .companyBrand h2 { color: #29443d; }
+.companyValues p, .companyBusiness article p, .companyBrand span { color: #60716a; line-height: 1.75; }
+.companyBusiness { padding: 34px; border-radius: 22px; background: #eaf7f2; }
+.companyBusiness header { margin-bottom: 20px; }
+.companyBusiness > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.companyBusiness article h3 { margin-top: 0; color: #29443d; }
+.companyBrand > div { max-width: 620px; }
+.companyBrand dl { display: grid; min-width: min(420px, 100%); gap: 10px; margin: 0; }
+.companyBrand dl div { display: grid; grid-template-columns: 115px 1fr; gap: 12px; }
+.companyBrand dt { color: #71817a; }
+.companyBrand dd { margin: 0; color: #344d45; font-weight: 750; }
 .supportGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-bottom: 80px; }
 .supportGrid > * { display: grid; min-height: 160px; align-content: start; gap: 10px; padding: 26px; border: 1px solid var(--color-border); border-radius: 18px; color: inherit; background: #fff; text-align: left; }
 .supportGrid button { cursor: pointer; }
@@ -141,20 +164,33 @@ button.noticeCard { cursor: pointer; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 @media (max-width: 980px) {
-  .customerDesktopNav, .headerLocation { display: none; }
+  .customerDesktopNav { display: none; }
   .majorGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .serviceGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .catalogExplorer { grid-template-columns: 180px 210px minmax(0, 1fr); }
   .catalogExplorer .catalogServices { grid-template-columns: 1fr; }
 }
 
+@media (min-width: 981px) and (max-width: 1280px) {
+  .brandLogoMark { width: 46px; height: 46px; }
+  .brandLogoText strong { font-size: .94rem; }
+  .brandLogoText small { display: none; }
+}
+
 @media (max-width: 700px) {
   :root { --customer-bottom-nav-height: calc(68px + env(safe-area-inset-bottom)); }
+  .headerRegion { display: none; }
   .customerHeaderInner { width: min(100% - 28px, var(--customer-content-width)); min-height: 62px; }
-  .brandLogoPlaceholder { width: 38px; height: 38px; border-radius: 11px; font-size: 7px; }
+  .brandLogoMark { width: 46px; height: 46px; }
   .brandLogoText strong { font-size: .94rem; }
   .customerAccountMenu button:last-child, .brandLogoText small { display: none; }
   .customerHeaderActions { gap: 5px; }
+  .companyIntroduction { width: min(100% - 32px, var(--customer-content-width)); }
+  .companyLead, .companyBrand { align-items: stretch; flex-direction: column; padding: 24px; }
+  .companyValues, .companyBusiness > div { grid-template-columns: 1fr; }
+  .companyBusiness { padding: 24px; }
+  .companyBrand dl { min-width: 0; }
+  .companyBrand dl div { grid-template-columns: 1fr; gap: 2px; }
   .headerIconButton { width: 40px; height: 40px; }
   .customerLoginButton, .customerAccountMenu button { min-height: 40px; padding: 0 11px; }
   .customerHero { width: min(100% - 32px, var(--customer-content-width)); grid-template-columns: 1fr; min-height: auto; padding: 48px 0 35px; }

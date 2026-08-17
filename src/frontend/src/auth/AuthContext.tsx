@@ -45,6 +45,13 @@ export function AuthenticationProvider({ children }: PropsWithChildren) {
     }
   }, [])
 
-  const value = useMemo(() => ({ status, user, login, logout }), [status, user, login, logout])
+  const refresh = useCallback(async () => {
+    const currentUser = await authenticationApi.refresh()
+    setUser(currentUser)
+    setStatus('authenticated')
+    return currentUser
+  }, [])
+
+  const value = useMemo(() => ({ status, user, login, refresh, logout }), [status, user, login, refresh, logout])
   return <AuthenticationContext.Provider value={value}>{children}</AuthenticationContext.Provider>
 }

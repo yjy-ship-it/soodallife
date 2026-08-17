@@ -11,11 +11,12 @@ using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Features.RelationshipBlocks;
 using SoodalLife.Api.Features.Work;
+using SoodalLife.Api.Features.Wallet;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Interior;
 
-public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication,ProviderTradingEligibilityService eligibility,IUserRelationshipBlockPolicy relationshipBlocks)
+public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileStorage storage,InteriorProjectService core,ICrossDomainFilePublicationResolver filePublication,ProviderTradingEligibilityService eligibility,IUserRelationshipBlockPolicy relationshipBlocks,ProviderWalletService walletService)
 {
     public async Task<IReadOnlyList<InteriorServiceResponse>> Services(CancellationToken token)
     {
@@ -67,7 +68,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         if(request.value.StatusCode is "DRAFT" or "CANCELLED")throw Conflict("INTERIOR_REQUEST_NOT_READY","공개된 인테리어 요청만 프로젝트로 시작할 수 있습니다.");
         var duplicate=await db.InteriorProjects.AsNoTracking().Where(x=>x.ServiceRequestId==request.value.Id).Select(x=>(Guid?)x.PublicId).SingleOrDefaultAsync(token);
         if(duplicate.HasValue)return await Detail(duplicate.Value,principal,token);
-        var now=DateTime.UtcNow;var project=new InteriorProject{ServiceRequestId=request.value.Id,CustomerProfileId=identity.ProfileId,ServiceCategoryId=request.value.CategoryId,StatusCode="CONSULTATION",FeeAssessmentStatusCode="POLICY_PENDING",CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId};
+        var now=DateTime.UtcNow;var project=new InteriorProject{ServiceRequestId=request.value.Id,CustomerProfileId=identity.ProfileId,ServiceCategoryId=request.value.CategoryId,StatusCode="CONSULTATION",FeeAssessmentStatusCode="PENDING_SELECTION",CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId};
         db.InteriorProjects.Add(project);await db.SaveChangesAsync(token);Event(project,"PROJECT_CREATED",input.IdempotencyKey,identity.UserId,new{requestId=input.ServiceRequestId},now);Audit(identity.UserId,"INTERIOR_PROJECT_CREATED",project.PublicId,new{requestId=input.ServiceRequestId},now);Outbox(project,"INTERIOR_PROJECT_CREATED",input.IdempotencyKey,identity.UserId,now);await db.SaveChangesAsync(token);
         return await Detail(project.PublicId,principal,token);
     }
@@ -121,8 +122,16 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
         var visit=await db.InteriorSiteVisits.SingleOrDefaultAsync(x=>x.PublicId==visitId&&x.InteriorProjectId==project.Id,token)??throw NotFound("SITE_VISIT_NOT_FOUND","실측 후보를 찾을 수 없습니다.");
         if(visit.StatusCode!="PROPOSED"&&visit.StatusCode!="CONFIRMED")throw Conflict("SITE_VISIT_STATE_CONFLICT","제안 상태의 실측 일정만 선택할 수 있습니다.");
         await relationshipBlocks.EnsureAllowedAsync(project.CustomerProfileId,visit.ProviderProfileId,token);
-        var now=DateTime.UtcNow;visit.StatusCode="CONFIRMED";visit.ConfirmedAt??=now;visit.CustomerConfirmedAt??=now;visit.UpdatedAt=now;visit.UpdatedByUserId=identity.UserId;
-        project.SelectedSiteVisitProviderId=visit.ProviderProfileId;project.SiteVisitSelectedAt??=now;project.SiteVisitProviderTrustScoreSnapshot=await CurrentTrust(visit.ProviderProfileId,token);project.StatusCode="SITE_VISIT_SCHEDULED";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
+        var now=DateTime.UtcNow;
+        var request=await db.ServiceRequests.SingleAsync(x=>x.Id==project.ServiceRequestId,token);
+        request.DetailAddress=input.DetailAddress.Trim();request.UpdatedAt=now;request.UpdatedByUserId=identity.UserId;
+        foreach(var other in await db.InteriorSiteVisits.Where(x=>x.InteriorProjectId==project.Id&&x.ProviderProfileId!=visit.ProviderProfileId&&x.StatusCode=="CONFIRMED"&&x.CompletedAt==null).ToListAsync(token)){other.StatusCode="CANCELLED";other.UpdatedAt=now;other.UpdatedByUserId=identity.UserId;}
+        foreach(var participant in await db.InteriorProjectParticipants.Where(x=>x.InteriorProjectId==project.Id&&x.RoleCode=="SITE_SURVEY"&&x.ProviderProfileId!=visit.ProviderProfileId&&x.StatusCode=="ACTIVE").ToListAsync(token)){participant.StatusCode="ENDED";participant.EffectiveTo=now;participant.IsPrimary=false;participant.UpdatedAt=now;participant.UpdatedByUserId=identity.UserId;}
+        var selectedParticipant=await db.InteriorProjectParticipants.SingleOrDefaultAsync(x=>x.InteriorProjectId==project.Id&&x.ProviderProfileId==visit.ProviderProfileId&&x.RoleCode=="SITE_SURVEY",token);
+        if(selectedParticipant is null){db.InteriorProjectParticipants.Add(new(){InteriorProjectId=project.Id,ProviderProfileId=visit.ProviderProfileId,RoleCode="SITE_SURVEY",EffectiveFrom=now,StatusCode="ACTIVE",IsPrimary=true,ScopeText="고객이 선택한 현장 실측",CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId});}
+        else{selectedParticipant.StatusCode="ACTIVE";selectedParticipant.EffectiveFrom=now;selectedParticipant.EffectiveTo=null;selectedParticipant.IsPrimary=true;selectedParticipant.ScopeText="고객이 선택한 현장 실측";selectedParticipant.UpdatedAt=now;selectedParticipant.UpdatedByUserId=identity.UserId;}
+        visit.StatusCode="CONFIRMED";visit.ConfirmedAt??=now;visit.CustomerConfirmedAt??=now;visit.UpdatedAt=now;visit.UpdatedByUserId=identity.UserId;
+        project.SelectedSiteVisitProviderId=visit.ProviderProfileId;project.SiteVisitSelectedAt=now;project.SiteVisitProviderTrustScoreSnapshot=await CurrentTrust(visit.ProviderProfileId,token);project.StatusCode="SITE_VISIT_SCHEDULED";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
         Event(project,"SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,new{visitId},now);Audit(identity.UserId,"INTERIOR_SITE_VISIT_CONFIRMED",project.PublicId,new{visitId},now);Outbox(project,"INTERIOR_SITE_VISIT_CONFIRMED",input.IdempotencyKey,identity.UserId,now);await db.SaveChangesAsync(token);return await Detail(projectId,principal,token);
     }
 
@@ -158,17 +167,65 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
                                 join provider in db.ProviderProfiles on quote.ProviderProfileId equals provider.Id
                                 join request in db.ServiceRequests on quote.ServiceRequestId equals request.Id
                                 where revision.PublicId==input.QuoteRevisionId&&quote.ServiceRequestId==project.ServiceRequestId
-                                select new{Revision=revision,Quote=quote,Provider=provider,request.AdministrativeAreaId}).SingleOrDefaultAsync(token)
+                                select new{Revision=revision,Quote=quote,Provider=provider,Request=request}).SingleOrDefaultAsync(token)
                           ??throw NotFound("INTERIOR_QUOTE_NOT_FOUND","이 프로젝트에서 선택할 수 있는 견적을 찾을 수 없습니다.");
             if(candidate.Quote.StatusCode!="SUBMITTED"||candidate.Quote.WithdrawnAt.HasValue||(candidate.Quote.ExpiresAt.HasValue&&candidate.Quote.ExpiresAt<=now)||candidate.Revision.ValidUntil<=now||candidate.Revision.RevisionPurposeCode is not ("POST_SITE_VISIT" or "CONTRACT_ESTIMATE"))
                 throw Conflict("INTERIOR_QUOTE_NOT_SELECTABLE","철회·만료되었거나 계약 선택용이 아닌 견적은 선택할 수 없습니다.");
             var latest=await db.QuoteRevisions.Where(x=>x.QuoteId==candidate.Quote.Id).MaxAsync(x=>x.RevisionNo,token);
             if(candidate.Revision.RevisionNo!=latest)
                 throw Conflict("INTERIOR_LATEST_QUOTE_REQUIRED","해당 공급자의 최신 견적 Version만 선택할 수 있습니다.");
-            if(!candidate.AdministrativeAreaId.HasValue)throw Conflict("REQUEST_AREA_REQUIRED","서비스 지역이 없는 프로젝트는 공급자를 선택할 수 없습니다.");
+            if(!candidate.Request.AdministrativeAreaId.HasValue)throw Conflict("REQUEST_AREA_REQUIRED","서비스 지역이 없는 프로젝트는 공급자를 선택할 수 없습니다.");
             await relationshipBlocks.EnsureAllowedAsync(project.CustomerProfileId,candidate.Provider.Id,token);
-            var eligibilityResult=await eligibility.EvaluateAsync(candidate.Provider.Id,project.ServiceCategoryId,candidate.AdministrativeAreaId.Value,token);
+            var eligibilityResult=await eligibility.EvaluateAsync(candidate.Provider.Id,project.ServiceCategoryId,candidate.Request.AdministrativeAreaId.Value,token);
             if(!eligibilityResult.IsEligible)throw Conflict(eligibilityResult.ReasonCode??"PROVIDER_NOT_ELIGIBLE","현재 승인·서비스·지역·증빙 요건을 충족한 공급자만 선택할 수 있습니다.");
+
+            var effectiveDate=DateOnly.FromDateTime(now);
+            var feePolicy=await(from policy in db.CategoryFeePolicies.AsNoTracking()
+                                join source in db.FeePolicies.AsNoTracking() on policy.SourceFeePolicyId equals source.Id
+                                where policy.CategoryId==project.ServiceCategoryId&&policy.IsActive&&policy.TransactionTypeCode=="PROJECT"&&source.Code=="FEE-I1"&&source.IsActive&&
+                                      policy.EffectiveFrom<=effectiveDate&&(!policy.EffectiveTo.HasValue||policy.EffectiveTo>=effectiveDate)
+                                orderby policy.EffectiveFrom descending,policy.Id descending
+                                select new{Policy=policy,Source=source}).FirstOrDefaultAsync(token)
+                          ??throw Conflict("INTERIOR_FEE_POLICY_NOT_FOUND","적용 가능한 인테리어 공급자 수수료 정책 FEE-I1을 찾을 수 없습니다.");
+            var feeTier=await db.FeePolicies.AsNoTracking()
+                .Where(x=>x.IsActive&&x.Code.StartsWith("FEE-Q")&&x.CurrencyCode==candidate.Revision.CurrencyCode&&
+                          x.MinBaseAmount.HasValue&&x.MaxBaseAmount.HasValue&&x.DisplayFeeAmount.HasValue&&
+                          x.MinBaseAmount<=candidate.Revision.TotalAmount&&x.MaxBaseAmount>=candidate.Revision.TotalAmount&&
+                          (!x.EffectiveFrom.HasValue||x.EffectiveFrom<=effectiveDate)&&(!x.EffectiveTo.HasValue||x.EffectiveTo>=effectiveDate))
+                .OrderBy(x=>x.MinBaseAmount).FirstOrDefaultAsync(token)
+                ??throw Conflict("INTERIOR_FEE_TIER_NOT_FOUND","선택 견적금액에 적용할 FEE-Q1~FEE-Q7 수수료 구간을 찾을 수 없습니다.");
+            var feeAmount=feeTier.DisplayFeeAmount!.Value;
+            var balance=await walletService.GetBalanceAsync(candidate.Provider.PublicId,feeAmount,token);
+            if(balance is null)throw Conflict("WALLET_NOT_FOUND","공급자 Wallet을 찾을 수 없습니다.");
+            if(balance.StatusCode!="ACTIVE")throw Conflict("WALLET_NOT_ACTIVE","현재 사용할 수 없는 공급자 Wallet입니다.");
+            if(!balance.HasSufficientBalance)throw Conflict("WALLET_INSUFFICIENT_BALANCE","최종 시공업체 선택 수수료를 차감할 Wallet 잔액이 부족합니다.");
+
+            var categoryPolicy=await db.CategoryPolicies.AsNoTracking().SingleAsync(x=>x.Id==candidate.Request.CategoryPolicyId,token);
+            var quoteItems=await db.QuoteItems.AsNoTracking().Where(x=>x.QuoteRevisionId==candidate.Revision.Id).OrderBy(x=>x.LineNo).ToListAsync(token);
+            var trust=await CurrentTrust(candidate.Provider.Id,token);
+            var transactionRecord=new TransactionRecord
+            {
+                ServiceRequestId=candidate.Request.Id,AcceptedQuoteRevisionId=candidate.Revision.Id,CustomerProfileId=project.CustomerProfileId,ProviderProfileId=candidate.Provider.Id,CategoryId=project.ServiceCategoryId,CategoryFeePolicyId=feePolicy.Policy.Id,
+                StatusCode="CREATED",AgreedAmount=candidate.Revision.TotalAmount,CurrencyCode=candidate.Revision.CurrencyCode,
+                QuoteSnapshotJson=JsonSerializer.Serialize(new{quoteId=candidate.Quote.PublicId,revisionId=candidate.Revision.PublicId,candidate.Revision.RevisionNo,candidate.Revision.Summary,candidate.Revision.Terms,candidate.Revision.SubtotalAmount,candidate.Revision.VatAmount,candidate.Revision.TotalAmount,candidate.Revision.CurrencyCode,candidate.Revision.EstimatedDurationText,candidate.Revision.ValidUntil,providerId=candidate.Provider.PublicId,candidate.Provider.BusinessName,items=quoteItems.Select(x=>new{x.LineNo,x.ItemName,x.Description,x.Quantity,x.UnitText,x.UnitPriceAmount,x.LineTotalAmount,x.CurrencyCode})}),
+                CategoryPolicySnapshotJson=candidate.Request.PolicySnapshotJson,
+                CompletionPolicySnapshotJson=JsonSerializer.Serialize(new{policyId=categoryPolicy.PublicId,categoryPolicy.PolicyVersion,categoryPolicy.RequiredCompletionPhotoCount,categoryPolicy.CompletionEvidenceRuleText}),
+                FeePolicySnapshotJson=JsonSerializer.Serialize(new{policyId=feePolicy.Policy.PublicId,sourcePolicyCode=feePolicy.Source.Code,feePolicy.Policy.PolicyVersion,feePolicy.Policy.PolicyKindCode,feePolicy.Policy.TransactionTypeCode,calculationMethod="SELECTED_QUOTE_TIER:FEE-Q1-FEE-Q7",tierCode=feeTier.Code,minBaseAmount=feeTier.MinBaseAmount,maxBaseAmount=feeTier.MaxBaseAmount,calculatedFeeAmount=feeAmount,feePolicy.Policy.CurrencyCode,feePolicy.Policy.ChargeTimingText,feePolicy.Policy.RestoreRuleText,feePolicy.Policy.EffectiveFrom,feePolicy.Policy.EffectiveTo}),
+                FeePolicyVersionSnapshot=feePolicy.Policy.PolicyVersion,FeePolicyKindSnapshot=feePolicy.Policy.PolicyKindCode,FeeTransactionTypeSnapshot=feePolicy.Policy.TransactionTypeCode,FeeCalculationMethodSnapshot="SELECTED_QUOTE_TIER:FEE-Q1-FEE-Q7",CalculatedFeeAmount=feeAmount,FeeCurrencyCode=feePolicy.Policy.CurrencyCode,FeeChargeTimingSnapshot=feePolicy.Policy.ChargeTimingText,FeeRestoreRuleSnapshot=feePolicy.Policy.RestoreRuleText,WarrantyDaysSnapshot=categoryPolicy.DefaultWarrantyDays,ProviderTrustScoreSnapshot=trust,
+                CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId
+            };
+            db.Transactions.Add(transactionRecord);
+            await db.SaveChangesAsync(token);
+            try
+            {
+                await walletService.DebitFeeAsync(new DebitFeeCommand(candidate.Provider.PublicId,transactionRecord.PublicId,feePolicy.Policy.PublicId,feeAmount,$"interior-contractor-selection-fee:{project.PublicId:N}","인테리어 최종 시공업체 선택 수수료"),identity.UserId,token);
+            }
+            catch(WalletOperationException exception)
+            {
+                throw Conflict(exception.BusinessCode,exception.Message);
+            }
+            var feeCharge=await db.FeeCharges.SingleAsync(x=>x.TransactionId==transactionRecord.Id&&x.CategoryFeePolicyId==feePolicy.Policy.Id,token);
+            transactionRecord.WalletLedgerEntryId=feeCharge.LedgerEntryId;transactionRecord.ActualChargedFeeAmount=feeCharge.FeeAmount;
 
             var otherPrimary=await db.InteriorProjectParticipants.AnyAsync(x=>x.InteriorProjectId==project.Id&&x.RoleCode=="PRIMARY_CONTRACTOR"&&x.ProviderProfileId!=candidate.Provider.Id&&x.StatusCode=="ACTIVE"&&(x.EffectiveTo==null||x.EffectiveTo>now),token);
             if(otherPrimary)throw Conflict("INTERIOR_PRIMARY_CONTRACTOR_CONFLICT","이미 다른 주 시공 참여자가 활성 상태입니다.");
@@ -182,8 +239,7 @@ public sealed class CustomerInteriorService(SoodalLifeDbContext db,IPrivateFileS
             {
                 participant.StatusCode="ACTIVE";participant.IsPrimary=true;participant.EffectiveFrom=now;participant.EffectiveTo=null;participant.ScopeText="고객 최종 선택 주 시공 공급자";participant.UpdatedAt=now;participant.UpdatedByUserId=identity.UserId;
             }
-            var trust=await CurrentTrust(candidate.Provider.Id,token);
-            project.SelectedContractorProviderId=candidate.Provider.Id;project.ContractorSelectedAt=now;project.CurrentQuoteRevisionId=candidate.Revision.Id;project.ContractorTrustScoreSnapshot=trust;project.StatusCode="ESTIMATE_READY";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
+            project.SelectedContractorProviderId=candidate.Provider.Id;project.ContractorSelectedAt=now;project.CurrentQuoteRevisionId=candidate.Revision.Id;project.ContractorTrustScoreSnapshot=trust;project.FeeAssessmentStatusCode="ASSESSED";project.StatusCode="ESTIMATE_READY";project.UpdatedAt=now;project.UpdatedByUserId=identity.UserId;
             Event(project,"CONTRACTOR_SELECTED",key,identity.UserId,new{providerId=candidate.Provider.PublicId,quoteRevisionId=candidate.Revision.PublicId,candidate.Revision.RevisionNo,candidate.Revision.TotalAmount,candidate.Revision.CurrencyCode},now);
             Audit(identity.UserId,"INTERIOR_CONTRACTOR_SELECTED",project.PublicId,new{providerId=candidate.Provider.PublicId,quoteRevisionId=candidate.Revision.PublicId,candidate.Revision.RevisionNo},now);
             if(await db.NotificationTemplates.AsNoTracking().AnyAsync(x=>x.EventTypeCode=="CONTRACTOR_SELECTED"&&x.IsActive,token))

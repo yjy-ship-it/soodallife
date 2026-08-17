@@ -248,7 +248,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
             "Work quote", null, 10m, "one hour", DateTime.UtcNow.AddMinutes(5), DateTime.UtcNow.AddMinutes(50), null,
             $"quote-{Guid.NewGuid():N}", [new QuoteItemInput("Work", null, 1, "job", 111m)]))).Content.ReadFromJsonAsync<QuoteDetailResponse>())!;
         await provider.PostAsync($"/api/v1/quotes/{quote.Id}/submit", null);
-        return (await (await customer.PostAsync($"/api/v1/quotes/{quote.Id}/accept", null)).Content.ReadFromJsonAsync<AcceptQuoteResponse>())!.TransactionId;
+        return (await (await customer.PostAsJsonAsync($"/api/v1/quotes/{quote.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" })).Content.ReadFromJsonAsync<AcceptQuoteResponse>())!.TransactionId;
     }
 
     private static async Task<WorkCompletionRevisionResponse> SaveDraft(HttpClient client, Guid id, string key, string summary, decimal amount, string? reason) =>

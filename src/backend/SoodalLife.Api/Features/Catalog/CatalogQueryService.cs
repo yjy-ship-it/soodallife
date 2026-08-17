@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Catalog;
 
 public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
 {
-    public async Task<IReadOnlyList<CategoryResponse>> GetMajorCategoriesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>> GetMajorCategoriesAsync(bool emergencyOnly, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return await dbContext.ServiceCategories.AsNoTracking()
@@ -15,7 +16,9 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
                 dbContext.ServiceCategories.Any(service =>
                     service.ParentId == middle.Id && service.StatusCode == "ACTIVE" &&
                     dbContext.CategoryPolicies.Any(policy =>
-                        policy.CategoryId == service.Id && policy.TransactionTypeCode == "ONE_TIME" &&
+                        policy.CategoryId == service.Id &&
+                        (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                        (!emergencyOnly || policy.IsEmergencyAllowed) &&
                         policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))))
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
@@ -23,7 +26,7 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CategoryResponse>?> GetMiddleCategoriesAsync(Guid majorPublicId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>?> GetMiddleCategoriesAsync(Guid majorPublicId, bool emergencyOnly, CancellationToken cancellationToken)
     {
         var major = await dbContext.ServiceCategories.AsNoTracking()
             .SingleOrDefaultAsync(category => category.PublicId == majorPublicId && category.LevelCode == "MAJOR" && category.StatusCode == "ACTIVE", cancellationToken);
@@ -38,7 +41,9 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .Where(middle => dbContext.ServiceCategories.Any(service =>
                 service.ParentId == middle.Id && service.StatusCode == "ACTIVE" &&
                 dbContext.CategoryPolicies.Any(policy =>
-                    policy.CategoryId == service.Id && policy.TransactionTypeCode == "ONE_TIME" &&
+                    policy.CategoryId == service.Id &&
+                    (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                    (!emergencyOnly || policy.IsEmergencyAllowed) &&
                     policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today))))
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
@@ -46,7 +51,7 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CategoryResponse>?> GetServicesAsync(Guid middlePublicId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>?> GetServicesAsync(Guid middlePublicId, bool emergencyOnly, CancellationToken cancellationToken)
     {
         var middle = await dbContext.ServiceCategories.AsNoTracking()
             .SingleOrDefaultAsync(category => category.PublicId == middlePublicId && category.LevelCode == "MIDDLE" && category.StatusCode == "ACTIVE", cancellationToken);
@@ -59,7 +64,9 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
         return await dbContext.ServiceCategories.AsNoTracking()
             .Where(service => service.ParentId == middle.Id && service.LevelCode == "SERVICE" && service.StatusCode == "ACTIVE")
             .Where(service => dbContext.CategoryPolicies.Any(policy =>
-                policy.CategoryId == service.Id && policy.TransactionTypeCode == "ONE_TIME" &&
+                policy.CategoryId == service.Id &&
+                (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                (!emergencyOnly || policy.IsEmergencyAllowed) &&
                 policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
@@ -74,7 +81,8 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .SingleOrDefaultAsync(category =>
                 category.PublicId == servicePublicId && category.LevelCode == "SERVICE" && category.StatusCode == "ACTIVE" &&
                 dbContext.CategoryPolicies.Any(policy =>
-                    policy.CategoryId == category.Id && policy.TransactionTypeCode == "ONE_TIME" &&
+                    policy.CategoryId == category.Id &&
+                    (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
                     policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)),
                 cancellationToken);
         if (service?.ParentId is null)
@@ -102,7 +110,9 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .ThenBy(option => option.Id)
             .ToListAsync(cancellationToken);
 
-        return assignedFields.Select(item => new RequestFieldResponse(
+        return assignedFields
+            .Where(item => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(item.Field))
+            .Select(item => new RequestFieldResponse(
             item.Field.PublicId,
             item.Field.FieldKey,
             item.Field.Label,

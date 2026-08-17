@@ -16,7 +16,7 @@ public sealed class InteriorProject
     public long? CurrentContractId { get; set; }
     public decimal? SiteVisitProviderTrustScoreSnapshot { get; set; }
     public decimal? ContractorTrustScoreSnapshot { get; set; }
-    public string FeeAssessmentStatusCode { get; set; } = "POLICY_PENDING";
+    public string FeeAssessmentStatusCode { get; set; } = "PENDING_SELECTION";
     public DateOnly? ProjectStartDate { get; set; }
     public DateOnly? ExpectedCompletionDate { get; set; }
     public DateOnly? ActualCompletionDate { get; set; }

@@ -72,7 +72,7 @@ public sealed class CustomerRequestsController(CustomerServiceRequestService req
     }
 
     [HttpPost("{requestId:guid}/files")]
-    [RequestSizeLimit(10 * 1024 * 1024 + 64 * 1024)]
+    [RequestSizeLimit(5 * 1024 * 1024 + 64 * 1024)]
     public async Task<ActionResult<ServiceRequestFileResponse>> UploadFile(
         Guid requestId,
         [FromForm] Guid? requestFieldId,
