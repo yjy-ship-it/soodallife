@@ -12,7 +12,7 @@ using SoodalLife.Api.Infrastructure.Security;
 namespace SoodalLife.Api.Features.Providers;
 
 public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, IPasswordHasher<User> passwordHasher,
-    IIdentityVerificationAdapter identityVerification, IPersonalDataSearchHasher searchHasher)
+    IPersonalDataSearchHasher searchHasher)
 {
     public async Task<IReadOnlyList<ProviderLegalDocumentResponse>> ActiveDocumentsAsync(CancellationToken token)
     {
@@ -47,20 +47,15 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
     public async Task<ProviderRegistrationResponse> RegisterAsync(RegisterProviderRequest input, HttpContext context, CancellationToken token)
     {
         ValidateProfile(input.BusinessName, input.RepresentativeName, input.ContactName);
+        var providerType = NormalizeProviderType(input.ProviderTypeCode, input.BusinessRegistrationNumber);
         var login = input.LoginId.Trim();
         if (!LoginPattern().IsMatch(login)) throw Invalid("LOGIN_ID_INVALID", "아이디는 영문으로 시작하고 영문, 숫자, -, _를 사용한 4~256자로 입력해 주세요.");
         ValidatePassword(input.Password, input.PasswordConfirmation);
         var email = NormalizeEmail(input.Email);
         var phone = NormalizePhone(input.Phone);
         if (phone is null) throw Invalid("PHONE_REQUIRED", "휴대전화 번호를 입력해 주세요.");
-        var verificationStatus = await identityVerification.GetStatusAsync(token);
-        var verification = await identityVerification.VerifyPhoneAsync(phone, input.PhoneVerificationToken, token);
-        var externalVerificationUnavailable = verificationStatus.StatusCode == "NOT_INTEGRATED";
-        if (!externalVerificationUnavailable && (!verification.IsVerified || !string.Equals(NormalizePhone(verification.VerifiedPhone), phone, StringComparison.Ordinal)))
-            throw Invalid("PHONE_IDENTITY_VERIFICATION_REQUIRED", "휴대전화 본인인증을 완료해 주세요.");
-        if (externalVerificationUnavailable && input.PhoneVerificationToken != "NOT_INTEGRATED")
-            throw Invalid("PHONE_CONFIRMATION_REQUIRED", "휴대전화 번호 확인 버튼을 눌러 주세요.");
         var businessNo = NormalizeBusinessNumber(input.BusinessRegistrationNumber);
+        ValidateProviderTypeFields(providerType, businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText);
         if (await db.Users.AnyAsync(x => x.NormalizedLoginId == login.ToUpperInvariant(), token)) throw Conflict("LOGIN_ID_DUPLICATE", "이미 사용 중인 아이디입니다.");
         var phoneExists = searchHasher.IsConfigured
             ? await db.Users.AnyAsync(x => x.PhoneSearchHash != null && x.PhoneSearchHash.SequenceEqual(searchHasher.Phone(phone)) || x.PhoneSearchHash == null && x.Phone == phone, token)
@@ -78,7 +73,7 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
             {
                 LoginId = login, NormalizedLoginId = login.ToUpperInvariant(), Email = email,
                 NormalizedEmail = email?.ToUpperInvariant(), Phone = phone, EmailVerificationStatusCode = "NOT_INTEGRATED",
-                PhoneVerificationStatusCode = externalVerificationUnavailable ? "NOT_INTEGRATED" : "VERIFIED", StatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now,
+                PhoneVerificationStatusCode = "NOT_INTEGRATED", StatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now,
             };
             user.PasswordHash = passwordHasher.HashPassword(user, input.Password);
             db.Users.Add(user);
@@ -86,7 +81,7 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
             db.UserRoles.AddRange(roles.Select(role => new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = now }));
             db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = input.RepresentativeName.Trim(), CreatedAt = now, CreatedByUserId = user.Id, UpdatedAt = now, UpdatedByUserId = user.Id });
             var profile = CreateProfile(user.Id, input.BusinessName, input.RepresentativeName, input.ContactName,
-                businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
+                providerType, businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
             db.ProviderProfiles.Add(profile);
             AddConsents(user.Id, legal, input.Consents, context, now);
             await db.SaveChangesAsync(token);
@@ -106,14 +101,15 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
     public async Task<ProviderRegistrationResponse> AddRoleAsync(ClaimsPrincipal principal, AddProviderRoleRequest input, HttpContext context, CancellationToken token)
     {
         ValidateProfile(input.BusinessName, input.RepresentativeName, input.ContactName);
+        var providerType = NormalizeProviderType(input.ProviderTypeCode, input.BusinessRegistrationNumber);
         if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var publicId)) throw Invalid("USER_ID_INVALID", "로그인 정보를 확인할 수 없습니다.");
         var user = await db.Users.SingleOrDefaultAsync(x => x.PublicId == publicId && x.StatusCode == "ACTIVE", token)
             ?? throw new ProviderConfigurationException("ACTIVE_USER_NOT_FOUND", "활성 계정을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
-        var verificationStatus = await identityVerification.GetStatusAsync(token);
-        if (verificationStatus.StatusCode != "NOT_INTEGRATED" && user.PhoneVerificationStatusCode != "VERIFIED")
-            throw Invalid("PHONE_IDENTITY_VERIFICATION_REQUIRED", "공급자 등록 전에 휴대전화 본인인증을 완료해 주세요.");
-        if (await db.ProviderProfiles.AnyAsync(x => x.UserId == user.Id, token)) throw Conflict("PROVIDER_ROLE_ALREADY_EXISTS", "이미 공급자 역할을 보유하고 있습니다.");
+        if (string.IsNullOrWhiteSpace(user.Phone))
+            throw Invalid("PHONE_REQUIRED", "전문가 등록 전에 휴대전화 번호 중복확인을 완료해 주세요.");
+        if (await db.ProviderProfiles.AnyAsync(x => x.UserId == user.Id, token)) throw Conflict("PROVIDER_ROLE_ALREADY_EXISTS", "이미 전문가 역할을 보유하고 있습니다.");
         var businessNo = NormalizeBusinessNumber(input.BusinessRegistrationNumber);
+        ValidateProviderTypeFields(providerType, businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText);
         if (businessNo is not null && await db.ProviderProfiles.AnyAsync(x => x.BusinessRegistrationNo == businessNo, token)) throw Conflict("BUSINESS_NUMBER_DUPLICATE", "이미 등록된 사업자등록번호입니다.");
         var legal = await ValidateConsentsAsync(input.Consents, token);
         var role = await ProviderRoleAsync(token);
@@ -129,7 +125,7 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
             if (userRole is null) db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = now });
             else { userRole.RevokedAt = null; userRole.RevokedByUserId = null; userRole.GrantedAt = now; }
             var profile = CreateProfile(user.Id, input.BusinessName, input.RepresentativeName, input.ContactName,
-                businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
+                providerType, businessNo, input.BusinessAddress, input.BusinessTypeText, input.BusinessItemText, input.Introduction, now, user.Id);
             db.ProviderProfiles.Add(profile);
             AddConsents(user.Id, legal, input.Consents, context, now);
             await db.SaveChangesAsync(token);
@@ -143,7 +139,7 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
         catch (DbUpdateException)
         {
             if (transaction is not null) await transaction.RollbackAsync(token);
-            throw Conflict("PROVIDER_REGISTRATION_DUPLICATE", "이미 등록된 공급자 역할 또는 Wallet입니다.");
+            throw Conflict("PROVIDER_REGISTRATION_DUPLICATE", "이미 등록된 전문가 역할 또는 Wallet입니다.");
         }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
@@ -176,21 +172,22 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
 
     private async Task<Role> ProviderRoleAsync(CancellationToken token) =>
         await db.Roles.SingleOrDefaultAsync(x => x.Code == RoleCodes.Provider && x.IsActive, token)
-        ?? throw new ProviderConfigurationException("PROVIDER_ROLE_UNAVAILABLE", "공급자 역할을 사용할 수 없습니다.", StatusCodes.Status500InternalServerError);
+        ?? throw new ProviderConfigurationException("PROVIDER_ROLE_UNAVAILABLE", "전문가 역할을 사용할 수 없습니다.", StatusCodes.Status500InternalServerError);
 
     private async Task<Role[]> RegistrationRolesAsync(CancellationToken token)
     {
         var roles = await db.Roles.Where(x => x.IsActive && (x.Code == RoleCodes.Customer || x.Code == RoleCodes.Provider)).ToArrayAsync(token);
-        if (roles.Length != 2) throw new ProviderConfigurationException("REGISTRATION_ROLE_UNAVAILABLE", "고객·공급자 역할을 사용할 수 없습니다.", StatusCodes.Status500InternalServerError);
+        if (roles.Length != 2) throw new ProviderConfigurationException("REGISTRATION_ROLE_UNAVAILABLE", "고객·전문가 역할을 사용할 수 없습니다.", StatusCodes.Status500InternalServerError);
         return roles;
     }
 
     private static ProviderProfile CreateProfile(long userId, string businessName, string representativeName, string contactName,
-        string? businessNo, string? address, string? typeText, string? itemText, string? introduction, DateTime now, long actor) => new()
+        string providerType, string? businessNo, string? address, string? typeText, string? itemText, string? introduction, DateTime now, long actor) => new()
     {
-        UserId = userId, BusinessName = businessName.Trim(), RepresentativeName = representativeName.Trim(), ContactName = contactName.Trim(),
-        BusinessRegistrationNo = businessNo, BusinessAddress = Trim(address, 500), BusinessTypeText = Trim(typeText, 100),
-        BusinessItemText = Trim(itemText, 100), Introduction = Trim(introduction, 1000), ApprovalStatusCode = "PENDING",
+        UserId = userId, ProviderTypeCode = providerType, BusinessName = businessName.Trim(), RepresentativeName = representativeName.Trim(), ContactName = contactName.Trim(),
+        BusinessRegistrationNo = providerType == "BUSINESS" ? businessNo : null, BusinessAddress = providerType == "BUSINESS" ? Trim(address, 500) : null,
+        BusinessTypeText = providerType == "BUSINESS" ? Trim(typeText, 100) : null,
+        BusinessItemText = providerType == "BUSINESS" ? Trim(itemText, 100) : null, Introduction = Trim(introduction, 1000), ApprovalStatusCode = "PENDING",
         ActivityStatusCode = "INACTIVE", CreatedAt = now, CreatedByUserId = actor, UpdatedAt = now, UpdatedByUserId = actor,
     };
 
@@ -209,9 +206,22 @@ public sealed partial class ProviderRegistrationService(SoodalLifeDbContext db, 
 
     private static void ValidateProfile(string businessName, string representativeName, string contactName)
     {
-        if (string.IsNullOrWhiteSpace(businessName) || businessName.Trim().Length > 200) throw Invalid("BUSINESS_NAME_INVALID", "상호 또는 공급자 표시명을 200자 이하로 입력해 주세요.");
+        if (string.IsNullOrWhiteSpace(businessName) || businessName.Trim().Length > 200) throw Invalid("BUSINESS_NAME_INVALID", "상호 또는 전문가 표시명을 200자 이하로 입력해 주세요.");
         if (string.IsNullOrWhiteSpace(representativeName) || representativeName.Trim().Length > 100) throw Invalid("REPRESENTATIVE_NAME_INVALID", "대표자명을 100자 이하로 입력해 주세요.");
         if (string.IsNullOrWhiteSpace(contactName) || contactName.Trim().Length > 100) throw Invalid("CONTACT_NAME_INVALID", "담당자명을 100자 이하로 입력해 주세요.");
+    }
+    private static string NormalizeProviderType(string? value, string? businessRegistrationNumber)
+    {
+        var type = value?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(type)) return "BUSINESS";
+        return type == "BUSINESS" ? type : throw Invalid("BUSINESS_PROVIDER_ONLY", "사업자등록증을 제출할 수 있는 사업자만 전문가로 가입할 수 있습니다.");
+    }
+    private static void ValidateProviderTypeFields(string type, string? businessNo, string? address, string? businessType, string? businessItem)
+    {
+        if (type != "BUSINESS") throw Invalid("BUSINESS_PROVIDER_ONLY", "사업자만 전문가로 가입할 수 있습니다.");
+        if (businessNo is null || !IsValidBusinessRegistrationNumber(businessNo)) throw Invalid("BUSINESS_NUMBER_INVALID", "사업자 전문가는 유효한 사업자등록번호가 필요합니다.");
+        if (string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(businessType) || string.IsNullOrWhiteSpace(businessItem))
+            throw Invalid("BUSINESS_PROFILE_INCOMPLETE", "사업자 전문가는 사업장 주소, 업태와 업종을 모두 입력해 주세요.");
     }
     private static void ValidatePassword(string value, string confirmation)
     {

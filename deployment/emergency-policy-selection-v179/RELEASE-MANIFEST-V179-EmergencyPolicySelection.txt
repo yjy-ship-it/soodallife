@@ -1,0 +1,23 @@
+SOODAL LIFE V179 EMERGENCY POLICY SELECTION FIX
+Release date: 2026-08-31
+Database schema/data changed: false
+API changed: true
+Customer app changed: false
+Partner app changed: false
+Admin app changed: false
+
+Verified changes
+- Emergency request creation and update select an active policy with IsEmergencyAllowed=true.
+- Publish validation uses the same emergency-aware category context.
+- Policy selection is deterministic by effective date and policy id.
+- Public service detail uses the same active emergency policy predicate as the emergency category list.
+- Disallowed emergency categories remain rejected.
+
+Verification
+- Focused emergency/catalog/public/request tests: 22 passed
+- API Release publish: passed
+- No database migration included
+- Production appsettings and App_Data excluded from the package
+
+Key artifact SHA-256
+- SoodalLife.Api.dll | 22931968 bytes | 03B3B33B289BC364D644ED6162D4923649D76F37B0740CAF841FEFB5D2051897

@@ -28,7 +28,7 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
             var hasReview = await db.Reviews.AsNoTracking().AnyAsync(x => x.TransactionId == row.TransactionId, token);
             var hasDispute = await db.DisputeCases.AsNoTracking().AnyAsync(x => x.TransactionId == row.TransactionId, token);
             result.Add(new(row.PublicId, transactionId, row.CategoryNameSnapshot ?? row.Title, row.CategoryNameSnapshot,
-                row.ProviderNameSnapshot ?? "공급자", row.CompletedAtSnapshot, row.TotalAmountSnapshot, row.CurrencyCode,
+                row.ProviderNameSnapshot ?? "전문가", row.CompletedAtSnapshot, row.TotalAmountSnapshot, row.CurrencyCode,
                 row.WarrantyEndDate, Warranty(row.WarrantyEndDate), hasAs, hasReview, hasDispute));
         }
         return result;
@@ -69,7 +69,7 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
             .Select(x => new WorkRelatedCase(x.PublicId, x.StatusCode, DisputeDisplay(x.StatusCode), x.ReceivedAt)).FirstOrDefaultAsync(token);
         var review = await db.Reviews.AsNoTracking().Where(x => x.TransactionId == transaction.Id).Select(x => new { x.PublicId, x.VisibilityStatusCode }).SingleOrDefaultAsync(token);
         return new(row.PublicId, transaction.PublicId, row.Title, row.Summary, row.CategoryNameSnapshot ?? row.Title,
-            row.CategoryNameSnapshot, row.ProviderNameSnapshot ?? "공급자", row.CompletedAtSnapshot, row.TotalAmountSnapshot,
+            row.CategoryNameSnapshot, row.ProviderNameSnapshot ?? "전문가", row.CompletedAtSnapshot, row.TotalAmountSnapshot,
             row.CurrencyCode, row.WarrantyStartDate, row.WarrantyEndDate, Warranty(row.WarrantyEndDate), lines, evidence, assets,
             after, dispute, new(review?.PublicId, false, review is not null, review?.VisibilityStatusCode));
     }
@@ -131,7 +131,7 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         try
         {
             await using var stream = new MemoryStream(validated.Bytes); await storage.SaveAsync(storageKey, stream, token);
-            file.StatusCode = "ACTIVE"; file.ActivatedAt = now; file.ScanResultText = "NOT_INTEGRATED";
+            file.StatusCode = "ACTIVE"; file.ActivatedAt = now; file.ScanResultText = file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? "SERVER_NORMALIZED" : FilePrivacyCodes.NotIntegrated;
             db.AfterServiceFiles.Add(new AfterServiceFile { AfterServiceCaseId = access.CaseId, FileId = file.Id, RoleCode = Clean(role), Description = Clean(description), CreatedAt = now, CreatedByUserId = access.UserId });
             await db.SaveChangesAsync(token);
             return new(file.PublicId, file.OriginalFileName, file.ContentType, file.SizeBytes, Clean(role), Clean(description), $"/api/v1/after-services/{id}/files/{file.PublicId}");
@@ -183,7 +183,8 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
         var item = await db.AfterServiceCases.AsNoTracking().SingleAsync(x => x.Id == id, token);
         var transactionId = await db.Transactions.AsNoTracking().Where(x => x.Id == item.TransactionId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var interiorProjectId = await db.InteriorProjects.AsNoTracking().Where(x => x.Id == item.InteriorProjectId).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
-        var historyId = await db.ServiceHistoryEntries.AsNoTracking().Where(x => x.TransactionId == item.TransactionId && x.EventTypeCode == "COMPLETION").OrderByDescending(x => x.OccurredAt).Select(x => (Guid?)x.PublicId).FirstOrDefaultAsync(token);
+        var history = await db.ServiceHistoryEntries.AsNoTracking().Where(x => x.TransactionId == item.TransactionId && x.EventTypeCode == "COMPLETION").OrderByDescending(x => x.OccurredAt)
+            .Select(x => new { x.PublicId, x.Title, x.CategoryNameSnapshot, x.ProviderNameSnapshot }).FirstOrDefaultAsync(token);
         var disputeId = await db.DisputeCases.AsNoTracking().Where(x => x.AfterServiceCaseId == item.Id).Select(x => (Guid?)x.PublicId).SingleOrDefaultAsync(token);
         var actionRows = await db.AfterServiceActions.AsNoTracking().Where(x => x.AfterServiceCaseId == id).OrderBy(x => x.OccurredAt).ToListAsync(token);
         var publicNoteTypes = new HashSet<string>(StringComparer.Ordinal) { "RECEIVED", "PROVIDER_CONFIRMATION", "VISIT_SCHEDULED", "VISIT", "REVISIT", "TREATMENT", "RESOLUTION", "UNRESOLVED_CLOSURE", "DISPUTE_CONVERSION" };
@@ -204,10 +205,11 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
                 publication.Allowed ? $"/api/v1/after-services/{item.PublicId}/files/{row.File.PublicId}" : null,
                 publication.StatusCode, publication.Allowed ? null : publication.Message));
         }
-        return new(item.PublicId, transactionId, interiorProjectId, historyId, item.Subject, item.Description, item.RequestDetails, item.StatusCode,
+        return new(item.PublicId, transactionId, interiorProjectId, history?.PublicId, item.Subject, item.Description, item.RequestDetails, item.StatusCode,
             AfterServiceDisplay(item.StatusCode), item.ReceivedAt, item.WarrantyStartDate, item.WarrantyEndDate, item.IsWithinWarranty,
             Warranty(item.WarrantyEndDate), item.DueAt, item.ProviderConfirmedAt, item.ProviderResponseText, item.VisitRequired,
-            item.StartedAt, item.CompletedAt, item.ResolutionSummary, item.UnresolvedReason, item.RecurrenceOccurred, disputeId, timeline, files);
+            item.StartedAt, item.CompletedAt, item.ResolutionSummary, item.UnresolvedReason, item.RecurrenceOccurred, disputeId, timeline, files,
+            history?.Title, history?.CategoryNameSnapshot, history?.ProviderNameSnapshot);
     }
 
     private async Task<CustomerDisputeResponse> BuildDispute(long id, long customerUserId, CancellationToken token)
@@ -265,22 +267,26 @@ public sealed class CustomerAfterServiceService(SoodalLifeDbContext db, IPrivate
     private static async Task<ValidatedUpload> Validate(IFormFile upload, CancellationToken token)
     {
         if (upload.Length <= 0 || upload.Length > MaximumFileSize) throw Invalid("CASE_FILE_SIZE_INVALID", "파일은 10MB 이하여야 합니다.");
-        var rules = new Dictionary<string, (string Extension, byte[] Signature)>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = (".jpg", [0xff, 0xd8, 0xff]), ["image/png"] = (".png", [0x89, 0x50, 0x4e, 0x47]), ["application/pdf"] = (".pdf", Encoding.ASCII.GetBytes("%PDF")) };
-        if (!rules.TryGetValue(upload.ContentType, out var rule)) throw Invalid("CASE_FILE_TYPE_INVALID", "JPEG, PNG, PDF 파일만 첨부할 수 있습니다.");
+        var rules = new Dictionary<string, (string Extension, byte[] Signature)>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = (".jpg", [0xff, 0xd8, 0xff]), ["image/png"] = (".png", [0x89, 0x50, 0x4e, 0x47]) };
+        if (!rules.TryGetValue(upload.ContentType, out var rule)) throw Invalid("CASE_FILE_TYPE_INVALID", "JPG 또는 PNG 사진만 첨부할 수 있습니다.");
         var name = Path.GetFileName(upload.FileName); if (string.IsNullOrWhiteSpace(name) || name != upload.FileName) throw Invalid("CASE_FILE_NAME_INVALID", "안전한 파일명을 사용해 주세요.");
         await using var source = upload.OpenReadStream(); using var memory = new MemoryStream(); await source.CopyToAsync(memory, token); var bytes = memory.ToArray();
         if (!bytes.AsSpan().StartsWith(rule.Signature)) throw Invalid("CASE_FILE_SIGNATURE_INVALID", "파일 내용과 형식이 일치하지 않습니다.");
         return new(bytes, rule.Extension);
     }
 
-    private static StoredFile NewFile(string purpose, string key, IFormFile upload, byte[] bytes, long actor, DateTime now) => new()
-    { PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = Path.GetFileName(upload.FileName), ContentType = upload.ContentType.ToLowerInvariant(), SizeBytes = bytes.Length, Sha256Hex = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), StatusCode = "PENDING", MalwareScanStatusCode=FilePrivacyCodes.NotIntegrated, PrivacyInspectionStatusCode=FilePrivacyCodes.NotIntegrated, SanitizationStatusCode=FilePrivacyCodes.NotIntegrated, UploadedByUserId = actor, CreatedAt = now };
+    private static StoredFile NewFile(string purpose, string key, IFormFile upload, byte[] bytes, long actor, DateTime now)
+    {
+        var image = upload.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+        return new StoredFile
+        { PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)), OriginalFileName = Path.GetFileName(upload.FileName), ContentType = upload.ContentType.ToLowerInvariant(), SizeBytes = bytes.Length, Sha256Hex = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), StatusCode = "PENDING", MalwareScanStatusCode=image?FilePrivacyCodes.Clean:FilePrivacyCodes.NotIntegrated, PrivacyInspectionStatusCode=image?FilePrivacyCodes.Safe:FilePrivacyCodes.NotIntegrated, PrivacyInspectedAt=image?now:null, PrivacyAdapterVersion=image?"server-image-normalizer-v1":null, PrivacyDetectionTypesJson=image?"[]":null, SanitizationStatusCode=image?FilePrivacyCodes.SanitizationCompleted:FilePrivacyCodes.NotIntegrated, SanitizationCompletedAt=image?now:null, UploadedByUserId = actor, CreatedAt = now };
+    }
     private static string Required(string? value, int max) { var result = value?.Trim(); if (string.IsNullOrWhiteSpace(result) || result.Length > max) throw Invalid("CASE_INPUT_INVALID", "필수 입력값을 확인해 주세요."); return result; }
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static Guid PrincipalId(ClaimsPrincipal principal) => Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : throw new InvalidOperationException("Authenticated user identifier is invalid.");
     private static string Warranty(DateOnly? end) => !end.HasValue ? "보증정보 확인 필요" : DateOnly.FromDateTime(DateTime.UtcNow) <= end.Value ? $"보증기간 {end:yyyy-MM-dd}까지" : "보증기간 경과 - 비용 발생 여부 확인 필요";
-    private static string AfterServiceDisplay(string status) => status switch { "RECEIVED" => "접수", "PROVIDER_CONFIRMED" => "공급자 확인", "VISIT_SCHEDULED" => "일정 조율", "IN_PROGRESS" => "처리 중", "RESOLVED" => "처리 완료", "UNRESOLVED_CLOSED" => "미해결", "CONVERTED_TO_DISPUTE" => "분쟁 전환", _ => "진행 중" };
-    private static string DisputeDisplay(string status) => status switch { "OPEN" => "접수", "UNDER_REVIEW" => "검토 중", "WAITING_CUSTOMER" => "고객 확인 대기", "WAITING_PROVIDER" => "공급자 확인 대기", "RESOLVED" => "처리 완료", "CLOSED" => "종료", _ => "진행 중" };
+    private static string AfterServiceDisplay(string status) => status switch { "RECEIVED" => "접수", "PROVIDER_CONFIRMED" => "전문가 확인", "VISIT_SCHEDULED" => "일정 조율", "IN_PROGRESS" => "처리 중", "RESOLVED" => "처리 완료", "UNRESOLVED_CLOSED" => "미해결", "CONVERTED_TO_DISPUTE" => "분쟁 전환", _ => "진행 중" };
+    private static string DisputeDisplay(string status) => status switch { "OPEN" => "접수", "UNDER_REVIEW" => "검토 중", "WAITING_CUSTOMER" => "고객 확인 대기", "WAITING_PROVIDER" => "전문가 확인 대기", "RESOLVED" => "처리 완료", "CLOSED" => "종료", _ => "진행 중" };
     private static string ComposeDispute(string reason, string requested) => $"{Required(reason, 3000)}\n\n[REQUESTED_RESOLUTION]\n{Required(requested, 2000)}";
     private static (string Reason, string Requested) SplitDispute(string value) { var parts = value.Split("\n\n[REQUESTED_RESOLUTION]\n", 2); if (parts.Length == 1) parts = value.Split("\n\n[?붽뎄?ы빆]\n", 2); return (parts[0], parts.Length > 1 ? parts[1] : ""); }
     private static WorkBusinessException NotFound(string code, string message) => new(code, message, 404);

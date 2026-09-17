@@ -1,0 +1,8 @@
+﻿V237 audit
+- Backend build: passed
+- Frontend build: passed
+- SafeImageUploadPolicy tests: 3 passed
+- PDF rejection: verified
+- JPEG/PNG signature mismatch rejection: verified
+- PNG decode/re-encode: verified
+- PowerShell UTF-8 BOM/parser validation: enforced by outer script

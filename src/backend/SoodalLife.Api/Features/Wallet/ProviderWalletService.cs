@@ -7,12 +7,12 @@ using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Wallet;
 
-public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
+public sealed class ProviderWalletService(SoodalLifeDbContext dbContext, Microsoft.Extensions.Options.IOptions<TossWalletTopUpOptions> topUpOptions)
 {
     public async Task<ProviderWalletDashboardResponse> GetDashboardAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
     {
         if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userPublicId))
-            throw Error("PROVIDER_IDENTITY_INVALID", "공급자 로그인 정보를 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
+            throw Error("PROVIDER_IDENTITY_INVALID", "전문가 로그인 정보를 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
         var row = await (from user in dbContext.Users.AsNoTracking()
                          join roleLink in dbContext.UserRoles.AsNoTracking() on user.Id equals roleLink.UserId
                          join role in dbContext.Roles.AsNoTracking() on roleLink.RoleId equals role.Id
@@ -21,7 +21,7 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
                          where user.PublicId == userPublicId && user.StatusCode == "ACTIVE" && role.Code == RoleCodes.Provider &&
                                role.IsActive && roleLink.RevokedAt == null && wallet.CurrencyCode == "KRW"
                          select new { Provider = provider, Wallet = wallet }).SingleOrDefaultAsync(cancellationToken)
-            ?? throw Error("PROVIDER_WALLET_NOT_FOUND", "공급자 Wallet을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+            ?? throw Error("PROVIDER_WALLET_NOT_FOUND", "전문가 Wallet을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
 
         var ledger = await (from entry in dbContext.WalletLedgerEntries.AsNoTracking()
                             join transaction in dbContext.Transactions.AsNoTracking() on entry.TransactionId equals transaction.Id into transactions
@@ -29,7 +29,8 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
                             where entry.WalletId == row.Wallet.Id
                             orderby entry.OccurredAt descending, entry.Id descending
                             select new ProviderWalletLedgerResponse(entry.PublicId, entry.OccurredAt, entry.EntryTypeCode,
-                                entry.Amount, entry.BalanceAfter, entry.Reason, entry.ReferenceType, entry.ReferencePublicId,
+                                entry.Amount, entry.SupplyAmount, entry.VatAmount, entry.TaxTreatmentCode,
+                                entry.BalanceAfter, entry.Reason, entry.ReferenceType, entry.ReferencePublicId,
                                 transaction == null ? null : transaction.PublicId, entry.PaymentMethodCode))
             .Take(100).ToListAsync(cancellationToken);
         var totals = await dbContext.WalletLedgerEntries.AsNoTracking().Where(value => value.WalletId == row.Wallet.Id)
@@ -50,19 +51,28 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
                           where fee.WalletId == row.Wallet.Id
                           orderby fee.ChargedAt descending
                           select new ProviderWalletFeeResponse(fee.PublicId, transaction.PublicId, category.Name, fee.FeeAmount,
-                              fee.ChargedAt, fee.RestoreStatusCode)).Take(100).ToListAsync(cancellationToken);
+                              fee.SupplyAmount, fee.VatAmount, fee.IsVatIncluded, fee.ChargedAt, fee.RestoreStatusCode)).Take(100).ToListAsync(cancellationToken);
         var refunds = await dbContext.WalletRefundRequests.AsNoTracking().Where(value => value.WalletId == row.Wallet.Id)
             .OrderByDescending(value => value.RequestedAt).Take(50)
             .Select(value => new ProviderWalletRefundResponse(value.PublicId, value.RequestedAmount, value.StatusCode,
                 value.RequestReason, value.RequestedAt, value.ReviewedAt, value.CompletedAt, value.FailureReason))
             .ToListAsync(cancellationToken);
         var refundOpen = refunds.Any(value => value.StatusCode is "REQUESTED" or "APPROVED" or "PROCESSING");
+        var paymentMode = topUpOptions.Value.Mode.Trim().ToUpperInvariant();
+        var paymentReady = paymentMode is "TEST" or "PRODUCTION" && !string.IsNullOrWhiteSpace(topUpOptions.Value.ClientKey) && !string.IsNullOrWhiteSpace(topUpOptions.Value.SecretKey);
+        var koreaNow = DateTime.UtcNow.AddHours(9);
+        var monthStartUtc = new DateTime(koreaNow.Year, koreaNow.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(-9);
+        var monthlyPurchasedAmount = await dbContext.WalletChargeRequests.AsNoTracking()
+            .Where(value => value.WalletId == row.Wallet.Id && value.StatusCode == "SUCCEEDED" && value.CompletedAt >= monthStartUtc)
+            .SumAsync(value => (decimal?)value.RequestedAmount, cancellationToken) ?? 0;
+        var topUpProducts = topUpOptions.Value.AllowedAmounts.Where(value => value > 0).Distinct().Order().ToArray();
         return new(row.Wallet.PublicId, row.Provider.PublicId, row.Wallet.CurrencyCode.Trim(), row.Wallet.AvailableBalance,
             row.Wallet.ReservedBalance, row.Wallet.StatusCode, totals?.Charged ?? 0, Math.Abs(totals?.Used ?? 0),
             totals?.Restored ?? 0, Math.Abs(totals?.Refunded ?? 0), ledger, charges, fees, refunds,
-            false, false, row.Wallet.AvailableBalance > 0 || row.Wallet.ReservedBalance > 0 || refundOpen,
-            "실제 PG 충전은 아직 연동되지 않았습니다. 개발용 수동 확인은 관리자 전용이며 실제 결제로 표시되지 않습니다.",
-            "일반 잔액 환불 정책은 확정되지 않았습니다. 탈퇴 시 잔여 충전금은 관리자 검토와 환불 절차가 필요합니다.",
+            paymentReady, paymentReady ? paymentMode : "DISABLED", topUpProducts, topUpOptions.Value.MonthlyPurchaseLimit, monthlyPurchasedAmount,
+            false, row.Wallet.AvailableBalance > 0 || row.Wallet.ReservedBalance > 0 || refundOpen,
+            paymentReady ? (paymentMode == "TEST" ? "토스 PG 테스트 결제가 활성화되어 실제 청구 없이 전체 승인 흐름을 검증합니다." : "토스 PG 서버 승인 완료 건만 이용료 잔액으로 반영합니다.") : "토스 PG 결제는 운영 스위치로 차단되어 있습니다.",
+            "미사용 이용료는 수수료 없이 원래 결제수단으로 환불하며, 사용·환불된 금액과 예약 중인 이용료는 제외합니다. 전문가 활동 종료·탈퇴 시에도 같은 기준으로 잔여 이용료를 환불하며, 자세한 기준은 일반결제 취소·환불정책에서 확인할 수 있습니다.",
             Convert.ToBase64String(row.Wallet.RowVersion));
     }
 
@@ -94,13 +104,13 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
                                policy.PublicId == command.CategoryFeePolicyId && wallet.CurrencyCode == transaction.CurrencyCode &&
                                wallet.CurrencyCode == policy.CurrencyCode
                          select new { Wallet = wallet, Transaction = transaction, Policy = policy }).SingleOrDefaultAsync(cancellationToken)
-            ?? throw Error("WALLET_FEE_CONTEXT_INVALID", "공급자, 거래, 수수료정책 또는 통화 연결을 확인할 수 없습니다.", StatusCodes.Status404NotFound);
+            ?? throw Error("WALLET_FEE_CONTEXT_INVALID", "전문가, 거래, 수수료정책 또는 통화 연결을 확인할 수 없습니다.", StatusCodes.Status404NotFound);
         var existing = await ExistingOperationAsync(command.IdempotencyKey, row.Wallet.Id, "USE", -command.Amount, row.Transaction.PublicId, cancellationToken);
         if (existing is not null) return existing;
         if (row.Wallet.StatusCode != "ACTIVE") throw Error("WALLET_NOT_ACTIVE", "사용 가능한 Wallet 상태가 아닙니다.", StatusCodes.Status409Conflict);
         if (await dbContext.FeeCharges.AnyAsync(value => value.TransactionId == row.Transaction.Id && value.CategoryFeePolicyId == row.Policy.Id, cancellationToken))
             throw Error("WALLET_FEE_ALREADY_CHARGED", "해당 거래의 수수료가 이미 차감되었습니다.", StatusCodes.Status409Conflict);
-        if (row.Wallet.AvailableBalance < command.Amount) throw Error("WALLET_INSUFFICIENT_BALANCE", "충전금 잔액이 부족합니다.", StatusCodes.Status409Conflict);
+        if (row.Wallet.AvailableBalance < command.Amount) throw Error("WALLET_INSUFFICIENT_BALANCE", "이용료 잔액이 부족합니다.", StatusCodes.Status409Conflict);
 
         await using var dbTransaction = await BeginTransactionAsync(cancellationToken);
         var now = DateTime.UtcNow;
@@ -113,7 +123,8 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
         dbContext.FeeCharges.Add(new FeeCharge
         {
             TransactionId = row.Transaction.Id, CategoryFeePolicyId = row.Policy.Id, WalletId = row.Wallet.Id,
-            LedgerEntryId = ledger.Id, FeeAmount = command.Amount, ChargedAt = now, RestoreStatusCode = "NOT_RESTORED",
+            LedgerEntryId = ledger.Id, FeeAmount = command.Amount, SupplyAmount = Math.Abs(ledger.SupplyAmount),
+            VatAmount = Math.Abs(ledger.VatAmount), IsVatIncluded = true, ChargedAt = now, RestoreStatusCode = "NOT_RESTORED",
             CreatedAt = now, CreatedByUserId = actorUserId, UpdatedAt = now, UpdatedByUserId = actorUserId,
         });
         await SaveWithConcurrencyAsync(cancellationToken);
@@ -125,15 +136,27 @@ public sealed class ProviderWalletService(SoodalLifeDbContext dbContext)
         string idempotencyKey, string reason, string? referenceType, Guid? referencePublicId, string? paymentMethod,
         DateTime occurredAt, long? actorUserId)
     {
+        var tax = TaxBreakdown(entryType, amount, referenceType);
         var entry = new WalletLedgerEntry
         {
             WalletId = wallet.Id, TransactionId = transactionId, EntryTypeCode = entryType, Amount = amount,
+            SupplyAmount = tax.SupplyAmount, VatAmount = tax.VatAmount, TaxTreatmentCode = tax.TreatmentCode,
             BalanceAfter = wallet.AvailableBalance, IdempotencyKey = idempotencyKey.Trim(), Reason = reason,
             ReferenceType = referenceType, ReferencePublicId = referencePublicId, PaymentMethodCode = paymentMethod,
             OccurredAt = occurredAt, CreatedAt = occurredAt, CreatedByUserId = actorUserId,
         };
         dbContext.WalletLedgerEntries.Add(entry);
         return entry;
+    }
+
+    internal static (decimal SupplyAmount, decimal VatAmount, string TreatmentCode) TaxBreakdown(string entryType, decimal amount, string? referenceType)
+    {
+        var isFee = referenceType is "FEE_CHARGE" or "QUOTE_FEE_RESERVATION" or "INTERIOR_FEE_RESERVATION" or "PROVIDER_ADVERTISING_APPLICATION" or "PROVIDER_PROPOSAL_CAMPAIGN";
+        if (!isFee || entryType is "CHARGE" or "REFUND" or "ADJUST") return (0, 0, entryType is "CHARGE" or "REFUND" ? "DEPOSIT" : "NON_TAXABLE");
+        var supply = decimal.Round(amount / 1.1m, 0, MidpointRounding.AwayFromZero);
+        var vat = amount - supply;
+        var treatment = entryType switch { "RESERVE" => "EXPECTED_VAT_INCLUDED", "RELEASE" => "EXPECTED_REVERSED", "USE" => "TAXABLE_VAT_INCLUDED", "RESTORE" => "TAX_REVERSED", _ => "NON_TAXABLE" };
+        return (supply, vat, treatment);
     }
 
     internal async Task<WalletOperationResponse?> ExistingOperationAsync(string idempotencyKey, long walletId, string entryType,

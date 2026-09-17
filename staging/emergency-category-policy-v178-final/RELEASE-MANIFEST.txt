@@ -1,0 +1,28 @@
+SOODAL LIFE V178 EMERGENCY CATEGORY POLICY RELEASE
+Release date: 2026-08-31
+Database schema/data changed: false
+API changed: true
+Customer app changed: true
+Partner app changed: true
+Admin app changed: true
+
+Verified changes
+- Emergency category hierarchy is based on the active head-office CategoryPolicy.IsEmergencyAllowed flag.
+- Provider emergency ON/OFF and availability no longer remove customer catalog entries.
+- Provider service, area, emergency switch and time-slot checks remain enforced at matching time.
+- Emergency request create/update/publish and provider matching reject policy-disallowed categories.
+- Provider emergency settings expose only registered services allowed by head-office policy.
+- Customer guidance explains that a request can be registered while an available provider is being located.
+
+Verification
+- Focused backend emergency/catalog/public policy tests: 21 passed
+- Frontend TypeScript production build: passed
+- API Release publish: passed
+- No database migration included
+- Production appsettings and App_Data excluded from the package
+- Deployment marker validation is ASCII-only for Windows PowerShell 5.1 compatibility
+
+Key artifact SHA-256
+- SoodalLife.Api.dll | 22930944 bytes | D4F758AF406454FD1338923266EA6D71E95F2BB0081AECF5EECCBA5E99BDC48A
+- index-66zh6gNA.js | 1324109 bytes | 24D7A12EB52AA0529EF329E3BEBA6AC8B14B258B11B64F3C9C7BE7AE24EA2420
+- index-K17GM2Xb.css | 324392 bytes | B757A41A0868A3E0FD4591B647B700A803E3AC2424D58CED3E571EFC90703FB9

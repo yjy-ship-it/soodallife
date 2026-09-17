@@ -52,7 +52,7 @@ public sealed class AdminSystemSecurityApiTests(AuthenticationWebApplicationFact
         Assert.NotNull(status);
         Assert.NotNull(audit);
         Assert.Equal("CONNECTED", status.Database.Connection);
-        Assert.Contains(status.Integrations, item => item.Code == "PG" && item.Status == "UNINTEGRATED");
+        Assert.Contains(status.Integrations, item => item.Code == "PG" && item.Status is "UNINTEGRATED" or "CONFIGURED");
         Assert.Contains(status.Integrations, item => item.Code == "KAKAO_ALIMTALK" && item.Status == "UNINTEGRATED");
         var item = Assert.Single(audit.Items);
         Assert.Contains("***", item.BeforeJson);

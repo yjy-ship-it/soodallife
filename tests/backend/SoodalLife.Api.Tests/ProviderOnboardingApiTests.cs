@@ -54,16 +54,44 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.Equal(0, wallet.AvailableBalance); Assert.Equal(0, wallet.ReservedBalance); Assert.Equal("ACTIVE", wallet.StatusCode);
     }
 
-    [Fact] public async Task PublicProviderRegistration_RejectsUnverifiedPhone()
+    [Fact] public async Task PublicProviderRegistration_SignsInCreatedProvider()
+    {
+        using var client = Client(); var credential = NewCredential();
+        var response = await client.PostAsJsonAsync("/api/v1/public/provider-registration", Registration(credential));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var currentUser = await client.GetFromJsonAsync<AuthenticatedUserResponse>("/api/v1/me");
+
+        Assert.Equal(credential.LoginId, currentUser!.LoginId);
+        Assert.Contains(RoleCodes.Customer, currentUser.Roles);
+        Assert.Contains(RoleCodes.Provider, currentUser.Roles);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/providers/me")).StatusCode);
+    }
+
+    [Fact] public async Task PublicProviderRegistration_AllowsDuplicateCheckedPhoneWithoutIdentityToken()
     {
         using var client = Client(); var credential = NewCredential();
         var input = new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password,
-            email = (string?)null, phone = "01012345678", phoneVerificationToken = "INVALID",
+            email = (string?)null, phone = $"010{RandomNumberGenerator.GetInt32(10_000_000, 100_000_000)}", phoneVerificationToken = (string?)null, providerTypeCode = "BUSINESS",
             businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자",
-            businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스",
-            businessItemText = "생활서비스", introduction = "테스트 공급자", consents = Array.Empty<object>() };
+            businessRegistrationNumber = BusinessNumber(), businessAddress = "서울시 테스트구", businessTypeText = "서비스",
+            businessItemText = "생활서비스", introduction = "테스트 전문가", consents = Array.Empty<object>() };
+        var response = await client.PostAsJsonAsync("/api/v1/public/provider-registration", input);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact] public async Task PublicProviderRegistration_RejectsIndividualProviderType()
+    {
+        using var client = Client(); var credential = NewCredential();
+        var input = new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password,
+            email = (string?)null, phone = $"010{RandomNumberGenerator.GetInt32(10_000_000, 100_000_000)}", phoneVerificationToken = (string?)null, providerTypeCode = "INDIVIDUAL",
+            businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자",
+            businessRegistrationNumber = (string?)null, businessAddress = (string?)null, businessTypeText = (string?)null,
+            businessItemText = (string?)null, introduction = "테스트 전문가", consents = Array.Empty<object>() };
         var response = await client.PostAsJsonAsync("/api/v1/public/provider-registration", input);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("BUSINESS_PROVIDER_ONLY", body.RootElement.GetProperty("businessCode").GetString());
     }
 
     [Fact] public async Task ProviderRegistration_PreservesCustomerRole_WhenRoleIsAdded()
@@ -75,6 +103,18 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         Assert.Contains(RoleCodes.Customer, body!.Roles); Assert.Contains(RoleCodes.Provider, body.Roles);
         var currentUser = await client.GetFromJsonAsync<AuthenticatedUserResponse>("/api/v1/me");
         Assert.Contains(RoleCodes.Customer, currentUser!.Roles); Assert.Contains(RoleCodes.Provider, currentUser.Roles);
+    }
+
+    [Fact] public async Task ProviderRegistration_RejectsAddingProviderRoleTwice()
+    {
+        var credential = NewCredential(); await CreateCustomer(credential); using var client = Client(); await Login(client, credential);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/provider-registration/role", ExistingRoleInput())).StatusCode);
+
+        var repeated = await client.PostAsJsonAsync("/api/v1/provider-registration/role", ExistingRoleInput());
+
+        Assert.Equal(HttpStatusCode.Conflict, repeated.StatusCode);
+        using var body = JsonDocument.Parse(await repeated.Content.ReadAsStringAsync());
+        Assert.Equal("PROVIDER_ROLE_ALREADY_EXISTS", body.RootElement.GetProperty("businessCode").GetString());
     }
 
     [Fact] public async Task ProviderRegistration_RejectsDuplicateLoginId()
@@ -252,7 +292,7 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
             var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var services = await response.Content.ReadFromJsonAsync<List<ProviderServiceCategoryResponse>>();
-            Assert.Equal("PENDING", Assert.Single(services!).ApprovalStatus);
+            Assert.Equal("APPROVED", Assert.Single(services!).ApprovalStatus);
             var profile = await client.GetFromJsonAsync<ProviderProfileResponse>("/api/v1/providers/me"); Assert.Equal("INACTIVE", profile!.ActivityStatus);
         }
     }
@@ -274,6 +314,95 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
             await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
             var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { services = new[] { new { serviceCategoryId = factory.Catalog.ServiceId, administrativeAreaIds = new[] { factory.Catalog.AreaId } } } });
             Assert.Equal(HttpStatusCode.OK, response.StatusCode); var groups = await response.Content.ReadFromJsonAsync<List<ProviderServiceAreaResponse>>(); Assert.Single(Assert.Single(groups!).Areas);
+            var reloaded = await client.GetFromJsonAsync<List<ProviderServiceAreaResponse>>("/api/v1/providers/me/service-areas");
+            var saved = Assert.Single(reloaded!); Assert.Equal(factory.Catalog.ServiceId, saved.ServiceCategoryId); Assert.Equal(factory.Catalog.AreaId, Assert.Single(saved.Areas).Id);
+        }
+    }
+
+    [Fact] public async Task ProjectService_CanBeSelectedByProvider()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var categoryId = await db.ServiceCategories.Where(value => value.PublicId == factory.Catalog.ServiceId).Select(value => value.Id).SingleAsync();
+        var policy = await db.CategoryPolicies.SingleAsync(value => value.CategoryId == categoryId);
+        var original = policy.TransactionTypeCode;
+        policy.TransactionTypeCode = "PROJECT";
+        await db.SaveChangesAsync();
+        try
+        {
+            var (client, _) = await RegisterAndLogin(); using (client)
+            {
+                var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                Assert.Single((await response.Content.ReadFromJsonAsync<List<ProviderServiceCategoryResponse>>())!);
+            }
+        }
+        finally
+        {
+            policy.TransactionTypeCode = original;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact] public async Task NationwideNetwork_IsSelfSelectedWithoutCoverageApprovalOrEvidence()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var categoryId = await db.ServiceCategories.Where(value => value.PublicId == factory.Catalog.ServiceId).Select(value => value.Id).SingleAsync();
+        var operation = await db.CategoryOperationPolicies.SingleAsync(value => value.CategoryId == categoryId && value.IsActive);
+        var original = operation.CoverageTypeCode;
+        operation.CoverageTypeCode = ProviderCoveragePolicy.NationwideNetwork;
+        await db.SaveChangesAsync();
+        try
+        {
+            var (client, _) = await RegisterAndLogin(); using (client)
+            {
+                var serviceResponse = await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
+                var registered = Assert.Single((await serviceResponse.Content.ReadFromJsonAsync<List<ProviderServiceCategoryResponse>>())!);
+                Assert.Equal("APPROVED", registered.ApprovalStatus);
+                var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { services = Array.Empty<object>(), nationwideServiceCategoryIds = new[] { factory.Catalog.ServiceId } });
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var saved = Assert.Single((await response.Content.ReadFromJsonAsync<List<ProviderServiceAreaResponse>>())!);
+                Assert.True(saved.IsNationwide);
+                Assert.True(saved.NationwideAllowed);
+                Assert.Equal(ProviderCoveragePolicy.NationwideNetwork, saved.CoverageTypeCode);
+                Assert.Equal("전국 방문망 제공", saved.CoverageTypeName);
+            }
+        }
+        finally
+        {
+            operation.CoverageTypeCode = original;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact] public async Task ProviderArea_MiddleSelectionAppliesToEveryActiveChildService()
+    {
+        var (client, _) = await RegisterAndLogin(); using (client)
+        {
+            await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId, factory.Catalog.OtherServiceId } });
+            Guid middleId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+                var parentId = await db.ServiceCategories.Where(value => value.PublicId == factory.Catalog.ServiceId).Select(value => value.ParentId).SingleAsync();
+                middleId = await db.ServiceCategories.Where(value => value.Id == parentId).Select(value => value.PublicId).SingleAsync();
+            }
+            var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { middles = new[] { new { middleCategoryId = middleId, administrativeAreaIds = new[] { factory.Catalog.AreaId } } } });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var groups = await response.Content.ReadFromJsonAsync<List<ProviderServiceAreaResponse>>();
+            Assert.NotNull(groups); Assert.Equal(2, groups.Count); Assert.All(groups, group => { Assert.Equal(middleId, group.MiddleCategoryId); Assert.Single(group.Areas); });
+        }
+    }
+
+    [Fact] public async Task ProviderArea_RequiresServiceSelectionFirst()
+    {
+        var (client, _) = await RegisterAndLogin(); using (client)
+        {
+            var response = await client.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { middles = Array.Empty<object>() });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal("PROVIDER_SERVICE_REQUIRED_FOR_AREA", body.RootElement.GetProperty("businessCode").GetString());
         }
     }
 
@@ -283,7 +412,7 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         {
             await client.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
             var dashboard = await client.GetFromJsonAsync<ProviderOnboardingDashboardResponse>("/api/v1/providers/me/onboarding-dashboard");
-            Assert.Equal(1, dashboard!.RegisteredServiceCount); Assert.Equal(1, dashboard.PendingServiceCount); Assert.Equal("PENDING", dashboard.ApprovalStatus);
+            Assert.Equal(1, dashboard!.RegisteredServiceCount); Assert.Equal(0, dashboard.PendingServiceCount); Assert.Equal("PENDING", dashboard.ApprovalStatus);
         }
     }
 
@@ -356,7 +485,7 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
     }
     private async Task CreateCustomer(TestCredential credential)
     {
-        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var hasher = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.IPasswordHasher<User>>(); var user = new User { LoginId = credential.LoginId, NormalizedLoginId = credential.LoginId.ToUpperInvariant(), StatusCode = "ACTIVE", PhoneVerificationStatusCode = "VERIFIED", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; user.PasswordHash = hasher.HashPassword(user, credential.Password); db.Users.Add(user); await db.SaveChangesAsync(); var role = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Customer); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = DateTime.UtcNow }); db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "Role preservation", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync();
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var hasher = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.IPasswordHasher<User>>(); var user = new User { LoginId = credential.LoginId, NormalizedLoginId = credential.LoginId.ToUpperInvariant(), Phone = $"010{RandomNumberGenerator.GetInt32(10_000_000, 100_000_000)}", StatusCode = "ACTIVE", PhoneVerificationStatusCode = "VERIFIED", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }; user.PasswordHash = hasher.HashPassword(user, credential.Password); db.Users.Add(user); await db.SaveChangesAsync(); var role = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Customer); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = DateTime.UtcNow }); db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "Role preservation", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }); await db.SaveChangesAsync();
     }
     private async Task EnsureEvidencePolicy()
     {
@@ -368,8 +497,16 @@ public sealed class ProviderOnboardingApiTests(AuthenticationWebApplicationFacto
         db.CategoryProviderRequirementEvidenceTypes.Add(new CategoryProviderRequirementEvidenceType { RequirementAssignmentId = assignment.Id, DocumentTypeId = type.Id, IsRequired = true, DisplayOrder = 1, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
     }
-    private static object Registration(TestCredential credential, string? email = null) => new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password, email, phone = "01012345678", phoneVerificationToken = "TEST-PHONE-VERIFIED", businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "테스트 공급자", consents = Array.Empty<object>() };
-    private static object ExistingRoleInput() => new { businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = (string?)null, businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "복수 역할", consents = Array.Empty<object>() };
+    private static object Registration(TestCredential credential, string? email = null) => new { loginId = credential.LoginId, password = credential.Password, passwordConfirmation = credential.Password, email, phone = $"010{RandomNumberGenerator.GetInt32(10_000_000, 100_000_000)}", phoneVerificationToken = (string?)null, providerTypeCode = "BUSINESS", businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = BusinessNumber(), businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "테스트 전문가", consents = Array.Empty<object>() };
+    private static object ExistingRoleInput() => new { providerTypeCode = "BUSINESS", businessName = $"Provider {Guid.NewGuid():N}", representativeName = "대표자", contactName = "담당자", businessRegistrationNumber = BusinessNumber(), businessAddress = "서울시 테스트구", businessTypeText = "서비스", businessItemText = "생활서비스", introduction = "복수 역할", consents = Array.Empty<object>() };
+    private static string BusinessNumber()
+    {
+        var firstNine = RandomNumberGenerator.GetInt32(100_000_000, 1_000_000_000).ToString();
+        var digits = firstNine.Select(value => value - '0').ToArray();
+        int[] weights = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+        var sum = weights.Select((weight, index) => weight * digits[index]).Sum() + digits[8] * 5 / 10;
+        return firstNine + ((10 - sum % 10) % 10);
+    }
     private static MultipartFormDataContent PdfUpload(Guid typeId, string text) { var body = new MultipartFormDataContent(); body.Add(new StringContent(typeId.ToString()), "documentTypeId"); var bytes = new ByteArrayContent(Encoding.ASCII.GetBytes(text)); bytes.Headers.ContentType = new MediaTypeHeaderValue("application/pdf"); body.Add(bytes, "file", "evidence.pdf"); return body; }
     private static MultipartFormDataContent PromotionImageUpload(string field, int count, byte[]? data = null, string contentType = "image/png", string fileName = "promotion.png")
     {

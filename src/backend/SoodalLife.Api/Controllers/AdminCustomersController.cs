@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SoodalLife.Api.Features.Admin;
@@ -40,5 +41,23 @@ public sealed class AdminCustomersController(AdminCustomerService service) : Con
             ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_CUSTOMER_NOT_FOUND", "고객을 찾을 수 없습니다."))
             : Ok(customer);
     }
-}
 
+    [HttpPost("{customerId:guid}/requests/{requestId:guid}/abuse-exclusion")]
+    public async Task<IActionResult> SetRequestAbuseExclusion(
+        Guid customerId,
+        Guid requestId,
+        AdminCustomerRequestAbuseExclusionRequest input,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var actor = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await service.SetRequestAbuseExclusionAsync(customerId, requestId, input, actor, cancellationToken);
+            return NoContent();
+        }
+        catch (AdminServiceCategoryException exception)
+        {
+            return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message));
+        }
+    }
+}

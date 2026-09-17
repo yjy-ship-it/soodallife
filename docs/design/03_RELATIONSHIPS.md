@@ -54,7 +54,7 @@
 
 1. `users`는 인증 주체다.
 2. `user_roles`로 `CUSTOMER`, `PROVIDER`, `ADMIN`을 동시에 부여할 수 있다.
-3. 공급자 역할만으로 견적 제출이 가능하지 않다. `provider_profiles.approval_status_code = APPROVED` 및 `activity_status_code = ACTIVE`가 추가로 필요하다.
+3. 전문가 역할만으로 견적 제출이 가능하지 않다. `provider_profiles.approval_status_code = APPROVED` 및 `activity_status_code = ACTIVE`가 추가로 필요하다.
 4. 승인/반려/정지는 `provider_approval_events`에 먼저 append하고 같은 트랜잭션에서 현재 상태를 `provider_profiles`에 반영한다.
 5. 관리자별 별도 업무 데이터가 기준문서에 없으므로 `admin_profiles`는 만들지 않는다.
 
@@ -82,16 +82,16 @@
 ## 6. 요청·매칭·배포
 
 - `dispatch_candidates`는 계산/판정 결과이고 `request_dispatches`는 실제 노출/발송 사실이다. 두 개념을 합치지 않는다.
-- 후보 조건은 승인 공급자 + 활성 카테고리 + 활성 SIGUNGU 지역의 교집합이다.
-- 후보/배포 시점에는 고객 성명, 전화, 상세주소를 복사하지 않는다. 공급자 화면은 `service_requests.administrative_area_id`와 공개 가능한 답변만 사용한다.
+- 후보 조건은 승인 전문가 + 활성 카테고리 + 활성 SIGUNGU 지역의 교집합이다.
+- 후보/배포 시점에는 고객 성명, 전화, 상세주소를 복사하지 않는다. 전문가 화면은 `service_requests.administrative_area_id`와 공개 가능한 답변만 사용한다.
 - 요청 1건당 최대 견적 수는 선택된 `category_policies.max_quote_count`의 스냅샷으로 검증한다.
 
 ## 7. 견적·거래 원자성
 
-- 견적 본체는 공급자/요청의 논리적 단위이고, 제출 내용은 `quote_revisions`와 `quote_items`에 immutable하게 저장한다.
+- 견적 본체는 전문가/요청의 논리적 단위이고, 제출 내용은 `quote_revisions`와 `quote_items`에 immutable하게 저장한다.
 - 채택 트랜잭션에서 다음을 함께 수행한다: 대상 revision과 상태/유효기간 검증 → `transactions` 생성 → 채택 견적 상태 변경 → 나머지 견적 `NOT_SELECTED` → 요청 `ACCEPTED` → outbox 적재.
 - MVP에서는 요청이 `ACCEPTED` 후 재개방되지 않으므로 `transactions.service_request_id`를 전체 UNIQUE로 둔다. 취소 후 재매칭 요구가 생기면 별도 상태정책 결정 후 변경한다.
-- `transactions`의 정책/카테고리/공급자 정보는 과거 재현용 스냅샷이며 원본 정책 변경으로 갱신하지 않는다.
+- `transactions`의 정책/카테고리/전문가 정보는 과거 재현용 스냅샷이며 원본 정책 변경으로 갱신하지 않는다.
 
 ## 8. 완료·이력·A/S
 

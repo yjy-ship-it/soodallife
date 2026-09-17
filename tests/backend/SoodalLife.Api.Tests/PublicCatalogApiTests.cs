@@ -25,6 +25,7 @@ public sealed class PublicCatalogApiTests(AuthenticationWebApplicationFactory fa
         Assert.NotNull(detail);
         Assert.Equal("TEST-001", detail.Code);
         Assert.Equal("테스트 대분류", detail.MajorName);
+        Assert.False(string.IsNullOrWhiteSpace(detail.CoverageTypeCode));
         Assert.NotNull(detail.Price);
         Assert.Contains(detail.RequestFields, x => x.Required);
     }
@@ -39,6 +40,19 @@ public sealed class PublicCatalogApiTests(AuthenticationWebApplicationFactory fa
                 $"/api/v1/public/catalog/services/search?q={Uri.EscapeDataString(query)}");
             Assert.Contains(result!, x => x.Id == factory.Catalog.ServiceId);
         }
+    }
+
+    [Fact]
+    public async Task Anonymous_CanReadDiversifiedRepresentativeServices()
+    {
+        using var client = Client();
+        var result = await client.GetFromJsonAsync<List<PublicServiceSummaryResponse>>(
+            "/api/v1/public/catalog/services/representative?take=8&maxPerMiddle=2");
+
+        Assert.NotNull(result);
+        Assert.InRange(result.Count, 1, 8);
+        Assert.Contains(result, value => value.Id == factory.Catalog.ServiceId);
+        Assert.All(result.GroupBy(value => value.MiddleId), group => Assert.InRange(group.Count(), 1, 2));
     }
 
     [Fact]

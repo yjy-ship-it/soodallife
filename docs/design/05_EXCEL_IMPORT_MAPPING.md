@@ -59,7 +59,7 @@
 | 수수료 복원조건 | fee_restore_condition_text | 원문 보존 |
 | 알림 매칭지역 | matching_area_rule_text | 전 행 서비스 주소의 시·구·군 |
 | 알림톡 발송 | notification_target_rule_text | 원문 보존; 외부 연동 미활성 |
-| 공급자 응답기한 | provider_response_deadline_minutes | 30분→30, 24시간→1440, 48시간→2880 |
+| 전문가 응답기한 | provider_response_deadline_minutes | 30분→30, 24시간→1440, 48시간→2880 |
 | 요청 필수필드 요약 | request_field_summary_text | 사람이 읽는 원문; 필드 정의의 원장으로 사용하지 않음 |
 | 필수사진 수 | required_completion_photo_count | SMALLINT; 0/2/5 |
 | 필수 자격·증빙 | required_qualification_summary_text | 원문 보존; 상세는 qualification policy 참조 |
@@ -82,12 +82,12 @@
 |---|---|
 | 사용여부 | 사용 677 |
 | 거래유형 | ONE_TIME 대상 545, PROJECT 87, SUBSCRIPTION 45 |
-| 요청방식 | 고객 요청→공급자 견적→고객 채택 632, 공급자 지원→고객 채택 45 |
+| 요청방식 | 고객 요청→전문가 견적→고객 채택 632, 전문가 지원→고객 채택 45 |
 | 출장서비스 | 필수 617, 선택 60 |
 | 긴급출동 | 허용 50, 불가 627 |
 | 가격방식 | 예약가 458, 견적형 219 |
 | 견적 유효시간 | 72시간 627, 2시간 50 |
-| 공급자 응답기한 | 24시간 582, 30분 50, 48시간 45 |
+| 전문가 응답기한 | 24시간 582, 30분 50, 48시간 45 |
 | 보험 확인 | 권장 507, 필수 170 |
 | 안전등급 | NORMAL 420, MEDIUM 87, HIGH 170 |
 | 기본 A/S일 | 0일 329, 3일 81, 30일 267 |
@@ -105,11 +105,11 @@
 | 입력유형 | category_field_definitions.field_type_code | 아래 코드 매핑 |
 | 필수여부 | category_field_definitions.is_required | 필수→1, 선택→0 |
 | 선택값·단위 | category_field_definitions.options_or_unit_text | 빈 261건은 NULL, 나머지 원문 |
-| 공급자 공개 | category_field_definitions.provider_visibility_code | 공개→FULL, 시·구·군까지만→AREA_ONLY |
+| 전문가 공개 | category_field_definitions.provider_visibility_code | 공개→FULL, 시·구·군까지만→AREA_ONLY |
 | 채택 전 마스킹 | category_field_definitions.pre_accept_masking_code | 해당 없음→NONE, 상세주소 마스킹→DETAIL_ADDRESS |
 | 검증 규칙 | category_field_definitions.validation_rule_text | 사람이 읽는 원문; 임의 정규식으로 변환하지 않음 |
 
-입력유형 원본 분포: LONG_TEXT 179, FILE 132, DATETIME 115, MONEY 99, TEXT 89, ADDRESS 86, SELECT 84, NUMBER 35, PERIOD 17, RECURRENCE 1. 필수 550/선택 287, 공급자 전체공개 755/시·구·군만 82, 상세주소 마스킹 82건이다. 옵션이 비어 있는 승인 대상 SELECT 18건은 MVP import 시 TEXT로 저장하며 원본 `필드ID`로 추적한다. 공식 선택값이 추가되면 동일 `source_field_id`를 갱신하여 SELECT로 복원한다.
+입력유형 원본 분포: LONG_TEXT 179, FILE 132, DATETIME 115, MONEY 99, TEXT 89, ADDRESS 86, SELECT 84, NUMBER 35, PERIOD 17, RECURRENCE 1. 필수 550/선택 287, 전문가 전체공개 755/시·구·군만 82, 상세주소 마스킹 82건이다. 옵션이 비어 있는 승인 대상 SELECT 18건은 MVP import 시 TEXT로 저장하며 원본 `필드ID`로 추적한다. 공식 선택값이 추가되면 동일 `source_field_id`를 갱신하여 SELECT로 복원한다.
 
 동일 `(대분류, 중분류, 필드키)`가 중복된 원본은 17그룹 34행이며 모두 `budget` 키다. 각 쌍은 라벨·유형·필수여부 또는 검증 규칙이 다른 별개 질문이므로 병합하지 않는다. 837개 정의를 모두 보존하고 `category_field_definitions.id`/`public_id`로 질문과 답변을 식별한다.
 
@@ -190,7 +190,7 @@
 - 행정구역은 본 Excel의 import 대상이 아니다.
 - 공식 원천은 행정안전부 행정표준코드관리시스템(`code.go.kr`)의 법정동/지역코드 자료다.
 - 별도 import가 `area_code`, `area_name`, `area_level_code`, `parent_area_id`, `source_created_date`, `source_abolished_date`, `abolition_type_code`, `source_parent_area_code`, `effective_from/to`, `is_active`를 적재한다.
-- 공급자 출장지역과 서비스 요청 매칭에는 활성 SIGUNGU만 사용한다.
+- 전문가 출장지역과 서비스 요청 매칭에는 활성 SIGUNGU만 사용한다.
 - 폐지 코드는 update로 덮거나 delete하지 않고 기존 version을 비활성/종료하며, 신규 요청부터 신규 활성 코드를 사용한다.
 - 행정구역 초기 적재와 갱신은 EF Core schema Migration과 분리한다.
 

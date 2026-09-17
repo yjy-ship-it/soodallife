@@ -144,19 +144,44 @@
 }
 .interiorServices button {
   display: grid;
-  gap: 5px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   text-align: left;
   border: 1px solid #dbe7e4;
   background: #f7f9f8;
   border-radius: 14px;
-  padding: 16px;
+  padding: 12px;
   color: #333;
+  overflow: hidden;
 }
 .interiorServices button:hover {
   border-color: #14b8a6;
 }
 .interiorServices small {
   color: #0f766e;
+}
+.interiorServiceCopy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+.interiorServiceCopy strong {
+  color: #173f3a;
+}
+.interiorServiceCopy > span {
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+.interiorServices .interiorServiceThumbnail.serviceThumbnail {
+  width: 96px;
+  height: 72px;
+  border-radius: 11px;
+}
+.interiorServices .interiorServiceThumbnail.categoryVectorIcon {
+  width: 72px;
+  height: 72px;
+  justify-self: center;
 }
 .interiorPolicy {
   background: #ecfdf5;
@@ -591,6 +616,11 @@
 .providerSelectionSummary small {
   display: block;
 }
+.contractDeadlineNotice { margin: 12px 0 0; padding: 12px; border-radius: 10px; background: #f3faf8; color: #174f48; }
+.providerSelectionActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.providerSelectionActions button { border: 1px solid #0b8176; border-radius: 10px; padding: 10px 14px; background: #fff; color: #076c63; font-weight: 700; cursor: pointer; }
+.providerSelectionActions button.danger { border-color: #bd4b43; color: #a43630; }
+.providerSelectionActions button:disabled { opacity: .55; cursor: wait; }
 .providerSelectionBackdrop {
   position: fixed;
   inset: 0;
@@ -753,3 +783,8 @@
     grid-template-columns: 1fr;
   }
 }
+.interiorHero.hasFeatureBanner{position:relative;isolation:isolate;display:flex;min-height:220px;box-sizing:border-box;flex-direction:column;justify-content:center;overflow:hidden;color:#fff;background:#075f59}.interiorHero.hasFeatureBanner>img{position:absolute;z-index:-2;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}.interiorHero.hasFeatureBanner::after{position:absolute;z-index:-1;inset:0;content:'';background:linear-gradient(90deg,rgba(4,72,67,.98) 0%,rgba(4,72,67,.88) 42%,rgba(4,72,67,.2) 74%,rgba(4,72,67,.04))}.interiorHero.hasFeatureBanner>span{max-width:560px}.interiorHero.hasFeatureBanner>p,.interiorHero.hasFeatureBanner>h1,.interiorHero.hasFeatureBanner>span{position:relative;z-index:1;color:#fff}
+@media(max-width:640px){.interiorHero.hasFeatureBanner{min-height:210px;padding:25px 20px}.interiorHero.hasFeatureBanner>img{object-position:64% center}.interiorHero.hasFeatureBanner::after{background:linear-gradient(90deg,rgba(4,72,67,.97),rgba(4,72,67,.78) 58%,rgba(4,72,67,.3))}.interiorHero.hasFeatureBanner>span{max-width:78%}}
+.interiorHero.hasFeatureBanner{--interior-banner-width-v304:1152px;width:calc(100% - 48px)!important;max-width:var(--interior-banner-width-v304)!important;margin:24px auto 0!important;padding:36px clamp(26px,4vw,48px);border-radius:28px}.interiorHero.hasFeatureBanner>img{object-position:center 8%}
+@media(max-width:640px){.interiorHero.hasFeatureBanner{width:calc(100% - 32px);margin:16px auto 0;padding:25px 20px}}
+.interiorTargetServices>header>strong{flex:0 0 auto;padding:6px 10px;border-radius:999px;color:#0f766e;background:#e4f7f1;font-size:.78rem}.interiorServiceSearch{position:relative;display:grid;gap:7px;margin:0 0 16px}.interiorServiceSearch>span{color:#29483f;font-size:.82rem;font-weight:800}.interiorServiceSearch input{box-sizing:border-box;width:100%;min-height:48px;padding:0 78px 0 44px;border:1px solid #bfd7d0;border-radius:14px;color:#173f3a;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m16 16 5 5'/%3E%3C/svg%3E") 15px center/20px no-repeat;font:inherit;outline:none}.interiorServiceSearch input:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.12)}.interiorServiceSearch>button{position:absolute;right:10px;bottom:8px;min-height:32px;padding:0 11px;border:0;border-radius:9px;color:#0f766e;background:#e8f7f3;font-weight:800;cursor:pointer}.interiorServiceSearchEmpty{grid-column:1/-1;margin:0;padding:34px 18px;border:1px dashed #b8cec6;border-radius:16px;color:#667771;background:#fbfdfc;text-align:center}@media(max-width:640px){.interiorTargetServices>header{align-items:flex-start}.interiorTargetServices>header>strong{margin-top:4px}.interiorServiceSearch input{min-height:52px;font-size:1rem}}

@@ -1,0 +1,8 @@
+Release: V182-R2 request/interior consistency
+Components: API, customer, partner, admin
+PayloadSource: verified V181 current production runtime build
+Verification: request/interior API contract suites 48/48 passed
+DevelopmentSourcePathDependency: false
+DatabaseChanged: false
+ProductionSettingsChanged: false
+AppDataPreserved: true

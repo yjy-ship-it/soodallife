@@ -22,7 +22,7 @@
 
 ### OI-003 — RESOLVED — Provider 용어
 
-기존 쟁점: Provider/Partner/공급자/기사 혼용과 조직-기사 관계.
+기존 쟁점: Provider/Partner/전문가/기사 혼용과 조직-기사 관계.
 
 결정: 영문은 `Provider`로 통일하고 MVP에는 조직-기사 구조를 구현하지 않는다.
 
@@ -110,7 +110,7 @@
 
 ### OI-017 — RESOLVED — 후보와 배포
 
-기존 쟁점: 후보 계산과 공급자 노출을 한 테이블로 둘지.
+기존 쟁점: 후보 계산과 전문가 노출을 한 테이블로 둘지.
 
 결정: `DispatchCandidate`와 `RequestDispatch`를 분리한다.
 

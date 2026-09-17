@@ -95,6 +95,7 @@ internal sealed class ProviderProfileConfiguration() : EntityConfiguration<Provi
     {
         Mapping.PublicId(b);
         Mapping.Long(b, nameof(ProviderProfile.UserId), "user_id");
+        Mapping.String(b, nameof(ProviderProfile.ProviderTypeCode), "provider_type_code", 20, unicode: false, defaultValue: "BUSINESS");
         Mapping.String(b, nameof(ProviderProfile.BusinessName), "business_name", 200);
         Mapping.String(b, nameof(ProviderProfile.BusinessRegistrationNo), "business_registration_no", 32, nullable: true);
         Mapping.String(b, nameof(ProviderProfile.RepresentativeName), "representative_name", 100, nullable: true);
@@ -123,6 +124,7 @@ internal sealed class ProviderProfileConfiguration() : EntityConfiguration<Provi
         Mapping.Fk<ProviderProfile, User>(b, nameof(ProviderProfile.ApprovalDecidedByUserId));
         b.HasIndex(x => x.UserId).IsUnique();
         b.HasIndex(x => x.BusinessName);
+        b.HasIndex(x => x.ProviderTypeCode);
         b.HasIndex(x => x.BusinessRegistrationNo).IsUnique().HasFilter("[business_registration_no] IS NOT NULL");
         b.HasIndex(x => x.ApprovalStatusCode);
         b.HasIndex(x => x.ActivityStatusCode);
@@ -131,6 +133,7 @@ internal sealed class ProviderProfileConfiguration() : EntityConfiguration<Provi
         {
             t.HasCheckConstraint("CK_provider_profiles_approval_status", "[approval_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
             t.HasCheckConstraint("CK_provider_profiles_activity_status", "[activity_status_code] IN ('ACTIVE','INACTIVE')");
+            t.HasCheckConstraint("CK_provider_profiles_provider_type", "[provider_type_code] IN ('BUSINESS','INDIVIDUAL')");
         });
     }
 }
@@ -157,7 +160,7 @@ internal sealed class ProviderApprovalEventConfiguration() : EntityConfiguration
         {
             t.HasCheckConstraint("CK_provider_approval_events_from_status", "[from_status_code] IS NULL OR [from_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
             t.HasCheckConstraint("CK_provider_approval_events_to_status", "[to_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
-            t.HasCheckConstraint("CK_provider_approval_events_action", "[action_code] IN ('APPROVE','REJECT','SUSPEND','RESUME')");
+            t.HasCheckConstraint("CK_provider_approval_events_action", "[action_code] IN ('APPROVE','REJECT','SUSPEND','RESUME','RESUBMIT')");
         });
     }
 }
@@ -169,6 +172,7 @@ internal sealed class ProviderServiceCategoryConfiguration() : EntityConfigurati
         Mapping.Long(b, nameof(ProviderServiceCategory.ProviderProfileId), "provider_profile_id");
         Mapping.Long(b, nameof(ProviderServiceCategory.CategoryId), "category_id");
         Mapping.String(b, nameof(ProviderServiceCategory.StatusCode), "status_code", 20, unicode: false, defaultValue: "ACTIVE");
+        Mapping.Bool(b, nameof(ProviderServiceCategory.IsNationwide), "is_nationwide", false);
         Mapping.DateTime(b, nameof(ProviderServiceCategory.ActivatedAt), "activated_at", utcDefault: true);
         Mapping.DateTime(b, nameof(ProviderServiceCategory.DeactivatedAt), "deactivated_at", nullable: true);
         Mapping.FullAudit(b);
@@ -299,7 +303,7 @@ internal sealed class StoredFileConfiguration() : EntityConfiguration<StoredFile
         b.ToTable("files", t =>
         {
             t.HasCheckConstraint("CK_files_size_bytes", "[size_bytes] >= 0");
-            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO')");
+            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO','CHAT_ATTACHMENT','HELP_ROOM_PHOTO','DIRECT_PAYMENT_EVIDENCE')");
             t.HasCheckConstraint("CK_files_status", "[status_code] IN ('PENDING','ACTIVE','QUARANTINED','DELETED')");
             t.HasCheckConstraint("CK_files_malware_scan_status", "[malware_scan_status_code] IS NULL OR [malware_scan_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','CLEAN','INFECTED','FAILED')");
             t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");

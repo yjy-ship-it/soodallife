@@ -7,6 +7,12 @@ public sealed record MatchAndDispatchResult(
     int DispatchCount,
     int NewDispatchCount);
 
+public sealed record ProviderRematchResult(
+    long ProviderProfileId,
+    int EvaluatedRequestCount,
+    int AddedDispatchCount,
+    int RevokedDispatchCount);
+
 public sealed record DispatchCandidateResponse(
     Guid ProviderId,
     string BusinessName,
@@ -18,11 +24,13 @@ public sealed record DispatchCandidateResponse(
 
 public sealed record ProviderMatchedRequestListItem(
     Guid RequestId,
+    string Domain,
     string CategoryPath,
     string AreaName,
     string Summary,
     DateTime? DesiredAt,
     DateTime DispatchedAt,
+    DateTime ExpiresAt,
     string DispatchStatus,
     string RequestStatus);
 
@@ -46,20 +54,28 @@ public sealed record ProviderMatchedRequestFile(
 
 public sealed record ProviderMatchedRequestDetail(
     Guid RequestId,
+    string Domain,
     string CategoryPath,
     string AreaName,
     string Title,
     string? Description,
     bool IsUrgent,
     DateTime? DesiredAt,
+    DateTime? DesiredAtSecond,
     DateTime DispatchedAt,
     DateTime ExpiresAt,
     string DispatchStatus,
     string RequestStatus,
+    bool RequiresServiceAddress,
     string? CustomerPhone,
     string? DetailAddress,
+    string DetailAddressDisclosureCode,
+    decimal? ApproximateDistanceKm,
+    string DistanceBasis,
     IReadOnlyList<ProviderMatchedRequestAnswer> Answers,
     IReadOnlyList<ProviderMatchedRequestFile> Files);
+
+public sealed record DeclineMatchedRequestInput(string? ReasonCode);
 
 public sealed class MatchingException(
     string businessCode,

@@ -24,6 +24,7 @@ public sealed class ProviderExitReadinessService(SoodalLifeDbContext db) : IProv
     public async Task<ProviderExitReadinessResponse> EvaluateAsync(long providerProfileId, long providerUserId, string requestType, CancellationToken token)
     {
         var now = DateTime.UtcNow;
+        var accountPolicy = requestType == "ACCOUNT_WITHDRAWAL";
         var transactions = await db.Transactions.AsNoTracking().CountAsync(x => x.ProviderProfileId == providerProfileId &&
             x.FeePolicyKindSnapshot != "EMERGENCY" && ActiveTransactionStatuses.Contains(x.StatusCode), token);
         var appointments = await (from appointment in db.TransactionAppointments.AsNoTracking()
@@ -49,6 +50,9 @@ public sealed class ProviderExitReadinessService(SoodalLifeDbContext db) : IProv
                 p.StatusCode == "ACTIVE" && p.EffectiveFrom <= now && (p.EffectiveTo == null || p.EffectiveTo > now))), token);
         var disputes = await db.DisputeCases.AsNoTracking().CountAsync(x => OpenDisputeStatuses.Contains(x.StatusCode) &&
             (x.ApplicantUserId == providerUserId || x.CounterpartyUserId == providerUserId), token);
+        var customerProfileId = accountPolicy ? await db.CustomerProfiles.AsNoTracking().Where(x=>x.UserId==providerUserId).Select(x=>(long?)x.Id).SingleOrDefaultAsync(token) : null;
+        var customerTransactions = customerProfileId.HasValue ? await db.Transactions.AsNoTracking().CountAsync(x=>x.CustomerProfileId==customerProfileId.Value&&ActiveTransactionStatuses.Contains(x.StatusCode),token) : 0;
+        var customerCareContracts = customerProfileId.HasValue ? await db.SubscriptionContracts.AsNoTracking().CountAsync(x=>x.CustomerProfileId==customerProfileId.Value&&(x.StatusCode=="ACTIVE"||x.StatusCode=="PAUSED"||x.StatusCode=="TERMINATION_REQUESTED"),token) : 0;
         var chat = await db.ChatParticipants.AsNoTracking().CountAsync(x => x.UserId == providerUserId && x.ParticipantRoleCode == "PROVIDER" &&
             x.StatusCode == "ACTIVE" && x.AccessStartedAt <= now && (x.AccessEndedAt == null || x.AccessEndedAt > now), token);
 
@@ -68,27 +72,24 @@ public sealed class ProviderExitReadinessService(SoodalLifeDbContext db) : IProv
         Add(blockers, "EMERGENCY", "진행 중 긴급출동", emergency);
         Add(blockers, "AFTER_SERVICE", "미종결 A/S", afterServices);
         Add(blockers, "DISPUTE", "관리자 검토가 필요한 미종결 분쟁", disputes);
-        Add(blockers, "WALLET_CHARGE", "처리 중 Wallet 충전", pendingCharges);
+        Add(blockers, "CUSTOMER_TRANSACTION", "고객 역할의 진행 중 거래", customerTransactions);
+        Add(blockers, "CUSTOMER_CARE_CONTRACT", "고객 역할의 종료되지 않은 수달 케어 계약", customerCareContracts);
+        Add(blockers, "WALLET_CHARGE", "처리 중 Wallet 이용료 결제", pendingCharges);
         if (wallet.ReservedBalance > 0) blockers.Add(new("WALLET_RESERVED", "예약된 Wallet 금액", 1, true));
-        var accountPolicy = requestType == "ACCOUNT_WITHDRAWAL";
-        if (accountPolicy) blockers.Add(new("ACCOUNT_WITHDRAWAL_POLICY", "전체 계정 탈퇴·개인정보 파기정책 확인", 1, true));
-
-        var activeWorkCount = transactions + appointments + completionPending + careContracts + careVisits + interiorParticipants + emergency + afterServices;
+        var activeWorkCount = transactions + appointments + completionPending + careContracts + careVisits + interiorParticipants + emergency + afterServices + customerTransactions + customerCareContracts;
         var hasBlocking = blockers.Any(x => x.BlocksCompletion);
         var refundRequired = wallet.AvailableBalance > 0 || pendingRefunds.Count > 0;
-        var status = accountPolicy ? "UNDER_REVIEW" : hasBlocking ? "BLOCKED_BY_ACTIVE_WORK" : refundRequired ? "REFUND_REQUIRED" : "READY_TO_COMPLETE";
-        var guidance = accountPolicy
-            ? "전체 계정 탈퇴는 다른 역할의 진행 업무와 개인정보 보존·파기정책이 확정된 뒤 별도 검토해야 합니다. 이번 단계에서 계정이나 개인정보를 자동 삭제하지 않습니다."
-            : hasBlocking
-            ? "진행 중 업무 또는 보류 금액이 있어 공급자 활동 종료를 완료할 수 없습니다. 각 업무를 먼저 종결해 주세요."
+        var status = hasBlocking ? "BLOCKED_BY_ACTIVE_WORK" : refundRequired ? "REFUND_REQUIRED" : "READY_TO_COMPLETE";
+        var guidance = hasBlocking
+            ? "진행 중 업무 또는 보류 금액이 있어 전문가 활동 종료를 완료할 수 없습니다. 각 업무를 먼저 종결해 주세요."
             : refundRequired
-                ? "충전금 환불과 관리자 지급 확인이 완료된 후 공급자 활동을 종료할 수 있습니다."
-                : "현재 공급자 역할 종료를 관리자에게 요청할 수 있습니다.";
+                ? "이용료 환불과 관리자 지급 확인이 완료된 후 전문가 활동을 종료할 수 있습니다."
+                : accountPolicy ? "모든 종료 조건이 충족되어 개인정보와 법정 보존 기록을 유지한 채 전체 계정을 자동 종료할 수 있습니다." : "현재 전문가 역할 종료를 관리자에게 요청할 수 있습니다.";
         return new(!hasBlocking && !refundRequired, status, blockers,
             new(wallet.PublicId, wallet.CurrencyCode.Trim(), wallet.AvailableBalance, wallet.ReservedBalance, wallet.StatusCode,
                 pendingRefundAmount, pendingCharges, pendingRefunds.Count, pendingFeeRestores, refundRequired, wallet.ReservedBalance > 0),
             activeWorkCount, disputes, chat, accountPolicy,
-            guidance, "POLICY_REQUIRED");
+            guidance, "RETAINED_UNTIL_LEGAL_PURGE_POLICY");
     }
 
     private static void Add(List<ProviderExitBlocker> values, string code, string label, int count)
@@ -101,9 +102,34 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
 {
     private static readonly string[] ActiveExitStatuses = ["REQUESTED", "UNDER_REVIEW", "REFUND_REQUIRED", "BLOCKED_BY_ACTIVE_WORK", "READY_TO_COMPLETE"];
 
+    public async Task RefreshActiveAsync(CancellationToken token)
+    {
+        var ids=await db.ProviderExitRequests.AsNoTracking().Where(x=>ActiveExitStatuses.Contains(x.StatusCode)).OrderBy(x=>x.Id).Select(x=>x.Id).ToListAsync(token);
+        foreach(var id in ids){try{await RefreshOneAsync(id,token);}catch(DbUpdateConcurrencyException){db.ChangeTracker.Clear();}}
+    }
+
+    private async Task RefreshOneAsync(long id,CancellationToken token)
+    {
+        var item=await db.ProviderExitRequests.SingleOrDefaultAsync(x=>x.Id==id&&ActiveExitStatuses.Contains(x.StatusCode),token);if(item is null)return;
+        var current=await readiness.EvaluateAsync(item.ProviderProfileId,item.UserId,item.RequestTypeCode,token);var before=item.StatusCode;
+        item.StatusCode=current.RecommendedStatus;item.ReviewStatusCode="UNDER_REVIEW";item.ReviewedAt=DateTime.UtcNow;item.UpdatedAt=DateTime.UtcNow;item.UpdatedByUserId=item.UserId;
+        await EnsureRefundRequest(item,current,item.UserId,token);
+        if(before!=item.StatusCode)AddAudit(item.UserId,"SYSTEM","PROVIDER_EXIT_STATUS_AUTO_UPDATED",item,new{StatusCode=before},new{item.StatusCode},"진행 업무·환불 상태 자동 재검증");
+        if(current.CanComplete)
+        {
+            var withdrawAccount=item.RequestTypeCode=="ACCOUNT_WITHDRAWAL";
+            await FinalizeAsync(item,item.UserId,"SYSTEM",withdrawAccount
+                ? "개인정보와 법정 보존 기록을 유지한 전체 계정 자동 종료"
+                : "진행 업무와 환불 잔액이 없어 전문가 역할 자동 종료",withdrawAccount,token);
+            return;
+        }
+        await Save(token);
+    }
+
     public async Task<ProviderExitDashboardResponse> DashboardAsync(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await ProviderIdentityAsync(principal, token);
+        var activeId=await db.ProviderExitRequests.AsNoTracking().Where(x=>x.ProviderProfileId==identity.Provider.Id&&ActiveExitStatuses.Contains(x.StatusCode)).Select(x=>(long?)x.Id).FirstOrDefaultAsync(token);if(activeId.HasValue)await RefreshOneAsync(activeId.Value,token);
         var request = await db.ProviderExitRequests.AsNoTracking().Where(x => x.ProviderProfileId == identity.Provider.Id)
             .OrderByDescending(x => x.RequestedAt).FirstOrDefaultAsync(token);
         var requestType = request?.RequestTypeCode ?? "PROVIDER_ROLE_EXIT";
@@ -154,7 +180,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
     {
         var identity = await ProviderIdentityAsync(principal, token);
         var item = await db.ProviderExitRequests.SingleOrDefaultAsync(x => x.PublicId == id && x.ProviderProfileId == identity.Provider.Id, token)
-            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "공급자 활동 종료 신청을 찾을 수 없습니다.");
+            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "전문가 활동 종료 신청을 찾을 수 없습니다.");
         ApplyVersion(item, input.RowVersion);
         if (!ActiveExitStatuses.Contains(item.StatusCode)) throw Conflict("PROVIDER_EXIT_CANCEL_NOT_ALLOWED", "현재 상태에서는 신청을 취소할 수 없습니다.");
         if (item.WalletRefundRequestId.HasValue)
@@ -173,6 +199,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
 
     public async Task<AdminProviderExitListResponse> SearchAdminAsync(string? status, int page, int pageSize, CancellationToken token)
     {
+        await RefreshActiveAsync(token);
         if (page < 1 || pageSize is < 1 or > 100) throw Bad("PROVIDER_EXIT_PAGE_INVALID", "페이지 조건을 확인해 주세요.");
         var query = from item in db.ProviderExitRequests.AsNoTracking()
                     join provider in db.ProviderProfiles.AsNoTracking() on item.ProviderProfileId equals provider.Id
@@ -196,12 +223,13 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
 
     public async Task<AdminProviderExitDetailResponse> AdminDetailAsync(Guid id, CancellationToken token)
     {
+        var activeId=await db.ProviderExitRequests.AsNoTracking().Where(x=>x.PublicId==id&&ActiveExitStatuses.Contains(x.StatusCode)).Select(x=>(long?)x.Id).SingleOrDefaultAsync(token);if(activeId.HasValue)await RefreshOneAsync(activeId.Value,token);
         var row = await (from item in db.ProviderExitRequests.AsNoTracking()
                          join provider in db.ProviderProfiles.AsNoTracking() on item.ProviderProfileId equals provider.Id
                          join refund in db.WalletRefundRequests.AsNoTracking() on item.WalletRefundRequestId equals refund.Id into refunds
                          from refund in refunds.DefaultIfEmpty()
                          where item.PublicId == id select new { Item = item, Provider = provider, Refund = refund }).SingleOrDefaultAsync(token)
-            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "공급자 활동 종료 신청을 찾을 수 없습니다.");
+            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "전문가 활동 종료 신청을 찾을 수 없습니다.");
         var current = await readiness.EvaluateAsync(row.Provider.Id, row.Item.UserId, row.Item.RequestTypeCode, token);
         return new(row.Item.PublicId, row.Provider.PublicId, row.Provider.BusinessName, row.Item.RequestTypeCode, row.Item.Reason,
             row.Item.StatusCode, row.Item.ReviewStatusCode, row.Item.RequestedAt, row.Item.ReviewedAt, row.Item.DecisionReason,
@@ -213,7 +241,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
     {
         var actor = await AdminId(actorPublicId, token);
         var item = await db.ProviderExitRequests.SingleOrDefaultAsync(x => x.PublicId == id, token)
-            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "공급자 활동 종료 신청을 찾을 수 없습니다.");
+            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "전문가 활동 종료 신청을 찾을 수 없습니다.");
         ApplyVersion(item, input.RowVersion);
         if (!ActiveExitStatuses.Contains(item.StatusCode)) throw Conflict("PROVIDER_EXIT_RECHECK_NOT_ALLOWED", "현재 상태에서는 재검증할 수 없습니다.");
         var current = await readiness.EvaluateAsync(item.ProviderProfileId, item.UserId, item.RequestTypeCode, token);
@@ -231,37 +259,13 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
     {
         var actor = await AdminId(actorPublicId, token);
         var item = await db.ProviderExitRequests.SingleOrDefaultAsync(x => x.PublicId == id, token)
-            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "공급자 활동 종료 신청을 찾을 수 없습니다.");
+            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "전문가 활동 종료 신청을 찾을 수 없습니다.");
         ApplyVersion(item, input.RowVersion);
         if (!ActiveExitStatuses.Contains(item.StatusCode)) throw Conflict("PROVIDER_EXIT_COMPLETE_NOT_ALLOWED", "현재 상태에서는 활동 종료를 완료할 수 없습니다.");
         var current = await readiness.EvaluateAsync(item.ProviderProfileId, item.UserId, item.RequestTypeCode, token);
         if (!current.CanComplete) throw Conflict("PROVIDER_EXIT_READINESS_CHANGED", "진행 업무 또는 Wallet 상태가 변경되었습니다. 재검증 후 다시 시도해 주세요.");
 
-        await using var transaction = await BeginTransaction(token);
-        var now = DateTime.UtcNow;
-        var provider = await db.ProviderProfiles.SingleAsync(x => x.Id == item.ProviderProfileId, token);
-        var roleId = await db.Roles.Where(x => x.Code == RoleCodes.Provider).Select(x => x.Id).SingleAsync(token);
-        var role = await db.UserRoles.SingleOrDefaultAsync(x => x.UserId == item.UserId && x.RoleId == roleId && x.RevokedAt == null, token)
-            ?? throw Conflict("PROVIDER_ROLE_ALREADY_ENDED", "공급자 역할이 이미 종료되었습니다.");
-        var wallet = await db.ProviderWallets.SingleAsync(x => x.ProviderProfileId == provider.Id && x.CurrencyCode == "KRW", token);
-        if (wallet.AvailableBalance != 0 || wallet.ReservedBalance != 0 || await db.WalletRefundRequests.AnyAsync(x => x.WalletId == wallet.Id && (x.StatusCode == "REQUESTED" || x.StatusCode == "APPROVED" || x.StatusCode == "PROCESSING"), token))
-            throw Conflict("PROVIDER_EXIT_WALLET_CHANGED", "Wallet 잔액 또는 환불 상태가 변경되었습니다.");
-
-        role.RevokedAt = now; role.RevokedByUserId = actor;
-        provider.ActivityStatusCode = "INACTIVE"; provider.UpdatedAt = now; provider.UpdatedByUserId = actor;
-        wallet.StatusCode = "CLOSED"; wallet.UpdatedAt = now; wallet.UpdatedByUserId = actor;
-        var emergency = await db.ProviderEmergencySettings.SingleOrDefaultAsync(x => x.ProviderProfileId == provider.Id, token);
-        if (emergency is not null) { emergency.IsEnabled = false; emergency.UpdatedAt = now; emergency.UpdatedByUserId = actor; }
-        var chats = await db.ChatParticipants.Where(x => x.UserId == item.UserId && x.ParticipantRoleCode == "PROVIDER" && x.StatusCode == "ACTIVE").ToListAsync(token);
-        foreach (var chat in chats) { chat.StatusCode = "ENDED"; chat.AccessEndedAt = now; }
-
-        item.StatusCode = "COMPLETED"; item.ReviewStatusCode = "APPROVED"; item.ReviewedAt = now;
-        item.ReviewedByUserId = actor; item.DecisionReason = Required(input.Reason); item.CompletedAt = now; item.UpdatedAt = now; item.UpdatedByUserId = actor;
-        AddAudit(actor, RoleCodes.Admin, "PROVIDER_ROLE_EXIT_COMPLETED", item, new { StatusCode = "READY_TO_COMPLETE" },
-            new { item.StatusCode, providerActivity = provider.ActivityStatusCode, walletStatus = wallet.StatusCode, providerRoleEnded = true }, item.DecisionReason);
-        await AddOutboxIfTemplate("PROVIDER_EXIT_COMPLETED", item, actor, token);
-        await Save(token);
-        if (transaction is not null) await transaction.CommitAsync(token);
+        await FinalizeAsync(item,actor,RoleCodes.Admin,Required(input.Reason),item.RequestTypeCode=="ACCOUNT_WITHDRAWAL",token);
         return await AdminDetailAsync(id, token);
     }
 
@@ -269,7 +273,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
     {
         var actor = await AdminId(actorPublicId, token);
         var item = await db.ProviderExitRequests.SingleOrDefaultAsync(x => x.PublicId == id, token)
-            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "공급자 활동 종료 신청을 찾을 수 없습니다.");
+            ?? throw NotFound("PROVIDER_EXIT_NOT_FOUND", "전문가 활동 종료 신청을 찾을 수 없습니다.");
         ApplyVersion(item, input.RowVersion);
         if (!ActiveExitStatuses.Contains(item.StatusCode)) throw Conflict("PROVIDER_EXIT_REJECT_NOT_ALLOWED", "현재 상태에서는 신청을 거절할 수 없습니다.");
         if (item.WalletRefundRequestId.HasValue)
@@ -286,6 +290,23 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
         return await AdminDetailAsync(id, token);
     }
 
+    private async Task FinalizeAsync(ProviderExitRequest item,long actor,string actorRole,string reason,bool withdrawAccount,CancellationToken token)
+    {
+        await using var transaction=await BeginTransaction(token);var now=DateTime.UtcNow;
+        var provider=await db.ProviderProfiles.SingleAsync(x=>x.Id==item.ProviderProfileId,token);var wallet=await db.ProviderWallets.SingleAsync(x=>x.ProviderProfileId==provider.Id&&x.CurrencyCode=="KRW",token);
+        if(wallet.AvailableBalance!=0||wallet.ReservedBalance!=0||await db.WalletRefundRequests.AnyAsync(x=>x.WalletId==wallet.Id&&(x.StatusCode=="REQUESTED"||x.StatusCode=="APPROVED"||x.StatusCode=="PROCESSING"),token))throw Conflict("PROVIDER_EXIT_WALLET_CHANGED","Wallet 잔액 또는 환불 상태가 변경되었습니다.");
+        var roles=await db.UserRoles.Where(x=>x.UserId==item.UserId&&x.RevokedAt==null).ToListAsync(token);var providerRoleId=await db.Roles.Where(x=>x.Code==RoleCodes.Provider).Select(x=>x.Id).SingleAsync(token);
+        foreach(var role in roles.Where(x=>withdrawAccount||x.RoleId==providerRoleId)){role.RevokedAt=now;role.RevokedByUserId=actor;}
+        if(!withdrawAccount&&roles.All(x=>x.RoleId!=providerRoleId))throw Conflict("PROVIDER_ROLE_ALREADY_ENDED","전문가 역할이 이미 종료되었습니다.");
+        if(withdrawAccount){var user=await db.Users.SingleAsync(x=>x.Id==item.UserId,token);user.StatusCode="WITHDRAWN";user.UpdatedAt=now;}
+        provider.ActivityStatusCode="INACTIVE";provider.UpdatedAt=now;provider.UpdatedByUserId=actor;wallet.StatusCode="CLOSED";wallet.UpdatedAt=now;wallet.UpdatedByUserId=actor;
+        var emergency=await db.ProviderEmergencySettings.SingleOrDefaultAsync(x=>x.ProviderProfileId==provider.Id,token);if(emergency is not null){emergency.IsEnabled=false;emergency.UpdatedAt=now;emergency.UpdatedByUserId=actor;}
+        var chats=await db.ChatParticipants.Where(x=>x.UserId==item.UserId&&x.StatusCode=="ACTIVE"&&(withdrawAccount||x.ParticipantRoleCode=="PROVIDER")).ToListAsync(token);foreach(var chat in chats){chat.StatusCode="ENDED";chat.AccessEndedAt=now;}
+        item.StatusCode="COMPLETED";item.ReviewStatusCode="APPROVED";item.ReviewedAt=now;item.ReviewedByUserId=actor;item.DecisionReason=reason;item.CompletedAt=now;item.UpdatedAt=now;item.UpdatedByUserId=actor;
+        AddAudit(actor,actorRole,withdrawAccount?"ACCOUNT_WITHDRAWAL_AUTO_COMPLETED":"PROVIDER_ROLE_EXIT_COMPLETED",item,new{StatusCode="READY_TO_COMPLETE"},new{item.StatusCode,providerActivity=provider.ActivityStatusCode,walletStatus=wallet.StatusCode,retention="PRESERVED"},reason);
+        await AddOutboxIfTemplate(withdrawAccount?"ACCOUNT_WITHDRAWAL_COMPLETED":"PROVIDER_EXIT_COMPLETED",item,actor,token);await Save(token);if(transaction is not null)await transaction.CommitAsync(token);
+    }
+
     private async Task EnsureRefundRequest(ProviderExitRequest item, ProviderExitReadinessResponse current, long actor, CancellationToken token)
     {
         if (item.WalletRefundRequestId.HasValue || current.ActiveWorkCount > 0 || current.OpenDisputeCount > 0 ||
@@ -299,7 +320,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
             open = new WalletRefundRequest
             {
                 WalletId = walletId, RequestedAmount = current.Wallet.AvailableBalance, StatusCode = "REQUESTED",
-                RequestReason = "공급자 활동 종료에 따른 잔여 충전금 환불 요청", RequestedAt = now,
+                RequestReason = "전문가 활동 종료에 따른 잔여 이용료 환불 요청", RequestedAt = now,
                 IdempotencyKey = $"provider-exit-refund:{item.PublicId:N}", CreatedAt = now, CreatedByUserId = actor,
                 UpdatedAt = now, UpdatedByUserId = actor,
             };
@@ -323,7 +344,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
         if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) throw Unauthorized();
         var row = await (from user in db.Users join provider in db.ProviderProfiles on user.Id equals provider.UserId
                          where user.PublicId == id && user.StatusCode == "ACTIVE" select new { User = user, Provider = provider }).SingleOrDefaultAsync(token);
-        return row is null ? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "공급자 프로필을 확인할 수 없습니다.") : (row.User, row.Provider);
+        return row is null ? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "전문가 프로필을 확인할 수 없습니다.") : (row.User, row.Provider);
     }
 
     private async Task<long> AdminId(Guid publicId, CancellationToken token) => await (from user in db.Users
@@ -353,7 +374,7 @@ public sealed class ProviderExitService(SoodalLifeDbContext db, IProviderExitRea
     {
         try { await db.SaveChangesAsync(token); }
         catch (DbUpdateConcurrencyException) { throw Conflict("PROVIDER_EXIT_CONCURRENCY_CONFLICT", "다른 작업이 먼저 처리했습니다. 최신 상태를 다시 확인해 주세요."); }
-        catch (DbUpdateException) { throw Conflict("PROVIDER_EXIT_DUPLICATE_REQUEST", "이미 처리 중인 공급자 활동 종료 신청이 있습니다."); }
+        catch (DbUpdateException) { throw Conflict("PROVIDER_EXIT_DUPLICATE_REQUEST", "이미 처리 중인 전문가 활동 종료 신청이 있습니다."); }
     }
     private void ApplyVersion(ProviderExitRequest item, string value)
     {

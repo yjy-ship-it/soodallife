@@ -45,6 +45,8 @@ export function searchServiceCategories(filters: {
   feeStatus: string
   feeEffectiveFrom: string
   feeEffectiveTo: string
+  page?: number
+  pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
@@ -55,6 +57,8 @@ export function searchServiceCategories(filters: {
   if (filters.feeStatus) query.set('feeStatus', filters.feeStatus)
   if (filters.feeEffectiveFrom) query.set('feeEffectiveFrom', filters.feeEffectiveFrom)
   if (filters.feeEffectiveTo) query.set('feeEffectiveTo', filters.feeEffectiveTo)
+  if (filters.page) query.set('page', String(filters.page))
+  if (filters.pageSize) query.set('pageSize', String(filters.pageSize))
   return adminRequest<AdminServiceCategoryList>(`/api/v1/admin/service-categories/services?${query}`)
 }
 

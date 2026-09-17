@@ -130,8 +130,8 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         using var otherCustomer = CreateClient();
         await LoginAsync(provider, factory.Credentials[RoleCodes.Provider]);
         await LoginAsync(unrelatedProvider, factory.AreaMismatchProviderCredential);
-        await LoginAsync(customer, factory.Credentials[RoleCodes.Customer]);
-        await LoginAsync(otherCustomer, factory.OtherCustomerCredential);
+        await LoginAsync(customer, factory.OtherCustomerCredential);
+        await LoginAsync(otherCustomer, factory.Credentials[RoleCodes.Customer]);
         await ConfigureProviderAsync(provider);
         var request = await CreateAndPublishRequestAsync(customer);
 
@@ -149,6 +149,57 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync($"/api/v1/quotes/{draft.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.PostAsJsonAsync($"/api/v1/quotes/{draft.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await customer.PostAsJsonAsync($"/api/v1/requests/{request.Id}/quotes", input)).StatusCode);
+    }
+
+    [Fact]
+    public async Task VatMode_AutomaticallyCalculatesIncludedAndExcludedTax()
+    {
+        using var provider = CreateClient();
+        using var customer = CreateClient();
+        await LoginAsync(provider, factory.Credentials[RoleCodes.Provider]);
+        await LoginAsync(customer, factory.OtherCustomerCredential);
+        await ConfigureProviderAsync(provider);
+        await EnsureTradingReadyAsync(factory.Credentials[RoleCodes.Provider]);
+        var request = await CreateAndPublishRequestAsync(customer);
+
+        var includedResponse = await provider.PostAsJsonAsync($"/api/v1/requests/{request.Id}/quotes", new
+        {
+            summary = "부가세 포함 자동 계산",
+            terms = "입력 단가에 부가세가 포함됩니다.",
+            vatAmount = 0,
+            vatMode = "INCLUDED",
+            estimatedDurationText = "2 시간",
+            availableStartAt = DateTime.UtcNow.AddMinutes(20),
+            validUntil = DateTime.UtcNow.AddMinutes(60),
+            revisionReason = (string?)null,
+            idempotencyKey = $"vat-included-{Guid.NewGuid():N}",
+            items = new[] { new QuoteItemInput("조명", null, 1, "개", 11000, ItemCategoryCode: "MATERIAL") },
+        });
+        Assert.Equal(HttpStatusCode.OK, includedResponse.StatusCode);
+        var included = (await includedResponse.Content.ReadFromJsonAsync<QuoteDetailResponse>())!;
+        Assert.Equal(10000, included.Revision.SubtotalAmount);
+        Assert.Equal(1000, included.Revision.VatAmount);
+        Assert.Equal(11000, included.Revision.TotalAmount);
+        Assert.Equal("MATERIAL", included.Revision.Items.Single().ItemCategoryCode);
+
+        var excludedResponse = await provider.PostAsJsonAsync($"/api/v1/quotes/{included.Id}/revisions", new
+        {
+            summary = "부가세 별도 자동 계산",
+            terms = "항목 소계에 부가세를 더합니다.",
+            vatAmount = 0,
+            vatMode = "EXCLUDED",
+            estimatedDurationText = "1 일",
+            availableStartAt = DateTime.UtcNow.AddMinutes(20),
+            validUntil = DateTime.UtcNow.AddMinutes(60),
+            revisionReason = "세금 방식 변경",
+            idempotencyKey = $"vat-excluded-{Guid.NewGuid():N}",
+            items = new[] { new QuoteItemInput("작업", null, 1, "식", 10000, ItemCategoryCode: "PROFIT") },
+        });
+        Assert.Equal(HttpStatusCode.OK, excludedResponse.StatusCode);
+        var excluded = (await excludedResponse.Content.ReadFromJsonAsync<QuoteDetailResponse>())!;
+        Assert.Equal(10000, excluded.Revision.SubtotalAmount);
+        Assert.Equal(1000, excluded.Revision.VatAmount);
+        Assert.Equal(11000, excluded.Revision.TotalAmount);
     }
 
     private async Task ConfigureProviderAsync(HttpClient client)
@@ -202,12 +253,13 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
             answers = new object[]
             {
                 new { fieldId = factory.Catalog.FieldIds[0], value = "A sufficiently detailed request answer for quote flow tests." },
-                new { fieldId = factory.Catalog.FieldIds[1], value = DateTimeOffset.UtcNow.AddDays(2).ToString("O") },
+                new { fieldId = factory.Catalog.FieldIds[1], value = FutureThirtyMinuteSlot(2).ToString("O") },
                 new { fieldId = factory.Catalog.FieldIds[2], value = "주거" },
             },
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var request = (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+        await TestRequestData.ExcludeFromAbuseLimitsAsync(factory, request.Id);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/v1/requests/{request.Id}/publish", null)).StatusCode);
         return request;
     }
@@ -225,6 +277,13 @@ public sealed class QuoteFlowApiTests(AuthenticationWebApplicationFactory factor
             new QuoteItemInput("작업비", "기본 작업", 2m, "시간", firstUnitPrice),
             new QuoteItemInput("자재비", "필수 자재", 3m, "개", secondUnitPrice),
         ]);
+
+    private static DateTimeOffset FutureThirtyMinuteSlot(int days)
+    {
+        var value = DateTimeOffset.UtcNow.AddDays(days);
+        var slot = new DateTimeOffset(value.Year, value.Month, value.Day, value.Hour, value.Minute < 30 ? 30 : 0, 0, TimeSpan.Zero);
+        return value.Minute < 30 ? slot : slot.AddHours(1);
+    }
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions
     {

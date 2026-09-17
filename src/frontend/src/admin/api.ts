@@ -14,6 +14,7 @@ export async function getAdminAnalyticsDashboard(filters: AdminAnalyticsFilters)
   if (filters.to) query.set('to', filters.to)
   if (filters.categoryId) query.set('categoryId', filters.categoryId)
   if (filters.areaId) query.set('areaId', filters.areaId)
+  if (filters.providerId) query.set('providerId', filters.providerId)
   const response = await fetch(`/api/v1/admin/dashboard/management?${query.toString()}`, { credentials: 'include' })
   if (!response.ok) throw new Error('경영 대시보드를 불러오지 못했습니다.')
   return response.json() as Promise<AdminAnalyticsDashboard>

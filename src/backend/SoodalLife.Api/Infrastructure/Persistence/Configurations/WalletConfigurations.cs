@@ -20,6 +20,7 @@ internal sealed class ProviderWalletConfiguration() : EntityConfiguration<Provid
         b.HasIndex(x => x.StatusCode);
         b.ToTable("wallets", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_wallets_balances", "[available_balance] >= 0 AND [reserved_balance] >= 0");
             t.HasCheckConstraint("CK_wallets_status", "[status_code] IN ('ACTIVE','FROZEN','CLOSED')");
         });
@@ -35,6 +36,9 @@ internal sealed class WalletLedgerEntryConfiguration() : EntityConfiguration<Wal
         Mapping.NullableLong(b, nameof(WalletLedgerEntry.TransactionId), "transaction_id");
         Mapping.String(b, nameof(WalletLedgerEntry.EntryTypeCode), "entry_type_code", 20, unicode: false);
         Mapping.Decimal(b, nameof(WalletLedgerEntry.Amount), "amount");
+        Mapping.Decimal(b, nameof(WalletLedgerEntry.SupplyAmount), "supply_amount", defaultValue: 0);
+        Mapping.Decimal(b, nameof(WalletLedgerEntry.VatAmount), "vat_amount", defaultValue: 0);
+        Mapping.String(b, nameof(WalletLedgerEntry.TaxTreatmentCode), "tax_treatment_code", 30, unicode: false, defaultValue: "DEPOSIT");
         Mapping.Decimal(b, nameof(WalletLedgerEntry.BalanceAfter), "balance_after");
         Mapping.String(b, nameof(WalletLedgerEntry.IdempotencyKey), "idempotency_key", 150, unicode: false);
         Mapping.String(b, nameof(WalletLedgerEntry.Reason), "reason", 1000);
@@ -51,9 +55,52 @@ internal sealed class WalletLedgerEntryConfiguration() : EntityConfiguration<Wal
         b.HasIndex(x => new { x.ReferenceType, x.ReferencePublicId });
         b.ToTable("wallet_ledger", t =>
         {
-            t.HasCheckConstraint("CK_wallet_ledger_entry_type", "[entry_type_code] IN ('CHARGE','USE','RESTORE','REFUND','ADJUST')");
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_wallet_ledger_entry_type", "[entry_type_code] IN ('CHARGE','RESERVE','RELEASE','USE','RESTORE','REFUND','ADJUST')");
             t.HasCheckConstraint("CK_wallet_ledger_amount", "[amount] <> 0");
             t.HasCheckConstraint("CK_wallet_ledger_balance", "[balance_after] >= 0");
+            t.HasCheckConstraint("CK_wallet_ledger_tax_treatment", "[tax_treatment_code] IN ('DEPOSIT','EXPECTED_VAT_INCLUDED','EXPECTED_REVERSED','TAXABLE_VAT_INCLUDED','TAX_REVERSED','NON_TAXABLE','LEGACY_UNSPLIT')");
+        });
+    }
+}
+
+internal sealed class QuoteFeeReservationConfiguration() : EntityConfiguration<QuoteFeeReservation>("quote_fee_reservations")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<QuoteFeeReservation> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(QuoteFeeReservation.QuoteId), "quote_id");
+        Mapping.Long(b, nameof(QuoteFeeReservation.WalletId), "wallet_id");
+        Mapping.Long(b, nameof(QuoteFeeReservation.CategoryFeePolicyId), "category_fee_policy_id");
+        Mapping.Decimal(b, nameof(QuoteFeeReservation.Amount), "amount");
+        Mapping.Decimal(b, nameof(QuoteFeeReservation.ExpectedSupplyAmount), "expected_supply_amount", defaultValue: 0);
+        Mapping.Decimal(b, nameof(QuoteFeeReservation.ExpectedVatAmount), "expected_vat_amount", defaultValue: 0);
+        Mapping.String(b, nameof(QuoteFeeReservation.CurrencyCode), "currency_code", 3, unicode: false, fixedLength: true, defaultValue: "KRW");
+        Mapping.String(b, nameof(QuoteFeeReservation.StatusCode), "status_code", 20, unicode: false, defaultValue: "RESERVED");
+        Mapping.Long(b, nameof(QuoteFeeReservation.ReserveLedgerEntryId), "reserve_ledger_entry_id");
+        Mapping.NullableLong(b, nameof(QuoteFeeReservation.CaptureLedgerEntryId), "capture_ledger_entry_id");
+        Mapping.NullableLong(b, nameof(QuoteFeeReservation.ReleaseLedgerEntryId), "release_ledger_entry_id");
+        Mapping.DateTime(b, nameof(QuoteFeeReservation.ReservedAt), "reserved_at", utcDefault: true);
+        Mapping.DateTime(b, nameof(QuoteFeeReservation.CapturedAt), "captured_at", nullable: true);
+        Mapping.DateTime(b, nameof(QuoteFeeReservation.ReleasedAt), "released_at", nullable: true);
+        Mapping.String(b, nameof(QuoteFeeReservation.ReleaseReasonCode), "release_reason_code", 40, unicode: false, nullable: true);
+        Mapping.FullAudit(b);
+        Mapping.Fk<QuoteFeeReservation, Quote>(b, nameof(QuoteFeeReservation.QuoteId));
+        Mapping.Fk<QuoteFeeReservation, ProviderWallet>(b, nameof(QuoteFeeReservation.WalletId));
+        Mapping.Fk<QuoteFeeReservation, CategoryFeePolicy>(b, nameof(QuoteFeeReservation.CategoryFeePolicyId));
+        Mapping.Fk<QuoteFeeReservation, WalletLedgerEntry>(b, nameof(QuoteFeeReservation.ReserveLedgerEntryId));
+        Mapping.Fk<QuoteFeeReservation, WalletLedgerEntry>(b, nameof(QuoteFeeReservation.CaptureLedgerEntryId));
+        Mapping.Fk<QuoteFeeReservation, WalletLedgerEntry>(b, nameof(QuoteFeeReservation.ReleaseLedgerEntryId));
+        b.HasIndex(x => x.QuoteId).IsUnique();
+        b.HasIndex(x => x.ReserveLedgerEntryId).IsUnique();
+        b.HasIndex(x => x.CaptureLedgerEntryId).IsUnique().HasFilter("[capture_ledger_entry_id] IS NOT NULL");
+        b.HasIndex(x => x.ReleaseLedgerEntryId).IsUnique().HasFilter("[release_ledger_entry_id] IS NOT NULL");
+        b.HasIndex(x => new { x.StatusCode, x.ReservedAt });
+        b.ToTable("quote_fee_reservations", t =>
+        {
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_quote_fee_reservations_amount", "[amount] > 0");
+            t.HasCheckConstraint("CK_quote_fee_reservations_status", "[status_code] IN ('RESERVED','CAPTURED','RELEASED')");
         });
     }
 }
@@ -99,6 +146,9 @@ internal sealed class FeeChargeConfiguration() : EntityConfiguration<FeeCharge>(
         Mapping.Long(b, nameof(FeeCharge.WalletId), "wallet_id");
         Mapping.Long(b, nameof(FeeCharge.LedgerEntryId), "ledger_entry_id");
         Mapping.Decimal(b, nameof(FeeCharge.FeeAmount), "fee_amount");
+        Mapping.Decimal(b, nameof(FeeCharge.SupplyAmount), "supply_amount", defaultValue: 0);
+        Mapping.Decimal(b, nameof(FeeCharge.VatAmount), "vat_amount", defaultValue: 0);
+        Mapping.Bool(b, nameof(FeeCharge.IsVatIncluded), "is_vat_included", true);
         Mapping.DateTime(b, nameof(FeeCharge.ChargedAt), "charged_at", utcDefault: true);
         Mapping.String(b, nameof(FeeCharge.RestoreStatusCode), "restore_status_code", 20, unicode: false, defaultValue: "NOT_RESTORED");
         Mapping.NullableLong(b, nameof(FeeCharge.RestoreLedgerEntryId), "restore_ledger_entry_id");
@@ -114,6 +164,7 @@ internal sealed class FeeChargeConfiguration() : EntityConfiguration<FeeCharge>(
         b.HasIndex(x => new { x.WalletId, x.ChargedAt }).IsDescending(false, true);
         b.ToTable("fee_charges", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_fee_charges_amount", "[fee_amount] > 0");
             t.HasCheckConstraint("CK_fee_charges_restore_status", "[restore_status_code] IN ('NOT_RESTORED','RESTORED')");
         });

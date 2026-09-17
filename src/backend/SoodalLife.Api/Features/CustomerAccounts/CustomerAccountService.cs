@@ -19,7 +19,9 @@ public sealed partial class CustomerAccountService(
     IPasswordResetDeliveryAdapter resetDelivery,
     IIdentityVerificationAdapter identityVerification,
     IPersonalDataSearchHasher searchHasher,
-    IPersonalDataReader personalDataReader)
+    IPersonalDataReader personalDataReader,
+    IWebHostEnvironment environment,
+    IConfiguration configuration)
 {
     public async Task<AvailabilityResponse> LoginIdAvailable(string value, CancellationToken token)
     {
@@ -72,13 +74,19 @@ public sealed partial class CustomerAccountService(
         if (email is not null) EnsureEmail(email);
         var phone = NormalizePhone(input.Phone);
         EnsurePassword(input.Password, input.PasswordConfirmation);
-        var verificationStatus = await identityVerification.GetStatusAsync(token);
-        var verification = await identityVerification.VerifyPhoneAsync(phone, input.PhoneVerificationToken, token);
-        var externalVerificationUnavailable = verificationStatus.StatusCode == "NOT_INTEGRATED";
-        if (!externalVerificationUnavailable && (!verification.IsVerified || !string.Equals(NormalizePhone(verification.VerifiedPhone ?? string.Empty), phone, StringComparison.Ordinal)))
-            throw Bad("PHONE_IDENTITY_VERIFICATION_REQUIRED", "휴대전화 본인인증을 완료해 주세요.");
-        if (externalVerificationUnavailable && input.PhoneVerificationToken != "NOT_INTEGRATED")
-            throw Bad("PHONE_CONFIRMATION_REQUIRED", "휴대전화 번호 확인 버튼을 눌러 주세요.");
+        var duplicateCheckOnly = environment.IsDevelopment() || configuration.GetValue<bool>("Prelaunch:AllowPhoneDuplicateCheckOnly");
+        var testingBypass = false;
+        if (!duplicateCheckOnly)
+        {
+            var verificationStatus = await identityVerification.GetStatusAsync(token);
+            var verification = await identityVerification.VerifyPhoneAsync(phone, input.PhoneVerificationToken, token);
+            var externalVerificationUnavailable = verificationStatus.StatusCode == "NOT_INTEGRATED";
+            testingBypass = environment.IsEnvironment("Testing") && externalVerificationUnavailable && input.PhoneVerificationToken == "NOT_INTEGRATED";
+            if (!externalVerificationUnavailable && (!verification.IsVerified || !string.Equals(NormalizePhone(verification.VerifiedPhone ?? string.Empty), phone, StringComparison.Ordinal)))
+                throw Bad("PHONE_IDENTITY_VERIFICATION_REQUIRED", "휴대전화 본인인증을 완료해 주세요.");
+            if (externalVerificationUnavailable && !testingBypass)
+                throw new CustomerAccountException(StatusCodes.Status503ServiceUnavailable, "PHONE_IDENTITY_VERIFICATION_NOT_READY", "휴대전화 본인인증을 준비 중입니다. 연동 완료 후 가입해 주세요.");
+        }
 
         if (await db.Users.AnyAsync(x => x.NormalizedLoginId == normalizedLogin, token)) throw Conflict("LOGIN_ID_DUPLICATE", "이미 사용 중인 아이디입니다.");
         if (!(await PhoneAvailable(phone, token)).Available) throw Conflict("PHONE_DUPLICATE", "이미 등록된 휴대전화 번호입니다.");
@@ -105,7 +113,7 @@ public sealed partial class CustomerAccountService(
             var user = new User
             {
                 LoginId = login, NormalizedLoginId = normalizedLogin, Email = email, NormalizedEmail = email?.ToUpperInvariant(), Phone = phone,
-                EmailVerificationStatusCode = "NOT_INTEGRATED", PhoneVerificationStatusCode = externalVerificationUnavailable ? "NOT_INTEGRATED" : "VERIFIED", StatusCode = "ACTIVE",
+                EmailVerificationStatusCode = "NOT_INTEGRATED", PhoneVerificationStatusCode = duplicateCheckOnly || testingBypass ? "NOT_INTEGRATED" : "VERIFIED", StatusCode = "ACTIVE",
                 CreatedAt = now, UpdatedAt = now,
             };
             user.PasswordHash = passwordHasher.HashPassword(user, input.Password);
@@ -178,9 +186,11 @@ public sealed partial class CustomerAccountService(
         var rows = await (from address in db.CustomerAddresses.AsNoTracking()
                       join area in db.AdministrativeAreas.AsNoTracking() on address.AdministrativeAreaId equals area.Id into areaGroup
                       from area in areaGroup.DefaultIfEmpty()
+                      join parentArea in db.AdministrativeAreas.AsNoTracking() on area!.ParentAreaId equals (long?)parentArea.Id into parentAreaGroup
+                      from parentArea in parentAreaGroup.DefaultIfEmpty()
                       where address.CustomerProfileId == identity.Profile.Id && address.IsActive
                       orderby address.IsDefault descending, address.CreatedAt descending
-                      select new { Address = address, AreaId = area == null ? (Guid?)null : area.PublicId, AreaName = area == null ? null : area.AreaName }).ToListAsync(token);
+                      select new { Address = address, AreaId = area == null ? (Guid?)null : area.PublicId, AreaName = area == null ? null : parentArea == null ? area.AreaName : parentArea.AreaName + " " + area.AreaName }).ToListAsync(token);
         return rows.Select(row => new CustomerAddressResponse(row.Address.PublicId, row.Address.AddressName,
             personalDataReader.Read(row.Address.RecipientNameEncrypted, row.Address.RecipientName), row.Address.PostalCode,
             personalDataReader.Read(row.Address.RoadAddressEncrypted, row.Address.RoadAddress) ?? string.Empty,
@@ -194,17 +204,24 @@ public sealed partial class CustomerAccountService(
         var areaId = await AreaId(input.AdministrativeAreaId, token);
         var hasDefault = await db.CustomerAddresses.AnyAsync(x => x.CustomerProfileId == identity.Profile.Id && x.IsActive && x.IsDefault, token);
         var makeDefault = input.IsDefault || !hasDefault;
+        await using var defaultSwitch = makeDefault && hasDefault && db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(token)
+            : null;
         if (makeDefault) await UnsetDefault(identity.Profile.Id, null, identity.User.Id, token);
         var now = DateTime.UtcNow;
         var item = new CustomerAddress
         {
             CustomerProfileId = identity.Profile.Id, AddressName = input.AddressName.Trim(), RecipientName = Clean(input.RecipientName),
-            PostalCode = input.PostalCode.Trim(), RoadAddress = input.RoadAddress.Trim(), DetailAddress = input.DetailAddress.Trim(),
+            PostalCode = Clean(input.PostalCode) ?? string.Empty, RoadAddress = Clean(input.RoadAddress) ?? string.Empty, DetailAddress = Clean(input.DetailAddress) ?? string.Empty,
             AdministrativeAreaId = areaId, Latitude = input.Latitude, Longitude = input.Longitude, IsDefault = makeDefault, IsActive = true,
             CreatedAt = now, CreatedByUserId = identity.User.Id, UpdatedAt = now, UpdatedByUserId = identity.User.Id,
         };
         db.CustomerAddresses.Add(item);
-        try { await db.SaveChangesAsync(token); }
+        try
+        {
+            await db.SaveChangesAsync(token);
+            if (defaultSwitch is not null) await defaultSwitch.CommitAsync(token);
+        }
         catch (DbUpdateException) { throw Conflict("DEFAULT_ADDRESS_CONFLICT", "기본주소가 동시에 변경되었습니다. 다시 확인해 주세요."); }
         return (await Addresses(principal, token)).Single(x => x.Id == item.PublicId);
     }
@@ -217,11 +234,15 @@ public sealed partial class CustomerAccountService(
         ApplyConcurrency(item, input.ConcurrencyToken);
         if (item.IsDefault && !input.IsDefault)
             throw Bad("DEFAULT_ADDRESS_REQUIRED", "기본주소는 해제할 수 없습니다. 다른 주소를 기본주소로 설정해 주세요.");
+        await using var defaultSwitch = input.IsDefault && !item.IsDefault && db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(token)
+            : null;
         if (input.IsDefault) await UnsetDefault(identity.Profile.Id, item.Id, identity.User.Id, token);
-        item.AddressName = input.AddressName.Trim(); item.RecipientName = Clean(input.RecipientName); item.PostalCode = input.PostalCode.Trim();
-        item.RoadAddress = input.RoadAddress.Trim(); item.DetailAddress = input.DetailAddress.Trim(); item.AdministrativeAreaId = await AreaId(input.AdministrativeAreaId, token);
+        item.AddressName = input.AddressName.Trim(); item.RecipientName = Clean(input.RecipientName); item.PostalCode = Clean(input.PostalCode) ?? string.Empty;
+        item.RoadAddress = Clean(input.RoadAddress) ?? string.Empty; item.DetailAddress = Clean(input.DetailAddress) ?? string.Empty; item.AdministrativeAreaId = await AreaId(input.AdministrativeAreaId, token);
         item.Latitude = input.Latitude; item.Longitude = input.Longitude; item.IsDefault = input.IsDefault; item.UpdatedAt = DateTime.UtcNow; item.UpdatedByUserId = identity.User.Id;
         await SaveConcurrency(token);
+        if (defaultSwitch is not null) await defaultSwitch.CommitAsync(token);
         return (await Addresses(principal, token)).Single(x => x.Id == id);
     }
 
@@ -352,17 +373,26 @@ public sealed partial class CustomerAccountService(
         return row is null ? throw NotFound("CUSTOMER_PROFILE_NOT_FOUND", "고객 프로필을 찾을 수 없습니다.") : (row.user, row.profile);
     }
 
-    private async Task<long?> AreaId(Guid? publicId, CancellationToken token)
+    private async Task<long> AreaId(Guid? publicId, CancellationToken token)
     {
-        if (!publicId.HasValue) return null;
+        if (!publicId.HasValue) throw Bad("ADMINISTRATIVE_AREA_REQUIRED", "시·도와 시·군·구를 선택해 주세요.");
         return await db.AdministrativeAreas.Where(x => x.PublicId == publicId && x.IsActive && x.AreaLevelCode == "SIGUNGU").Select(x => (long?)x.Id).SingleOrDefaultAsync(token)
             ?? throw Bad("ADMINISTRATIVE_AREA_INVALID", "사용할 수 없는 행정구역입니다.");
     }
 
     private async Task UnsetDefault(long profileId, long? exceptId, long actorId, CancellationToken token)
     {
-        var values = await db.CustomerAddresses.Where(x => x.CustomerProfileId == profileId && x.IsActive && x.IsDefault && (!exceptId.HasValue || x.Id != exceptId)).ToListAsync(token);
-        foreach (var value in values) { value.IsDefault = false; value.UpdatedAt = DateTime.UtcNow; value.UpdatedByUserId = actorId; }
+        var query = db.CustomerAddresses.Where(x => x.CustomerProfileId == profileId && x.IsActive && x.IsDefault && (!exceptId.HasValue || x.Id != exceptId));
+        var now = DateTime.UtcNow;
+        if (db.Database.IsRelational())
+        {
+            await query.ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.IsDefault, false)
+                .SetProperty(x => x.UpdatedAt, now)
+                .SetProperty(x => x.UpdatedByUserId, actorId), token);
+            return;
+        }
+        foreach (var value in await query.ToListAsync(token)) { value.IsDefault = false; value.UpdatedAt = now; value.UpdatedByUserId = actorId; }
     }
 
     private void ApplyConcurrency(CustomerAddress item, string? value)

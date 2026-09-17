@@ -3,23 +3,26 @@ using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
+using SoodalLife.Api.Features.Admin;
 
 namespace SoodalLife.Api.Features.Authentication;
 
 public interface IAuthenticationService
 {
-    Task<AuthenticatedUserResponse?> AuthenticateAsync(string loginOrEmail, string password, CancellationToken cancellationToken);
+    Task<AuthenticatedUserResponse?> AuthenticateAsync(string loginOrEmail, string password, string? mfaCode, CancellationToken cancellationToken);
     Task<AuthenticatedUserResponse?> CurrentAsync(Guid publicId, CancellationToken cancellationToken);
 }
 
 internal sealed class AuthenticationService(
     SoodalLifeDbContext dbContext,
     IPasswordHasher<User> passwordHasher,
-    IPersonalDataSearchHasher searchHasher) : IAuthenticationService
+    IPersonalDataSearchHasher searchHasher,
+    IAdminMfaVerifier adminMfaVerifier) : IAuthenticationService
 {
     public async Task<AuthenticatedUserResponse?> AuthenticateAsync(
         string loginOrEmail,
         string password,
+        string? mfaCode,
         CancellationToken cancellationToken)
     {
         var identifier = loginOrEmail.Trim();
@@ -55,6 +58,11 @@ internal sealed class AuthenticationService(
             .ToListAsync(cancellationToken);
 
         if (roles.Count == 0)
+        {
+            return null;
+        }
+
+        if (roles.Contains(RoleCodes.Admin, StringComparer.Ordinal) && !await adminMfaVerifier.VerifyForLoginAsync(user.Id, mfaCode, cancellationToken))
         {
             return null;
         }

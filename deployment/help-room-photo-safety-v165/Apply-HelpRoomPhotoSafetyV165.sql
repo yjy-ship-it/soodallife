@@ -1,0 +1,29 @@
+﻿BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260830090402_AddHelpRoomPhotoSafetyV165'
+)
+BEGIN
+    ALTER TABLE [files] DROP CONSTRAINT [CK_files_purpose];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260830090402_AddHelpRoomPhotoSafetyV165'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [files] ADD CONSTRAINT [CK_files_purpose] CHECK ([purpose_code] IN (''PROVIDER_DOCUMENT'',''REQUEST_ANSWER'',''COMPLETION_EVIDENCE'',''AFTER_SERVICE'',''DISPUTE_EVIDENCE'',''REVIEW'',''REPORT_EVIDENCE'',''SANCTION_APPEAL_EVIDENCE'',''PROVIDER_PUBLIC_LOGO'',''PROVIDER_PUBLIC_PHOTO'',''CHAT_ATTACHMENT'',''HELP_ROOM_PHOTO''))');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260830090402_AddHelpRoomPhotoSafetyV165'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260830090402_AddHelpRoomPhotoSafetyV165', N'10.0.10');
+END;
+
+COMMIT;
+GO
+

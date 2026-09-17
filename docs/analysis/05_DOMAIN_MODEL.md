@@ -3,7 +3,7 @@
 ## 1. 표준 용어
 
 - 거래: `Transaction`
-- 공급자: `Provider`
+- 전문가: `Provider`
 - 출장지역: `ProviderServiceArea`
 - 완료자료: `WorkCompletion`
 - A/S: `AfterServiceCase`

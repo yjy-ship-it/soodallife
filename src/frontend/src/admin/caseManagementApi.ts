@@ -21,5 +21,6 @@ export const assignAppeal=(sanctionId:string,appealId:string,value:object)=>requ
 export const addAppealEvidence=(sanctionId:string,appealId:string,value:object)=>request<SanctionDetail>(`/api/v1/admin/sanctions/${sanctionId}/appeals/${appealId}/evidence`,{method:'POST',body:JSON.stringify(value)})
 export async function uploadCaseEvidence(purposeCode:'REPORT_EVIDENCE'|'SANCTION_APPEAL_EVIDENCE',file:File){const form=new FormData();form.append('purposeCode',purposeCode);form.append('file',file);const response=await fetch('/api/v1/admin/case-files',{method:'POST',credentials:'include',body:form});if(!response.ok)throw new Error('증빙파일을 등록하지 못했습니다.');return response.json() as Promise<{fileId:string}>}
 export const getCaseMasters=(kind:'report-types'|'sanction-types'|'liability-types')=>request<CaseMaster[]>(`/api/v1/admin/case-masters/${kind}`)
+export const initializeDefaultReportTypes=()=>request<CaseMaster[]>('/api/v1/admin/case-masters/report-types/initialize',{method:'POST'})
 export const getCaseAssignees=()=>request<Array<{id:string;name:string}>>('/api/v1/admin/case-masters/assignees')
 export const saveCaseMaster=(kind:'report-types'|'sanction-types'|'liability-types',id:string|null,value:object)=>request<CaseMaster>(`/api/v1/admin/case-masters/${kind}${id?`/${id}`:''}`,{method:id?'PUT':'POST',body:JSON.stringify(value)})

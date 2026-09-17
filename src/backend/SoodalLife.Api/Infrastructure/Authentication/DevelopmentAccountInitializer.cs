@@ -68,7 +68,7 @@ public sealed class DevelopmentAccountInitializer(
                 Name = definition.RoleCode switch
                 {
                     RoleCodes.Customer => "고객",
-                    RoleCodes.Provider => "공급자",
+                    RoleCodes.Provider => "전문가",
                     RoleCodes.Admin => "관리자",
                     _ => definition.RoleCode,
                 },

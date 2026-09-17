@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { AcceptQuoteResult, CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, QuoteDetail, QuoteListItem, SaveQuoteRevisionInput } from './types'
+import type { AcceptQuoteResult, CustomerProviderProfile, CustomerQuoteComparison, CustomerQuoteDetail, ProviderQuoteTemplate, PublicProviderReviewList, QuoteDetail, QuoteListItem, QuoteSubmissionReadiness, SaveQuoteRevisionInput, SaveQuoteTemplateInput } from './types'
 
 export class QuoteApiError extends Error {
   readonly status: number
@@ -35,8 +35,16 @@ export async function getProviderQuote(requestId: string): Promise<QuoteDetail |
   if (response.status === 404) return null
   return readJson<QuoteDetail>(response)
 }
+export const getQuoteSubmissionReadiness = (requestId:string) =>
+  fetch(`/api/v1/providers/me/requests/${requestId}/quote-submission-readiness`, { credentials:'include' }).then(readJson<QuoteSubmissionReadiness>)
 export const getProviderQuotes = () =>
   fetch('/api/v1/providers/me/quotes', { credentials: 'include' }).then(readJson<QuoteListItem[]>)
+export const getQuoteTemplates = () =>
+  fetch('/api/v1/providers/me/quote-templates', { credentials: 'include' }).then(readJson<ProviderQuoteTemplate[]>)
+export const saveQuoteTemplate = (input: SaveQuoteTemplateInput) =>
+  json('POST', '/api/v1/providers/me/quote-templates', input).then(readJson<ProviderQuoteTemplate>)
+export const deleteQuoteTemplate = (templateId: string) =>
+  json('DELETE', `/api/v1/providers/me/quote-templates/${templateId}`).then(readJson<boolean>)
 
 export const createProviderQuote = (requestId: string, input: SaveQuoteRevisionInput) =>
   json('POST', `/api/v1/requests/${requestId}/quotes`, input).then(readJson<QuoteDetail>)
@@ -50,5 +58,7 @@ export const getCustomerQuote = (quoteId: string) =>
   fetch(`/api/v1/quotes/${quoteId}`, { credentials: 'include' }).then(readJson<CustomerQuoteDetail>)
 export const getCustomerProviderProfile = (providerId: string, requestId: string) =>
   fetch(`/api/v1/customer/providers/${providerId}?requestId=${encodeURIComponent(requestId)}`, { credentials: 'include' }).then(readJson<CustomerProviderProfile>)
+export const getPublicProviderReviews = (providerId:string) =>
+  fetch(`/api/v1/providers/${providerId}/reviews?page=1&pageSize=100`, { credentials:'include' }).then(readJson<PublicProviderReviewList>)
 export const acceptQuote = (quoteId: string, detailAddress: string) =>
   json('POST', `/api/v1/quotes/${quoteId}/accept`, { detailAddress }).then(readJson<AcceptQuoteResult>)

@@ -12,3 +12,7 @@ export const customerResponses=(requestId:string)=>get<EmergencyCustomerResponse
 export const selectProvider=(requestId:string,body:unknown)=>send<EmergencySelection>('POST',`/api/v1/emergency-requests/${requestId}/select`,body)
 export const progress=(transactionId:string)=>get<EmergencyProgress>(`/api/v1/emergency-transactions/${transactionId}/progress`)
 export const addProgress=(transactionId:string,eventType:string)=>send<EmergencyProgress>('POST',`/api/v1/emergency-transactions/${transactionId}/progress`,{eventType,note:null,idempotencyKey:crypto.randomUUID()})
+export const reportPayment=(transactionId:string)=>send<EmergencyProgress>('POST',`/api/v1/emergency-transactions/${transactionId}/payment-report`,{idempotencyKey:crypto.randomUUID()})
+export const decidePayment=(transactionId:string,decision:'CONFIRM'|'REJECT',reason?:string)=>send<EmergencyProgress>('POST',`/api/v1/emergency-transactions/${transactionId}/payment-decision`,{decision,reason:reason??null,idempotencyKey:crypto.randomUUID()})
+export const reportNoShow=(transactionId:string,subjectRole:'CUSTOMER'|'PROVIDER',evidenceNote:string)=>send<EmergencyProgress>('POST',`/api/v1/emergency-transactions/${transactionId}/no-show`,{subjectRole,contactAttempts:2,evidenceNote,idempotencyKey:crypto.randomUUID()})
+export const disputeNoShow=(transactionId:string,reason:string)=>send<EmergencyProgress>('POST',`/api/v1/emergency-transactions/${transactionId}/no-show/dispute`,{reason,idempotencyKey:crypto.randomUUID()})

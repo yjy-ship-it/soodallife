@@ -103,13 +103,13 @@ public sealed class AdminWalletService(SoodalLifeDbContext dbContext, ProviderWa
 
     public async Task<AdminChargeRequestResponse> CreateDevelopmentChargeAsync(Guid providerId, AdminDevelopmentChargeRequest request, Guid actorPublicId, CancellationToken cancellationToken)
     {
-        EnsureDevelopment(); ProviderWalletService.ValidatePositive(request.Amount, "충전"); ProviderWalletService.ValidateKey(request.IdempotencyKey);
+        EnsureDevelopment(); ProviderWalletService.ValidatePositive(request.Amount, "결제"); ProviderWalletService.ValidateKey(request.IdempotencyKey);
         var reason = ProviderWalletService.RequiredReason(request.Reason); var actor = await ActorId(actorPublicId, cancellationToken);
         var wallet = await WalletForProvider(providerId, true, cancellationToken);
         var existing = await dbContext.WalletChargeRequests.AsNoTracking().SingleOrDefaultAsync(value => value.IdempotencyKey == request.IdempotencyKey.Trim(), cancellationToken);
         if (existing is not null)
         {
-            if (existing.WalletId != wallet.Id || existing.RequestedAmount != request.Amount) throw WalletOperationException("WALLET_IDEMPOTENCY_CONFLICT", "같은 멱등성 키가 다른 충전 요청에 사용되었습니다.", StatusCodes.Status409Conflict);
+            if (existing.WalletId != wallet.Id || existing.RequestedAmount != request.Amount) throw WalletOperationException("WALLET_IDEMPOTENCY_CONFLICT", "같은 멱등성 키가 다른 결제 요청에 사용되었습니다.", StatusCodes.Status409Conflict);
             return ChargeResponse(existing, wallet.PublicId);
         }
         var now = DateTime.UtcNow;
@@ -125,15 +125,15 @@ public sealed class AdminWalletService(SoodalLifeDbContext dbContext, ProviderWa
         var row = await (from wallet in dbContext.ProviderWallets join provider in dbContext.ProviderProfiles on wallet.ProviderProfileId equals provider.Id
                          join charge in dbContext.WalletChargeRequests on wallet.Id equals charge.WalletId
                          where provider.PublicId == providerId && charge.PublicId == chargeId select new { Wallet = wallet, Charge = charge }).SingleOrDefaultAsync(cancellationToken)
-            ?? throw WalletOperationException("ADMIN_WALLET_CHARGE_NOT_FOUND", "충전 요청을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+            ?? throw WalletOperationException("ADMIN_WALLET_CHARGE_NOT_FOUND", "결제 요청을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
         if (row.Charge.StatusCode == "SUCCEEDED" && row.Charge.LedgerEntryId.HasValue)
         { var existing = await dbContext.WalletLedgerEntries.AsNoTracking().SingleAsync(value => value.Id == row.Charge.LedgerEntryId, cancellationToken); return ProviderWalletService.ToOperation(row.Wallet, existing); }
         EnsureRowVersion(row.Charge.RowVersion, request.RowVersion);
-        if (row.Charge.StatusCode != "REQUESTED" || row.Wallet.StatusCode != "ACTIVE") throw WalletOperationException("ADMIN_WALLET_CHARGE_STATE_INVALID", "충전을 확정할 수 있는 상태가 아닙니다.", StatusCodes.Status409Conflict);
+        if (row.Charge.StatusCode != "REQUESTED" || row.Wallet.StatusCode != "ACTIVE") throw WalletOperationException("ADMIN_WALLET_CHARGE_STATE_INVALID", "결제를 확정할 수 있는 상태가 아닙니다.", StatusCodes.Status409Conflict);
         await using var transaction = await walletService.BeginTransactionAsync(cancellationToken); var now = DateTime.UtcNow;
         var before = row.Wallet.AvailableBalance; row.Wallet.AvailableBalance += row.Charge.RequestedAmount; row.Wallet.UpdatedAt = now; row.Wallet.UpdatedByUserId = actor;
         var ledger = walletService.AddLedger(row.Wallet, null, "CHARGE", row.Charge.RequestedAmount, $"CHARGE:{row.Charge.PublicId:N}",
-            row.Charge.RequestReason ?? "개발용 수동 충전 확인", "CHARGE_REQUEST", row.Charge.PublicId, row.Charge.PaymentMethodCode, now, actor);
+            row.Charge.RequestReason ?? "개발용 수동 결제 확인", "CHARGE_REQUEST", row.Charge.PublicId, row.Charge.PaymentMethodCode, now, actor);
         await walletService.SaveWithConcurrencyAsync(cancellationToken);
         row.Charge.StatusCode = "SUCCEEDED"; row.Charge.CompletedAt = now; row.Charge.LedgerEntryId = ledger.Id; row.Charge.UpdatedAt = now; row.Charge.UpdatedByUserId = actor;
         AddAudit(row.Wallet, actor, "WALLET_DEVELOPMENT_CHARGE_CONFIRMED", row.Charge.RequestReason, before, row.Wallet.AvailableBalance, row.Charge.RequestedAmount, row.Charge.PublicId);
@@ -149,7 +149,7 @@ public sealed class AdminWalletService(SoodalLifeDbContext dbContext, ProviderWa
         var direction = request.DirectionCode.Trim().ToUpperInvariant(); var signed = direction switch { "INCREASE" => request.Amount, "DECREASE" => -request.Amount, _ => throw WalletOperationException("ADMIN_WALLET_ADJUST_DIRECTION_INVALID", "증가 또는 감소를 선택해 주세요.") };
         var existing = await walletService.ExistingOperationAsync(request.IdempotencyKey, wallet.Id, "ADJUST", signed, wallet.PublicId, cancellationToken); if (existing is not null) return existing;
         EnsureRowVersion(wallet.RowVersion, request.RowVersion);
-        if (wallet.AvailableBalance + signed < 0) throw WalletOperationException("WALLET_INSUFFICIENT_BALANCE", "조정할 충전금 잔액이 부족합니다.", StatusCodes.Status409Conflict);
+        if (wallet.AvailableBalance + signed < 0) throw WalletOperationException("WALLET_INSUFFICIENT_BALANCE", "조정할 이용료 잔액이 부족합니다.", StatusCodes.Status409Conflict);
         var now = DateTime.UtcNow; var before = wallet.AvailableBalance; wallet.AvailableBalance += signed; wallet.UpdatedAt = now; wallet.UpdatedByUserId = actor;
         var ledger = walletService.AddLedger(wallet, null, "ADJUST", signed, request.IdempotencyKey, reason, "ADMIN_ADJUSTMENT", wallet.PublicId, null, now, actor);
         AddAudit(wallet, actor, "WALLET_ADMIN_ADJUSTED", reason, before, wallet.AvailableBalance, signed, ledger.PublicId);
@@ -252,7 +252,7 @@ public sealed class AdminWalletService(SoodalLifeDbContext dbContext, ProviderWa
     private async Task<decimal> LedgerSum(string type, DateTime from, DateTime to, CancellationToken token) => await dbContext.WalletLedgerEntries.Where(value => value.EntryTypeCode == type && value.OccurredAt >= from && value.OccurredAt < to).SumAsync(value => (decimal?)value.Amount, token) ?? 0;
     private async Task<DateTime?> LastLedgerAt(long walletId, string type, CancellationToken token) => await dbContext.WalletLedgerEntries.Where(value => value.WalletId == walletId && value.EntryTypeCode == type).MaxAsync(value => (DateTime?)value.OccurredAt, token);
     private async Task<long> ActorId(Guid publicId, CancellationToken token) => await dbContext.Users.Where(value => value.PublicId == publicId && value.StatusCode == "ACTIVE").Select(value => (long?)value.Id).SingleOrDefaultAsync(token) ?? throw WalletOperationException("ADMIN_USER_NOT_FOUND", "현재 관리자 계정을 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
-    private async Task<ProviderWallet> WalletForProvider(Guid providerId, bool activeOnly, CancellationToken token) => await (from provider in dbContext.ProviderProfiles join wallet in dbContext.ProviderWallets on provider.Id equals wallet.ProviderProfileId where provider.PublicId == providerId && wallet.CurrencyCode == "KRW" && (!activeOnly || wallet.StatusCode == "ACTIVE") select wallet).SingleOrDefaultAsync(token) ?? throw WalletOperationException("ADMIN_WALLET_NOT_FOUND", "사용 가능한 공급자 Wallet을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+    private async Task<ProviderWallet> WalletForProvider(Guid providerId, bool activeOnly, CancellationToken token) => await (from provider in dbContext.ProviderProfiles join wallet in dbContext.ProviderWallets on provider.Id equals wallet.ProviderProfileId where provider.PublicId == providerId && wallet.CurrencyCode == "KRW" && (!activeOnly || wallet.StatusCode == "ACTIVE") select wallet).SingleOrDefaultAsync(token) ?? throw WalletOperationException("ADMIN_WALLET_NOT_FOUND", "사용 가능한 전문가 Wallet을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
     private async Task<(ProviderWallet Wallet, WalletRefundRequest Refund)> RefundForProvider(Guid providerId, Guid refundId, CancellationToken token)
     { var row = await (from provider in dbContext.ProviderProfiles join wallet in dbContext.ProviderWallets on provider.Id equals wallet.ProviderProfileId join refund in dbContext.WalletRefundRequests on wallet.Id equals refund.WalletId where provider.PublicId == providerId && refund.PublicId == refundId select new { wallet, refund }).SingleOrDefaultAsync(token) ?? throw WalletOperationException("ADMIN_WALLET_REFUND_NOT_FOUND", "환불 요청을 찾을 수 없습니다.", StatusCodes.Status404NotFound); return (row.wallet, row.refund); }
     private async Task<decimal> PendingRefundAmount(long walletId, CancellationToken token) => await dbContext.WalletRefundRequests.Where(value => value.WalletId == walletId && OpenRefundStatuses.Contains(value.StatusCode)).SumAsync(value => (decimal?)value.RequestedAmount, token) ?? 0;

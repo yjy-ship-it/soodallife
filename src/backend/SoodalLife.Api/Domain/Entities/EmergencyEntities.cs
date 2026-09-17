@@ -22,6 +22,13 @@ public sealed class ProviderEmergencyServiceSetting
     public long ProviderEmergencySettingId { get; set; }
     public long ProviderServiceCategoryId { get; set; }
     public bool IsEnabled { get; set; }
+    public decimal BaseDispatchFeeAmount { get; set; }
+    public string PaymentModeCode { get; set; } = "ON_SITE";
+    public decimal NoShowFeeAmount { get; set; }
+    public int NoShowWaitMinutes { get; set; } = 10;
+    public bool WorkFeeSeparate { get; set; } = true;
+    public string? AdditionalFeeText { get; set; }
+    public string? PaymentInstructionProtected { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -65,10 +72,44 @@ public sealed class EmergencyResponse
     public int? EtaMinutes { get; set; }
     public DateTime? EstimatedArrivalAt { get; set; }
     public string? ConditionsText { get; set; }
+    public decimal BaseDispatchFeeAmount { get; set; }
+    public string PaymentModeCode { get; set; } = "ON_SITE";
+    public decimal NoShowFeeAmount { get; set; }
+    public int NoShowWaitMinutes { get; set; } = 10;
+    public bool WorkFeeSeparate { get; set; } = true;
+    public string? AdditionalFeeText { get; set; }
     public DateTime RespondedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public DateTime? SelectedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class EmergencyDispatchAgreement
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long TransactionId { get; set; }
+    public decimal BaseDispatchFeeAmount { get; set; }
+    public string PaymentModeCode { get; set; } = "ON_SITE";
+    public string PaymentStatusCode { get; set; } = "ON_SITE_PENDING";
+    public decimal NoShowFeeAmount { get; set; }
+    public int NoShowWaitMinutes { get; set; } = 10;
+    public bool WorkFeeSeparate { get; set; } = true;
+    public string? AdditionalFeeText { get; set; }
+    public string? PaymentInstructionProtected { get; set; }
+    public DateTime TermsAcceptedAt { get; set; }
+    public DateTime? PaymentReportedAt { get; set; }
+    public DateTime? PaymentConfirmedAt { get; set; }
+    public DateTime? ArrivedAt { get; set; }
+    public DateTime? NoShowWaitUntil { get; set; }
+    public string? NoShowStatusCode { get; set; }
+    public DateTime? NoShowReportedAt { get; set; }
+    public long? NoShowReportedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }

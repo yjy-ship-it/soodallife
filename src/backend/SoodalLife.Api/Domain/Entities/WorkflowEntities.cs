@@ -9,6 +9,7 @@ public sealed class ServiceRequest
     public long CategoryPolicyId { get; set; }
     public long? AdministrativeAreaId { get; set; }
     public string? DetailAddress { get; set; }
+    public string DetailAddressDisclosureCode { get; set; } = "AFTER_SELECTION";
     public byte[]? DetailAddressEncrypted { get; set; }
     public short? PrivacyProtectionVersion { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -22,6 +23,11 @@ public sealed class ServiceRequest
     public DateTime? CancelledAt { get; set; }
     public string? CancellationReason { get; set; }
     public string? IdempotencyKey { get; set; }
+    public string? AbuseFingerprint { get; set; }
+    public short? AbusePolicyVersion { get; set; }
+    public DateTime? CustomerQuotesViewedAt { get; set; }
+    public bool AbuseCountExcluded { get; set; }
+    public string? AbuseExclusionReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -223,6 +229,24 @@ public sealed class QuoteItem
     public string? ItemCategoryCode { get; set; }
     public string? MaterialSpecText { get; set; }
     public string? LaborNoteText { get; set; }
+}
+
+public sealed class ProviderQuoteTemplate
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderProfileId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string? Terms { get; set; }
+    public string? EstimatedDurationText { get; set; }
+    public string VatMode { get; set; } = "EXCLUDED";
+    public string ItemsJson { get; set; } = "[]";
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 }
 
 public sealed class TransactionRecord

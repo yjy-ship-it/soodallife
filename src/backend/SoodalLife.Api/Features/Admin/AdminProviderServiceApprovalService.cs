@@ -2,11 +2,12 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Admin;
 
-public sealed class AdminProviderServiceApprovalService(SoodalLifeDbContext dbContext)
+public sealed class AdminProviderServiceApprovalService(SoodalLifeDbContext dbContext, RequestMatchingService matchingService)
 {
     public async Task<IReadOnlyList<AdminProviderServiceApprovalDecisionResponse>?> GetListAsync(Guid providerId, CancellationToken cancellationToken)
     {
@@ -61,7 +62,60 @@ public sealed class AdminProviderServiceApprovalService(SoodalLifeDbContext dbCo
             BeforeJson = JsonSerializer.Serialize(new { ApprovalStatusCode = before }), AfterJson = JsonSerializer.Serialize(new { ApprovalStatusCode = after }),
             MetadataJson = JsonSerializer.Serialize(new { ProviderId = row.Provider.PublicId, ServiceId = row.Category.PublicId, ServiceName = row.Category.Name }) });
         try { await dbContext.SaveChangesAsync(cancellationToken); } catch (DbUpdateConcurrencyException) { throw Conflict(); }
+        await matchingService.RefreshProviderMatchesAsync(row.Provider.Id, cancellationToken);
         return await ToResponseAsync(row.Category.PublicId, row.Approval, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AdminProviderServiceApprovalDecisionResponse>> DecideAllAsync(Guid providerId,
+        AdminProviderServiceBulkApprovalDecisionRequest request, Guid actorId, CancellationToken cancellationToken)
+    {
+        var action = request.ActionCode.Trim().ToUpperInvariant();
+        if (action is not ("APPROVE" or "REJECT")) throw Error("ADMIN_PROVIDER_SERVICE_APPROVAL_ACTION_INVALID", "승인 또는 반려를 선택해 주세요.");
+        var reason = string.IsNullOrWhiteSpace(request.DecisionReason) ? null : request.DecisionReason.Trim();
+        if (action == "REJECT" && reason is null) throw Error("ADMIN_PROVIDER_SERVICE_REJECTION_REASON_REQUIRED", "전체 서비스 반려 사유를 입력해 주세요.");
+        if (reason?.Length > 1000) throw Error("ADMIN_PROVIDER_SERVICE_DECISION_REASON_TOO_LONG", "심사 사유는 1,000자 이하여야 합니다.");
+        if (request.Services is null || request.Services.Count == 0) throw Error("ADMIN_PROVIDER_SERVICE_APPROVAL_EMPTY", "일괄 심사할 서비스가 없습니다.");
+        if (request.Services.Select(value => value.ServiceId).Distinct().Count() != request.Services.Count) throw Error("ADMIN_PROVIDER_SERVICE_APPROVAL_DUPLICATE", "중복된 서비스가 포함되어 있습니다.");
+
+        var tokens = new Dictionary<Guid, byte[]>();
+        try { foreach (var item in request.Services) tokens[item.ServiceId] = Convert.FromBase64String(item.RowVersion); }
+        catch (FormatException) { throw Conflict(); }
+
+        var requestedServiceIds = tokens.Keys.ToArray();
+        var rows = await (from provider in dbContext.ProviderProfiles
+                          join link in dbContext.ProviderServiceCategories on provider.Id equals link.ProviderProfileId
+                          join category in dbContext.ServiceCategories on link.CategoryId equals category.Id
+                          join approval in dbContext.ProviderServiceApprovals on link.Id equals approval.ProviderServiceCategoryId
+                          where provider.PublicId == providerId && link.StatusCode == "ACTIVE" && requestedServiceIds.Contains(category.PublicId)
+                          orderby category.Name
+                          select new { Provider = provider, Link = link, Category = category, Approval = approval }).ToListAsync(cancellationToken);
+        if (rows.Count == 0) throw new AdminServiceCategoryException("ADMIN_PROVIDER_SERVICE_APPROVAL_NOT_FOUND", "일괄 심사할 활성 서비스가 없습니다.", StatusCodes.Status404NotFound);
+        if (rows.Count != tokens.Count || requestedServiceIds.Any(serviceId => !rows.Any(row => row.Category.PublicId == serviceId)))
+            throw Error("ADMIN_PROVIDER_SERVICE_APPROVAL_INCOMPLETE", "화면의 서비스 목록이 최신 상태가 아닙니다. 새로고침 후 다시 시도해 주세요.");
+        if (rows.Any(row => !row.Approval.RowVersion.SequenceEqual(tokens[row.Category.PublicId]))) throw Conflict();
+
+        var actor = await dbContext.Users.Where(value => value.PublicId == actorId && value.StatusCode == "ACTIVE").Select(value => (long?)value.Id).SingleOrDefaultAsync(cancellationToken)
+            ?? throw new AdminServiceCategoryException("ADMIN_USER_NOT_FOUND", "현재 관리자 계정을 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
+        var after = action == "APPROVE" ? "APPROVED" : "REJECTED"; var now = DateTime.UtcNow;
+        foreach (var row in rows)
+        {
+            var before = row.Approval.ApprovalStatusCode; var token = tokens[row.Category.PublicId];
+            row.Approval.ApprovalStatusCode = after; row.Approval.ApprovalDecidedAt = now; row.Approval.ApprovalDecidedByUserId = actor;
+            row.Approval.DecisionReason = reason; row.Approval.UpdatedAt = now; row.Approval.UpdatedByUserId = actor;
+            dbContext.Entry(row.Approval).Property(value => value.RowVersion).OriginalValue = token;
+            dbContext.ProviderServiceApprovalEvents.Add(new ProviderServiceApprovalEvent { ProviderServiceCategoryId = row.Link.Id, FromStatusCode = before,
+                ToStatusCode = after, ActionCode = action, DecisionReason = reason, DecidedAt = now, DecidedByUserId = actor, CreatedAt = now });
+            dbContext.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = actor, ActorRoleCode = RoleCodes.Admin,
+                ActionCode = action == "APPROVE" ? "PROVIDER_SERVICE_BULK_APPROVED" : "PROVIDER_SERVICE_BULK_REJECTED", EntityType = "PROVIDER_SERVICE_APPROVAL",
+                EntityPublicId = row.Approval.PublicId, ResultCode = "SUCCESS", Reason = reason,
+                BeforeJson = JsonSerializer.Serialize(new { ApprovalStatusCode = before }), AfterJson = JsonSerializer.Serialize(new { ApprovalStatusCode = after }),
+                MetadataJson = JsonSerializer.Serialize(new { ProviderId = row.Provider.PublicId, ServiceId = row.Category.PublicId, ServiceName = row.Category.Name, Bulk = true }) });
+        }
+        try { await dbContext.SaveChangesAsync(cancellationToken); } catch (DbUpdateConcurrencyException) { throw Conflict(); }
+        await matchingService.RefreshProviderMatchesAsync(rows[0].Provider.Id, cancellationToken);
+        var result = new List<AdminProviderServiceApprovalDecisionResponse>();
+        foreach (var row in rows) result.Add(await ToResponseAsync(row.Category.PublicId, row.Approval, cancellationToken));
+        return result;
     }
 
     private async Task<AdminProviderServiceApprovalDecisionResponse> ToResponseAsync(Guid serviceId, ProviderServiceApproval approval, CancellationToken cancellationToken)
@@ -73,4 +127,3 @@ public sealed class AdminProviderServiceApprovalService(SoodalLifeDbContext dbCo
     private static AdminServiceCategoryException Error(string code, string message) => new(code, message);
     private static AdminServiceCategoryException Conflict() => new("ADMIN_PROVIDER_SERVICE_APPROVAL_CONFLICT", "다른 관리자가 먼저 심사했습니다. 최신 상태를 다시 확인해 주세요.", StatusCodes.Status409Conflict);
 }
-

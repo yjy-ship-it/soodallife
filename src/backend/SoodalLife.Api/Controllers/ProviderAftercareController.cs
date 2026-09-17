@@ -16,6 +16,8 @@ public sealed class ProviderAftercareController(ProviderAftercareService service
     [HttpPost("after-services/{id:guid}/completion-report")] public Task<ActionResult<ProviderAfterServiceDetail>> Complete(Guid id, ProviderCompleteAfterServiceInput input, CancellationToken token) => Run(() => service.Complete(User, id, input, token));
     [HttpPost("after-services/{id:guid}/evidence"), RequestSizeLimit(10 * 1024 * 1024 + 64 * 1024)]
     public Task<ActionResult<ProviderCaseFile>> AfterServiceEvidence(Guid id, [FromForm] string? role, [FromForm] string? description, [FromForm] IFormFile file, CancellationToken token) => Run(() => service.UploadAfterServiceEvidence(User, id, role, description, file, token));
+    [HttpPost("after-services/{id:guid}/evidence-content"), RequestSizeLimit(15 * 1024 * 1024)]
+    public Task<ActionResult<ProviderCaseFile>> AfterServiceEvidenceContent(Guid id, ProviderAfterServiceEvidenceContentInput input, CancellationToken token) => Run(() => service.UploadAfterServiceEvidenceContent(User, id, input, token));
     [HttpGet("after-services/{id:guid}/files/{fileId:guid}")] public Task<IActionResult> AfterServiceFile(Guid id, Guid fileId, CancellationToken token) => Download(() => service.OpenAfterServiceFile(User, id, fileId, token));
 
     [HttpGet("disputes")] public Task<ActionResult<IReadOnlyList<ProviderDisputeListItem>>> Disputes(CancellationToken token) => Run(() => service.Disputes(User, token));

@@ -124,6 +124,19 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
     }
 
     [Fact]
+    public async Task Address_AllowsOptionalFieldsEmpty_WhenNameAndAreaAreProvided()
+    {
+        var (_, client) = await RegisteredClient();
+        var response = await client.PostAsJsonAsync("/api/v1/customer/account/addresses", new SaveCustomerAddressRequest("우리집", null, null, null, null, factory.Catalog.AreaId, null, null, false, null));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var address = await response.Content.ReadFromJsonAsync<CustomerAddressResponse>();
+        Assert.NotNull(address); Assert.Equal("우리집", address.AddressName); Assert.Equal(string.Empty, address.PostalCode); Assert.Equal(string.Empty, address.RoadAddress); Assert.Equal(string.Empty, address.DetailAddress); Assert.Equal(factory.Catalog.AreaId, address.AdministrativeAreaId);
+
+        var missingArea = await client.PostAsJsonAsync("/api/v1/customer/account/addresses", new SaveCustomerAddressRequest("지역 없음", null, null, null, null, null, null, null, false, null));
+        Assert.Equal(HttpStatusCode.BadRequest, missingArea.StatusCode);
+    }
+
+    [Fact]
     public async Task OtherCustomerAddress_IsHiddenAsNotFound()
     {
         var (_, owner) = await RegisteredClient(); var address = await CreateAddress(owner, "소유자 주소", false);
@@ -326,8 +339,8 @@ public sealed class CustomerAccountApiTests(AuthenticationWebApplicationFactory 
     }
     private async Task<CustomerAddressResponse> CreateAddress(HttpClient client, string name, bool isDefault)
     { var response = await client.PostAsJsonAsync("/api/v1/customer/account/addresses", Address(name, isDefault, null)); response.EnsureSuccessStatusCode(); return (await response.Content.ReadFromJsonAsync<CustomerAddressResponse>())!; }
-    private static SaveCustomerAddressRequest Address(string name, bool isDefault, string? token) => new(name, "홍고객", "12345", "대구광역시 테스트로 1", "101호", null, null, null, isDefault, token);
-    private static RegisterCustomerRequest Registration(string login, string email, List<LegalDocumentResponse> docs, bool optional = false) => new(login, "테스트 고객", email, "010-1234-5678", "Aa!12345678", "Aa!12345678", TestIdentityVerificationAdapter.VerificationToken, docs.Select(x => new RegistrationConsentRequest(x.VersionId, x.RequirementCode == "REQUIRED" || optional)).ToArray());
+    private SaveCustomerAddressRequest Address(string name, bool isDefault, string? token) => new(name, "홍고객", "12345", "대구광역시 테스트로 1", "101호", factory.Catalog.AreaId, null, null, isDefault, token);
+    private static RegisterCustomerRequest Registration(string login, string email, List<LegalDocumentResponse> docs, bool optional = false) => new(login, "테스트 고객", email, $"010-{RandomNumberGenerator.GetInt32(1_000, 10_000)}-{RandomNumberGenerator.GetInt32(1_000, 10_000)}", "Aa!12345678", "Aa!12345678", TestIdentityVerificationAdapter.VerificationToken, docs.Select(x => new RegistrationConsentRequest(x.VersionId, x.RequirementCode == "REQUIRED" || optional)).ToArray());
     private static string Login() => $"c{Guid.NewGuid():N}"[..20];
     private async Task LoginAs(HttpClient client, string role) { var credential = factory.Credentials[role]; (await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(credential.LoginId, credential.Password))).EnsureSuccessStatusCode(); }
     private HttpClient Client() => factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });

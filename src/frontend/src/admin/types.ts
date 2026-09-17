@@ -80,6 +80,7 @@ export interface AdminAnalyticsDashboard {
   attention: AdminAnalyticsAttention[]
   categories: AdminAnalyticsFilterOption[]
   regions: AdminAnalyticsFilterOption[]
+  providers: AdminAnalyticsFilterOption[]
   unavailableMetrics: string[]
   generatedAt: string
 }
@@ -90,4 +91,5 @@ export interface AdminAnalyticsFilters {
   to?: string
   categoryId?: string
   areaId?: string
+  providerId?: string
 }

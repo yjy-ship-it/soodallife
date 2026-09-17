@@ -13,6 +13,10 @@ public sealed record CreateSubscriptionPayoutRequest(Guid MonthlySettlementId,[p
 public sealed record PayoutDecisionRequest(decimal? ApprovedAmount,[param:Required,StringLength(150)]string IdempotencyKey,string RowVersion,string? ExternalPayoutReference=null);
 public sealed record CreateRefundAdjustmentRequest(Guid ContractId,Guid? PaymentRequestId,Guid? VisitId,string TypeCode,decimal RequestedAmount,[param:Required,StringLength(1000)]string Reason,[param:Required,StringLength(150)]string IdempotencyKey);
 public sealed record RefundAdjustmentDecisionRequest(decimal? ApprovedAmount,[param:Required,StringLength(150)]string IdempotencyKey,string RowVersion,string? Reason=null);
+public sealed record CompleteBankTransferPayoutRequest([param:Required,StringLength(100)]string BankTransferReference,[param:Required,StringLength(150)]string IdempotencyKey,string RowVersion,[param:StringLength(1000)]string? Reason=null);
+public sealed record CompleteBillingAuthorizationRequest([param:Required,StringLength(300)]string AuthKey,[param:Required,StringLength(300)]string CustomerKey,bool IsDefault=true);
+public sealed record SubscriptionBillingRegistrationResponse(bool Enabled,string ProviderCode,string ClientKey,string CustomerKey,string SuccessUrl,string FailUrl);
+public sealed record SubscriptionPaymentWebhookRequest(string EventType,string PaymentKey);
 
 public sealed record SubscriptionPaymentMethodResponse(Guid Id,Guid CustomerId,string CustomerName,string PaymentMethodTypeCode,string? ProviderCode,string? MaskedDisplayText,string StatusCode,bool IsDefault,DateTime RegisteredAt,string RowVersion);
 public sealed record SubscriptionPaymentResponse(Guid Id,Guid ContractId,string ContractNumber,string CustomerName,string ServiceName,DateOnly BillingPeriodStart,DateOnly BillingPeriodEnd,decimal RequestedAmount,string CurrencyCode,string StatusCode,string? PaymentMethodDisplay,DateTime RequestedAt,DateTime? CompletedAt,string? FailureReason,string RowVersion);
@@ -34,12 +38,18 @@ public interface ISubscriptionSettlementFeeCalculator
     SubscriptionFeeCalculationResult Calculate(string? policySnapshotJson,decimal? grossAmount);
 }
 
+public sealed record SubscriptionGatewayPaymentResult(string PaymentKey,string? TransactionKey);
+public sealed record SubscriptionGatewayBillingKeyResult(string BillingKey,string MethodType,string MaskedDisplayText);
+public sealed record SubscriptionGatewayPaymentStatus(string PaymentKey,string OrderId,string Status,decimal TotalAmount,decimal BalanceAmount);
+
 public interface ISubscriptionPaymentGateway
 {
-    Task<string> CreatePayment(CancellationToken cancellationToken);
-    Task ConfirmPayment(string externalReference,CancellationToken cancellationToken);
-    Task CancelPayment(string externalReference,CancellationToken cancellationToken);
-    Task RefundPayment(string externalReference,decimal amount,CancellationToken cancellationToken);
+    Task<SubscriptionGatewayBillingKeyResult> IssueBillingKeyAsync(string providerCode,string authKey,string customerKey,string idempotencyKey,CancellationToken cancellationToken);
+    Task<SubscriptionGatewayPaymentResult> ChargeRecurringAsync(string providerCode,string billingKey,string customerKey,string orderId,string orderName,decimal amount,string currencyCode,string idempotencyKey,CancellationToken cancellationToken);
+    Task<SubscriptionGatewayPaymentStatus> GetPaymentAsync(string providerCode,string paymentKey,CancellationToken cancellationToken);
+    Task<SubscriptionGatewayPaymentStatus> GetPaymentByOrderIdAsync(string providerCode,string orderId,CancellationToken cancellationToken);
+    Task CancelBillingKeyAsync(string providerCode,string billingKey,string idempotencyKey,CancellationToken cancellationToken);
+    Task<SubscriptionGatewayPaymentResult> RefundPaymentAsync(string providerCode,string paymentKey,decimal amount,string reason,string idempotencyKey,CancellationToken cancellationToken);
 }
 
 public interface ISubscriptionPayoutGateway

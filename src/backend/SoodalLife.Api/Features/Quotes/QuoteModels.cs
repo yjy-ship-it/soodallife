@@ -24,7 +24,14 @@ public sealed record SaveQuoteRevisionInput(
     string? RevisionReason,
     string IdempotencyKey,
     IReadOnlyList<QuoteItemInput> Items,
-    string? RevisionPurposeCode = null);
+    string? RevisionPurposeCode = null,
+    string? VatMode = null);
+
+public sealed record SaveQuoteTemplateInput(string Name, string Summary, string? Terms, string? EstimatedDurationText,
+    string VatMode, IReadOnlyList<QuoteItemInput> Items);
+
+public sealed record ProviderQuoteTemplateResponse(Guid Id, string Name, string Summary, string? Terms,
+    string? EstimatedDurationText, string VatMode, IReadOnlyList<QuoteItemInput> Items, DateTime UpdatedAt);
 
 public sealed record QuoteItemResponse(
     int LineNo,
@@ -75,6 +82,7 @@ public sealed record QuoteListItemResponse(
     Guid Id,
     Guid RequestId,
     string RequestTitle,
+    string Domain,
     string CategoryPath,
     string ProviderName,
     string Status,

@@ -39,12 +39,22 @@ public sealed record AdminServiceCategoryDetailResponse(
     Guid MajorId,
     string MajorName,
     Guid MiddleId,
-    string MiddleName);
+    string MiddleName,
+    string? SearchKeywordsText,
+    string? SearchSlug,
+    string? SeoTitle,
+    string? SeoDescription,
+    bool IsSearchIndexable);
 
 public sealed record UpdateAdminServiceCategoryRequest(
     [param: Required, StringLength(200, MinimumLength = 1)] string Name,
     [param: Required, StringLength(20)] string StatusCode,
-    [param: Range(0, int.MaxValue)] int SortOrder);
+    [param: Range(0, int.MaxValue)] int SortOrder,
+    [param: StringLength(2000)] string? SearchKeywordsText,
+    [param: StringLength(220)] string? SearchSlug,
+    [param: StringLength(200)] string? SeoTitle,
+    [param: StringLength(500)] string? SeoDescription,
+    bool IsSearchIndexable = true);
 
 public sealed class AdminServiceCategoryException(
     string businessCode,

@@ -1,0 +1,26 @@
+export interface AdvertisingRate { id:string;placementId:string;placementCode:string;placementName:string;placementDescription:string|null;durationDays:number;fixedAmount:number;provinceUnitAmount:number;districtUnitAmount:number;regionalFeeCapAmount:number;currencyCode:string;effectiveFrom:string;effectiveTo:string|null;isActive:boolean }
+export interface AdvertisingTarget { id:string;name:string;levelCode:string;parentName:string|null }
+export interface AdvertisingAreaGroup { id:string;name:string;districts:{id:string;name:string}[] }
+export interface AdvertisingApplication { id:string;campaignId:string;campaignName:string;providerName:string;placementCode:string;placementName:string;durationDays:number;baseFeeAmount:number;regionalFeeAmount:number;feeAmount:number;provinceTargetCount:number;districtTargetCount:number;currencyCode:string;statusCode:string;feeStatusCode:string;autoRenewEnabled:boolean;autoRenewStatusCode:string;nextRenewalAt:string|null;renewalConsentRequired:boolean;renewalConsentFeeAmount:number|null;renewalCycleNo:number;lastRenewedAt:string|null;startAt:string;endAt:string;title:string;subtitle:string|null;bodyText:string|null;buttonText:string|null;destinationTypeCode:string;destinationValue:string|null;supplementNote:string|null;rejectionReason:string|null;submittedAt:string;resubmittedAt:string|null;approvedAt:string|null;publishedAt:string|null;categories:AdvertisingTarget[];areas:AdvertisingTarget[] }
+export interface AdvertisingPolicyGuide { billingModel:string;billingTiming:string;vatTreatment:string;workflow:string[];refundRules:string[] }
+export interface AdvertisingApplicationPayload { ratePolicyId:string;campaignName:string;startAt:string;title:string;subtitle:string|null;bodyText:string|null;buttonText:string|null;destinationTypeCode:string;destinationValue:string|null;categoryIds:string[];areaIds:string[];autoRenewEnabled:boolean;supplementNote:string|null }
+export interface AdvertisingRenewalHistory { id:string;cycleNo:number;dueAt:string;baseFeeAmount:number;regionalFeeAmount:number;feeAmount:number;currencyCode:string;statusCode:string;noticeSentAt:string|null;processedAt:string|null;failureReason:string|null }
+
+async function request<T>(path:string,init?:RequestInit):Promise<T>{const response=await fetch(path,{credentials:'include',headers:init?.body?{'Content-Type':'application/json'}:undefined,...init});if(!response.ok){let message='광고 신청을 처리하지 못했습니다.';try{const body=await response.json() as {message?:string};if(body.message)message=body.message}catch{/* 공통 안내 */}throw new Error(message)}return response.status===204?undefined as T:response.json() as Promise<T>}
+const providerRoot='/api/v1/providers/me/advertising-campaigns',adminRoot='/api/v1/admin/provider-campaigns'
+export const getProviderAdvertisingRates=()=>request<AdvertisingRate[]>(`${providerRoot}/rates`)
+export const getProviderAdvertisingAreas=()=>request<AdvertisingAreaGroup[]>(`${providerRoot}/areas`)
+export const getProviderAdvertisingGuide=()=>request<AdvertisingPolicyGuide>(`${providerRoot}/policy-guide`)
+export const getProviderAdvertisingApplications=()=>request<{items:AdvertisingApplication[]}>(providerRoot)
+export const applyProviderAdvertising=(value:AdvertisingApplicationPayload)=>request<AdvertisingApplication>(providerRoot,{method:'POST',body:JSON.stringify(value)})
+export const resubmitProviderAdvertising=(id:string,value:AdvertisingApplicationPayload)=>request<AdvertisingApplication>(`${providerRoot}/${id}/resubmit`,{method:'PUT',body:JSON.stringify(value)})
+export const cancelProviderAdvertising=(id:string)=>request<AdvertisingApplication>(`${providerRoot}/${id}/cancel`,{method:'POST'})
+export const setProviderAdvertisingAutoRenew=(id:string,enabled:boolean)=>request(`${providerRoot}/${id}/auto-renew`,{method:'PATCH',body:JSON.stringify({enabled})})
+export const consentProviderAdvertisingRenewal=(id:string)=>request(`${providerRoot}/${id}/renewal-consent`,{method:'POST'})
+export const getProviderAdvertisingRenewals=(id:string)=>request<AdvertisingRenewalHistory[]>(`${providerRoot}/${id}/renewals`)
+export const getAdminProviderAdvertisingRates=()=>request<AdvertisingRate[]>(`${adminRoot}/rates`)
+export const getAdminProviderAdvertisingGuide=()=>request<AdvertisingPolicyGuide>(`${adminRoot}/policy-guide`)
+export const updateAdminProviderAdvertisingRate=(id:string,value:{fixedAmount:number;provinceUnitAmount:number;districtUnitAmount:number;regionalFeeCapAmount:number;isActive:boolean;effectiveFrom:string;effectiveTo:string|null})=>request<AdvertisingRate>(`${adminRoot}/rates/${id}`,{method:'PUT',body:JSON.stringify(value)})
+export const getAdminProviderAdvertisingApplications=(status='',search='')=>request<{items:AdvertisingApplication[]}>(`${adminRoot}?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`)
+export const reviewAdminProviderAdvertising=(id:string,actionCode:'APPROVE'|'REJECT',reason:string|null)=>request<AdvertisingApplication>(`${adminRoot}/${id}/review`,{method:'POST',body:JSON.stringify({actionCode,reason})})
+export const publishAdminProviderAdvertising=(id:string,note:string|null)=>request<AdvertisingApplication>(`${adminRoot}/${id}/publish`,{method:'POST',body:JSON.stringify({note})})

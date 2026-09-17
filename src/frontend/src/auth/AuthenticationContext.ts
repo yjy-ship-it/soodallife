@@ -1,12 +1,12 @@
 import { createContext, useContext } from 'react'
-import type { AuthenticatedUser } from './types'
+import type { AuthenticatedUser, RoleCode } from './types'
 
 export type AuthenticationStatus = 'loading' | 'authenticated' | 'anonymous'
 
 export interface AuthenticationContextValue {
   status: AuthenticationStatus
   user: AuthenticatedUser | null
-  login: (loginOrEmail: string, password: string) => Promise<AuthenticatedUser>
+  login: (loginOrEmail: string, password: string, requiredRole?: RoleCode, mfaCode?: string, rememberMe?: boolean) => Promise<AuthenticatedUser>
   refresh: () => Promise<AuthenticatedUser>
   logout: () => Promise<void>
 }

@@ -10,14 +10,14 @@ const roleContent: Record<RoleCode, { eyebrow: string; title: string; descriptio
     description: '서비스 요청과 진행 현황을 한곳에서 확인할 수 있는 고객 대시보드가 준비됩니다.',
   },
   PROVIDER: {
-    eyebrow: 'PROVIDER',
-    title: '공급자 홈',
-    description: '배포된 요청과 견적, 작업 일정을 관리하는 공급자 대시보드가 준비됩니다.',
+    eyebrow: 'EXPERT',
+    title: '전문가 홈',
+    description: '배포된 요청과 견적, 작업 일정을 관리하는 전문가 대시보드가 준비됩니다.',
   },
   ADMIN: {
     eyebrow: 'ADMIN',
     title: '관리자 홈',
-    description: '공급자 승인과 서비스 운영 현황을 관리하는 관리자 대시보드가 준비됩니다.',
+    description: '전문가 승인과 서비스 운영 현황을 관리하는 관리자 대시보드가 준비됩니다.',
   },
 }
 
@@ -38,7 +38,7 @@ export function RoleHomePage({ role }: { role: RoleCode }) {
           <button type="button" onClick={() => navigate('/customer/transactions')}><strong>내 거래</strong><span>작업 진행과 완료 내용을 확인합니다.</span></button>
         </> : role === 'PROVIDER' ? <>
           <button type="button" onClick={() => navigate('/provider/services')}><strong>서비스 설정</strong><span>제공할 실제 하위 서비스를 선택합니다.</span></button>
-          <button type="button" onClick={() => navigate('/provider/areas')}><strong>출장지역 설정</strong><span>서비스별 시·군·구 출장지역을 저장합니다.</span></button>
+          <button type="button" onClick={() => navigate('/provider/areas')}><strong>출장지역 설정</strong><span>중분류별 시·군·구 출장지역을 저장합니다.</span></button>
           <button type="button" onClick={() => navigate('/provider/matched-requests')}><strong>받은 요청</strong><span>나에게 실제 배포된 고객 요청을 확인합니다.</span></button>
           <button type="button" onClick={() => navigate('/provider/work')}><strong>내 작업</strong><span>작업을 시작하고 완료 증빙을 제출합니다.</span></button>
         </> : <>
@@ -56,7 +56,7 @@ export function RoleSelectionPage() {
   return (
     <AuthenticatedLayout>
       <section className="heroCard compactHero">
-        <p className="eyebrow">SELECT ROLE</p>
+        <p className="eyebrow">이용 유형 선택</p>
         <h1>사용할 역할을 선택하세요</h1>
         <p>하나의 계정에 부여된 역할별 화면과 권한은 서로 분리됩니다.</p>
       </section>
@@ -64,7 +64,7 @@ export function RoleSelectionPage() {
         {user?.roles.map((role) => (
           <button key={role} type="button" onClick={() => navigate(roleHomePaths[role])}>
             <span>{roleContent[role].title}</span>
-            <small>{role}</small>
+            <small>{roleContent[role].eyebrow}</small>
           </button>
         ))}
       </section>

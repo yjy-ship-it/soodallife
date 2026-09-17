@@ -6,7 +6,8 @@ using SoodalLife.Api.Features.CustomerAccounts;
 namespace SoodalLife.Api.Controllers;
 
 [ApiController, AllowAnonymous, Route("api/v1/public/customer-account")]
-public sealed class PublicCustomerAccountController(CustomerAccountService service, IIdentityVerificationAdapter verification) : ControllerBase
+public sealed class PublicCustomerAccountController(CustomerAccountService service, IIdentityVerificationAdapter verification,
+    IWebHostEnvironment environment, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("availability/login-id")]
     public Task<ActionResult> LoginId([FromQuery] string value, CancellationToken token) => Run(async () => await service.LoginIdAvailable(value, token));
@@ -21,7 +22,18 @@ public sealed class PublicCustomerAccountController(CustomerAccountService servi
     public Task<ActionResult> Documents(CancellationToken token) => Run(async () => await service.ActiveDocuments(token));
 
     [HttpGet("identity-verification/status")]
-    public Task<IdentityVerificationStatus> Verification(CancellationToken token) => verification.GetStatusAsync(token);
+    public Task<IdentityVerificationStatus> Verification(CancellationToken token) =>
+        environment.IsDevelopment() || configuration.GetValue<bool>("Prelaunch:AllowPhoneDuplicateCheckOnly")
+        ? Task.FromResult(new IdentityVerificationStatus("DUPLICATE_CHECK_ONLY", false))
+        : verification.GetStatusAsync(token);
+
+    [HttpPost("identity-verification/test-complete")]
+    public ActionResult<NiceTestVerificationResponse> TestVerification(NiceTestVerificationRequest input)
+    {
+        if (verification is not INiceTestVerificationIssuer issuer) return NotFound();
+        try { return Ok(issuer.Issue(input.Phone, input.TestCode)); }
+        catch (InvalidOperationException) { return StatusCode(StatusCodes.Status403Forbidden, ApiErrorResponse.Create(HttpContext, "NICE_TEST_DISABLED", "테스트 본인인증을 사용할 수 없습니다.")); }
+    }
 
     [HttpPost("register")]
     public Task<ActionResult> Register(RegisterCustomerRequest input, CancellationToken token) => Run(async () => await service.Register(input, HttpContext, token));

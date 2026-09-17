@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type PropsWithChildren,
@@ -12,12 +13,13 @@ import { loadDefaultAddress } from "./defaultAddress";
 import { customerAccountApi } from "./accountApi";
 import type { AdministrativeArea } from "./accountTypes";
 import { careApi } from "./careApi";
+import { openBusinessChat } from "../chat/chatApi";
 import { interiorApi } from "./interiorApi";
 import type {
+  BillingRegistration,
   CareApplication,
   CareContract,
   CareHome,
-  CareProduct,
   CareRequest,
   CareVisit,
   CareVisitDetail,
@@ -26,6 +28,13 @@ import type {
   SubscriptionService,
 } from "./careTypes";
 import "./customerCare.css";
+import "./customerCareVisuals.css";
+import { soodalConfirm, soodalPrompt } from '../components/soodalDialog'
+import { ServiceThumbnail, useServiceVisualSettings } from '../serviceVisuals/ServiceVisual'
+type TossPaymentClient={requestBillingAuth:(input:{method:'CARD';successUrl:string;failUrl:string})=>Promise<void>}
+type TossPaymentsFactory=(clientKey:string)=>{payment:(input:{customerKey:string})=>TossPaymentClient}
+declare global{interface Window{TossPayments?:TossPaymentsFactory}}
+const loadTossPayments=async()=>{if(window.TossPayments)return window.TossPayments;await new Promise<void>((resolve,reject)=>{const existing=document.querySelector<HTMLScriptElement>('script[data-soodal-toss]');if(existing){existing.addEventListener('load',()=>resolve(),{once:true});existing.addEventListener('error',()=>reject(new Error('결제창을 불러오지 못했습니다.')),{once:true});return}const script=document.createElement('script');script.src='https://js.tosspayments.com/v2/standard';script.async=true;script.dataset.soodalToss='true';script.onload=()=>resolve();script.onerror=()=>reject(new Error('결제창을 불러오지 못했습니다.'));document.head.appendChild(script)});if(!window.TossPayments)throw new Error('결제창을 초기화하지 못했습니다.');return window.TossPayments}
 const money = (value: number | null, currency = "KRW") =>
   value == null
     ? "정책/제안 확인"
@@ -39,6 +48,12 @@ const date = (value: string | null) =>
     : "—";
 const message = (reason: unknown) =>
   reason instanceof Error ? reason.message : "요청을 처리하지 못했습니다.";
+const sortSubscriptionServices = (items: SubscriptionService[]) =>
+  [...items].sort((left, right) =>
+    left.majorName.localeCompare(right.majorName, "ko-KR") ||
+    left.middleName.localeCompare(right.middleName, "ko-KR") ||
+    left.serviceName.localeCompare(right.serviceName, "ko-KR"),
+  );
 const online = () => {
   if (!navigator.onLine)
     throw new Error(
@@ -52,24 +67,122 @@ const frequency = (value: string) =>
     MONTHLY: "월간",
     QUARTERLY: "분기",
     HALF_YEARLY: "반기",
-  })[value] ?? value;
+  })[value] ?? "반복주기 확인";
+const weekdayNames = ["일", "월", "화", "수", "목", "금", "토"];
+const amountDigits = (value: string) => value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+const recurrenceSummary = (rule: { frequencyTypeCode: string; intervalValue: number; weekdays?: number[] | null }) => {
+  const days = (rule.weekdays ?? []).map((day) => weekdayNames[day]).filter(Boolean);
+  if (rule.frequencyTypeCode === "WEEKLY") return `${rule.intervalValue === 1 ? "매주" : `${rule.intervalValue}주마다`} · ${days.join("·") || "요일 미선택"} · 주 ${days.length}회`;
+  if (rule.frequencyTypeCode === "BIWEEKLY") return `${rule.intervalValue === 1 ? "격주" : `${rule.intervalValue * 2}주마다`} · ${days.join("·") || "요일 미선택"} · 해당 주 ${days.length}회`;
+  return `${frequency(rule.frequencyTypeCode)} · ${rule.intervalValue === 1 ? "매 주기" : `${rule.intervalValue}주기마다`}`;
+};
+const calendarDate = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-");
+  return year && month && day ? `${year}년 ${Number(month)}월 ${Number(day)}일` : value;
+};
+const clockTime = (value: unknown) => typeof value === "string" && value
+  ? value.slice(0, 5)
+  : null;
+const careStatusLabel = (code: string) => ({
+  OPEN: "전문가 모집 중", DRAFT: "작성 중", CONTRACTED: "계약 완료", CANCELLED: "취소",
+  EXPIRED: "모집 종료", CLOSED: "모집 종료", SUBMITTED: "제안 제출", SELECTED: "선택 완료",
+  NOT_SELECTED: "미선택", WITHDRAWN: "철회", PAYMENT_PENDING: "첫 결제 대기", ACTIVE: "이용 중",
+  PAUSED: "일시정지", TERMINATION_REQUESTED: "해지 처리 중", TERMINATED: "해지 완료",
+  SCHEDULED: "방문 예정", RESCHEDULED: "일정 변경 완료", IN_PROGRESS: "작업 중",
+  PROVIDER_COMPLETED: "완료 확인 대기", COMPLETED: "완료", SKIPPED: "건너뜀",
+  DISPUTED: "분쟁 확인 중", REQUESTED: "요청", APPROVED: "승인", REJECTED: "반려",
+} as Record<string, string>)[code] ?? "상태 확인 중";
+const requestStatus = (code: string, selected: boolean) => selected ? "전문가 선택·계약 완료" : careStatusLabel(code);
+const parseSnapshot = (raw: string): unknown => {
+  let value: unknown = raw;
+  for (let attempt = 0; attempt < 4 && typeof value === "string"; attempt += 1) {
+    const text = value.trim();
+    if (!text || (!text.startsWith("{") && !text.startsWith("["))) break;
+    try { value = JSON.parse(text); } catch { break; }
+  }
+  return value;
+};
+const snapshotObject = (value: unknown): Record<string, unknown> | null =>
+  value != null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+const snapshotField = (value: Record<string, unknown> | null, ...names: string[]) => {
+  if (!value) return undefined;
+  const key = Object.keys(value).find((item) => names.some((name) => item.toLowerCase() === name.toLowerCase()));
+  return key ? value[key] : undefined;
+};
+const scopeSnapshot = (raw: string) => {
+  let root = snapshotObject(parseSnapshot(raw));
+  const nested = parseSnapshot(String(snapshotField(root, "requested") ?? ""));
+  const nestedObject = snapshotObject(nested);
+  if (nestedObject && ["requested", "proposed", "product"].some((key) => snapshotField(nestedObject, key) !== undefined)) root = nestedObject;
+  const text = (name: string) => {
+    const value = snapshotField(root, name);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  };
+  return { requested: text("requested"), proposed: text("proposed"), product: text("product") };
+};
+const recurrenceSnapshot = (raw: string) => snapshotObject(parseSnapshot(raw));
+function CareContractSummaryCard({ item }: { item: CareContract }) {
+  const rule = recurrenceSnapshot(item.recurrenceSnapshotJson);
+  const ruleValue = (...names: string[]) => snapshotField(rule, ...names);
+  const weekdays = Array.isArray(ruleValue("Weekdays")) ? (ruleValue("Weekdays") as unknown[]).map(Number).filter((value) => Number.isInteger(value) && value >= 0 && value <= 6) : [];
+  const frequencyCode = String(ruleValue("FrequencyTypeCode") ?? "");
+  const interval = Number(ruleValue("IntervalValue") ?? 1);
+  const duration = Number(ruleValue("ExpectedDurationMinutes") ?? 0);
+  const timeFrom = clockTime(ruleValue("PreferredTimeFrom"));
+  const timeTo = clockTime(ruleValue("PreferredTimeTo"));
+  const endDate = typeof ruleValue("EndDate") === "string" ? String(ruleValue("EndDate")) : null;
+  const requestedAmount = item.requestPriceNegotiable
+    ? "금액 협의"
+    : item.requestedMonthlyAmount != null
+      ? `월 ${money(item.requestedMonthlyAmount)}`
+      : item.requestedVisitAmount != null
+        ? `회차 ${money(item.requestedVisitAmount)}`
+        : "희망 금액 미입력";
+  return (
+    <button className="careContractSummaryCard" onClick={() => navigate(`/customer/care/contracts/${item.id}`)}>
+      <header><span>{item.contractNumber}</span><b>{item.statusDisplay}</b></header>
+      <strong>{item.serviceName}</strong>
+      <p>{item.requestedScope || scopeSnapshot(item.serviceScopeSnapshotJson).requested || "요청 내용 없음"}</p>
+      <dl>
+        <div><dt>서비스 지역</dt><dd>{item.requestAreaName}</dd></div>
+        <div><dt>고객 희망 비용</dt><dd>{requestedAmount}</dd></div>
+        <div><dt>반복 주기</dt><dd>{recurrenceSummary({ frequencyTypeCode: frequencyCode, intervalValue: interval, weekdays })}</dd></div>
+        <div><dt>희망 시간</dt><dd>{timeFrom ?? "시간 협의"}{timeTo ? `~${timeTo}` : ""}{duration > 0 ? ` · ${duration}분` : ""}</dd></div>
+        <div><dt>이용 기간</dt><dd>{calendarDate(item.preferredStartDate)} ~ {calendarDate(endDate)}</dd></div>
+        <div><dt>선택한 전문가</dt><dd>{item.providerName}</dd></div>
+      </dl>
+      <footer>다음 방문 {item.nextVisitAt ? date(item.nextVisitAt) : "예정 없음"}</footer>
+    </button>
+  );
+}
+const paymentStatusLabel = (value: string) => ({ REQUESTED: "결제 요청 준비", PROCESSING: "결제 처리 중", COMPLETED: "결제 완료", FAILED: "결제 실패", CANCELLED: "결제 취소", REFUNDED: "환불 완료", PARTIALLY_REFUNDED: "일부 환불" } as Record<string,string>)[value] ?? "상태 확인 중";
+const paymentMethodLabel = (value: string) => ({ CARD: "카드", BANK_TRANSFER: "계좌이체" } as Record<string,string>)[value] ?? "결제수단";
+const paymentProviderLabel = (value: string | null) => value === "TOSS" ? "토스페이먼츠" : value ? "결제기관 연결" : "결제기관 미연결";
+const paymentMethodStatusLabel = (value: string) => ({ ACTIVE: "사용 가능", INACTIVE: "사용 중지", EXPIRED: "사용기간 만료" } as Record<string,string>)[value] ?? "상태 확인 중";
+const refundStatusLabel = (value: string) => ({ REQUESTED: "환불 접수", UNDER_REVIEW: "환불 검토 중", APPROVED: "환불 승인", COMPLETED: "환불 완료", FAILED: "환불 실패", MANUAL_REQUIRED: "관리자 확인 필요", REJECTED: "환불 반려" } as Record<string,string>)[value] ?? "환불 상태 확인 중";
+const refundTypeLabel = (value: string) => ({ FULL: "전액 환불", PARTIAL: "일부 환불", ADJUSTMENT: "금액 조정" } as Record<string,string>)[value] ?? "환불·조정";
 function CareLayout({
   title,
   description,
   children,
 }: PropsWithChildren<{ title: string; description: string }>) {
   const path = window.location.pathname;
+  const visualSettings = useServiceVisualSettings();
   const nav = [
     ["/care", "수달 케어 홈"],
-    ["/customer/care/requests", "구독 요청"],
-    ["/customer/care/contracts", "내 구독"],
+    ["/customer/care/requests", "맞춤 요청"],
+    ["/customer/care/contracts", "내 케어"],
     ["/customer/care/visits", "회차"],
     ["/customer/care/payments", "결제"],
   ];
   return (
     <CustomerAppLayout>
-      <section className="careHero">
-        <p>SOODAL CARE</p> <h1>{title}</h1> <span>{description}</span>
+      <section className={`careHero${visualSettings.bannersEnabled ? " hasFeatureBanner" : ""}`}>
+        {visualSettings.bannersEnabled && <img src="/service-visuals/feature-banners/care.webp" alt="" aria-hidden="true" />}
+        <p>수달 케어</p> <h1>{title}</h1> <span>{description}</span>
       </section>
       <div className="careShell">
         <nav aria-label="수달 케어 메뉴">
@@ -97,15 +210,11 @@ export function CustomerCareHomePage() {
   const { user } = useAuthentication();
   const customer = user?.roles.includes("CUSTOMER") ?? false;
   const [services, setServices] = useState<SubscriptionService[]>([]);
-  const [products, setProducts] = useState<CareProduct[]>([]);
   const [home, setHome] = useState<CareHome | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    Promise.all([careApi.services(), careApi.products()])
-      .then(([a, b]) => {
-        setServices(a);
-        setProducts(b);
-      })
+    careApi.services()
+      .then((items) => setServices(sortSubscriptionServices(items)))
       .catch((reason) => setError(message(reason)));
     if (customer)
       careApi
@@ -113,38 +222,36 @@ export function CustomerCareHomePage() {
         .then(setHome)
         .catch(() => undefined);
   }, [customer]);
-  const start = (serviceId?: string, productId?: string) => {
-    const target = `/customer/care/request/new?${new URLSearchParams({ ...(serviceId ? { serviceId } : {}), ...(productId ? { productId } : {}) })}`;
+  const start = (serviceId?: string) => {
+    const target = `/customer/care/request/new?${new URLSearchParams({ ...(serviceId ? { serviceId } : {}) })}`;
     navigate(customer ? target : createLoginPath(target));
   };
   return (
     <CareLayout
       title="반복해서 필요한 생활서비스"
-      description="허용된 서비스와 본사 표준상품을 확인하고 내 일정에 맞춰 신청하세요."
+      description="필요한 서비스와 방문 조건을 직접 적으면 승인 전문가가 맞춤 조건을 제안합니다."
     >
       {error && <p className="careError">{error}</p>}
       <section className="careIntro">
         <div>
-          <h2>한 번 신청하고, 회차마다 확인</h2>
+          <h2>내 생활에 맞춘 케어를 요청하세요</h2>
           <p>
-            지원 공급자 비교부터 일정 변경, 완료확인과 사후관리까지 한 흐름으로
+            지원 전문가 비교부터 일정 변경, 완료확인과 사후관리까지 한 흐름으로
             이어집니다.
           </p>
-          <button onClick={() => start()}>주문형 구독 신청</button>
+          <button onClick={() => start()}>맞춤 케어 요청</button>
         </div>
         <dl>
           <div>
             <dt>대상 서비스</dt> <dd>{services.length}</dd>
           </div>
-          <div>
-            <dt>표준상품</dt> <dd>{products.length}</dd>
-          </div>
+          <div><dt>신청 방식</dt><dd>맞춤 요청</dd></div>
           {customer && (
             <>
-              <div>
-                <dt>내 구독</dt> <dd>{home?.activeContractCount ?? 0}</dd>
+              <div className="careIntroMetricLink" role="link" tabIndex={0} onClick={() => navigate("/customer/care/contracts")} onKeyDown={(event)=>{if(event.key==='Enter')navigate("/customer/care/contracts")}}>
+                <dt>내 케어</dt> <dd>{home?.activeContractCount ?? 0}</dd>
               </div>
-              <div>
+              <div className="careIntroMetricLink" role="link" tabIndex={0} onClick={() => navigate("/customer/care/visits")} onKeyDown={(event)=>{if(event.key==='Enter')navigate("/customer/care/visits")}}>
                 <dt>진행 회차</dt> <dd>{home?.upcomingVisitCount ?? 0}</dd>
               </div>
             </>
@@ -162,12 +269,12 @@ export function CustomerCareHomePage() {
           <div>
             {[
               [
-                "구독 요청",
+                "맞춤 요청",
                 home?.openRequestCount ?? 0,
                 "/customer/care/requests",
               ],
               [
-                "이용 중 구독",
+                "내 케어",
                 home?.activeContractCount ?? 0,
                 "/customer/care/contracts",
               ],
@@ -177,7 +284,7 @@ export function CustomerCareHomePage() {
                 "/customer/care/visits",
               ],
               [
-                "구독 알림",
+                "케어 알림",
                 home?.unreadNotificationCount ?? 0,
                 "/customer/notifications",
               ],
@@ -195,27 +302,24 @@ export function CustomerCareHomePage() {
       <section className="careSection">
         <header>
           <div>
-            <p>HOW TO CHOOSE</p> <h2>주문형과 표준상품, 무엇이 다른가요?</h2>
-            <span>
-              현재 주문형 대상 서비스는 {services.length}개이며 판매 중인
-              표준상품은 {products.length}개입니다.
-            </span>
+            <p>맞춤 케어</p> <h2>맞춤 케어 요청은 이렇게 진행됩니다</h2>
+            <span>현재 맞춤 케어를 요청할 수 있는 서비스는 {services.length}개입니다.</span>
           </div>
         </header>
         <div className="careProductGrid">
           <article>
-            <span>필요한 조건을 직접 정하는 방식</span> <h3>주문형 구독</h3>
+            <span>고객이 필요한 조건을 직접 등록</span> <h3>맞춤 케어 요청</h3>
             <p>
               대상 서비스 중 하나를 선택하고 방문주기·작업 범위·희망일정을
-              입력하면, 공급자가 가능한 조건과 금액을 제안합니다.
+              입력하면, 전문가가 가능한 조건과 금액을 제안합니다.
             </p>
-            <button onClick={() => start()}>주문형으로 신청</button>
+            <button onClick={() => start()}>맞춤 케어 요청하기</button>
           </article>
           <article>
-            <span>본사가 미리 구성한 패키지</span> <h3>표준상품</h3>
+            <span>승인 전문가가 조건을 확인</span> <h3>맞춤 제안 비교</h3>
             <p>
-              작업 범위·방문 횟수·예상시간·기준금액이 미리 정해진 상품입니다.
-              판매 중인 상품이 등록되면 아래에서 선택할 수 있습니다.
+              전문가가 작업 범위·방문 횟수·가능 일정·월 또는 회차 금액을 제안하면
+              고객이 비교하고 한 명을 선택합니다.
             </p>
           </article>
         </div>
@@ -223,60 +327,18 @@ export function CustomerCareHomePage() {
       <section className="careSection">
         <header>
           <div>
-            <p>STANDARD PRODUCTS</p> <h2>표준상품</h2>
-          </div>
-        </header>
-        <div className="careProductGrid">
-          {products.map((item) => (
-            <article key={item.id}>
-              <span>{item.serviceName}</span> <h3>{item.productName}</h3>
-              <p>{item.description ?? item.serviceScope}</p>
-              <dl>
-                <div>
-                  <dt>방문</dt> <dd>{item.visitsPerPeriod}회</dd>
-                </div>
-                <div>
-                  <dt>예상시간</dt>
-                  <dd>{item.expectedDurationMinutes}분</dd>
-                </div>
-                <div>
-                  <dt>월 금액</dt> <dd>{money(item.monthlyAmount)}</dd>
-                </div>
-                <div>
-                  <dt>회차 금액</dt> <dd>{money(item.visitAmount)}</dd>
-                </div>
-              </dl>
-              <small>
-                적용기간 {item.effectiveFrom} ~
-                {item.effectiveTo ?? "별도 종료일 없음"}
-              </small>
-              <button onClick={() => start(item.serviceCategoryId, item.id)}>
-                이 상품으로 신청
-              </button>
-            </article>
-          ))}
-          {products.length === 0 && (
-            <p className="careEmpty">
-              현재 본사가 등록·활성화한 표준상품이 없습니다. 오류가 아니며,
-              주문형 구독에서 필요한 서비스와 조건을 직접 선택할 수 있습니다.
-            </p>
-          )}
-        </div>
-      </section>
-      <section className="careSection">
-        <header>
-          <div>
-            <p>AVAILABLE SERVICES</p> <h2>구독 대상 서비스</h2>
+            <p>이용 가능 서비스</p> <h2>맞춤 케어 대상 서비스</h2>
           </div>
         </header>
         <div className="careServiceList">
           {services.map((item) => (
             <button onClick={() => start(item.id)} key={item.id}>
-              <span>
-                {item.majorName} · {item.middleName}
+              <ServiceThumbnail name={item.serviceName} className="careServiceThumbnail" />
+              <span className="careServiceCopy">
+                <span>{item.majorName} · {item.middleName}</span>
+                <strong>{item.serviceName}</strong>
+                <small>{item.categoryPath}</small>
               </span>
-              <strong>{item.serviceName}</strong>
-              <small>{item.categoryPath}</small>
             </button>
           ))}
         </div>
@@ -289,35 +351,23 @@ function careScopeSuggestion(service?: SubscriptionService) {
     ? `${service.serviceName} 서비스를 정기적으로 받고 싶습니다. 현장 상태를 확인하고 필요한 작업 범위와 방문 일정을 안내해 주세요.`
     : "";
 }
-function careScopeWithPricePreference(
-  scope: string,
-  consultation: boolean,
-  amount: string,
-) {
-  const pricePreference = consultation
-    ? "희망 비용: 견적상담 후 결정"
-    : `희망 비용: ${Number(amount).toLocaleString()}원`;
-  return `${scope.trim()}\n\n${pricePreference}`;
-}
 export function NewCustomerCareRequestPage() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
+  const requestKey = useRef(`customer-care-request-${crypto.randomUUID()}`);
   const initialService = query.get("serviceId") ?? "";
-  const initialProduct = query.get("productId") ?? "";
   const [services, setServices] = useState<SubscriptionService[]>([]);
-  const [products, setProducts] = useState<CareProduct[]>([]);
   const [sidos, setSidos] = useState<AdministrativeArea[]>([]);
   const [sigungu, setSigungu] = useState<AdministrativeArea[]>([]);
   const [sidoId, setSidoId] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    requestTypeCode: initialProduct ? "STANDARD" : "CUSTOM",
     serviceCategoryId: initialService,
-    careProductId: initialProduct,
     administrativeAreaId: "",
     detailAddress: "",
     requestedScopeText: "",
     priceConsultation: true,
+    desiredAmountType: "MONTHLY",
     desiredAmount: "",
     preferredStartDate: "",
     frequencyTypeCode: "WEEKLY",
@@ -331,14 +381,13 @@ export function NewCustomerCareRequestPage() {
   useEffect(() => {
     Promise.all([
       careApi.services(),
-      careApi.products(),
       customerAccountApi.sidos(),
     ])
-      .then(([a, b, c]) => {
-        setServices(a);
-        setProducts(b);
+      .then(([a, c]) => {
+        const sortedServices = sortSubscriptionServices(a);
+        setServices(sortedServices);
         setSidos(c);
-        const selected = a.find((item) => item.id === initialService);
+        const selected = sortedServices.find((item) => item.id === initialService);
         if (selected)
           setForm((value) => ({
             ...value,
@@ -374,41 +423,38 @@ export function NewCustomerCareRequestPage() {
         setError(message(reason));
       });
   }, [sidoId]);
-  const filtered = products.filter(
-    (item) =>
-      !form.serviceCategoryId ||
-      item.serviceCategoryId === form.serviceCategoryId,
-  );
-  const selectedProduct = products.find(
-    (item) => item.id === form.careProductId,
-  );
-  const standardCareAmount =
-    selectedProduct?.monthlyAmount ?? selectedProduct?.visitAmount ?? null;
+  const selectedService = services.find((item) => item.id === form.serviceCategoryId);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
       online();
+      if (!form.serviceCategoryId) throw new Error("요청할 서비스를 선택해 주세요.");
+      if (!form.administrativeAreaId) throw new Error("서비스를 받을 시·군·구를 선택해 주세요.");
+      if (!form.preferredStartDate) throw new Error("희망 시작일을 선택해 주세요.");
+      if (form.requestedScopeText.trim().length < 20) throw new Error("요청 범위를 20자 이상 입력해 주세요.");
+      if (!form.priceConsultation && Number(form.desiredAmount) < 1) throw new Error("희망 비용을 1원 이상 입력하거나 견적상담 후 결정을 선택해 주세요.");
+      if (form.frequencyTypeCode.includes("WEEK") && form.weekdays.length === 0) throw new Error("방문할 요일을 한 개 이상 선택해 주세요.");
+      if (form.preferredTimeTo && form.preferredTimeTo <= form.preferredTimeFrom) throw new Error("희망 종료시간은 시작시간보다 늦게 선택해 주세요.");
+      if (form.endDate && form.endDate < form.preferredStartDate) throw new Error("종료일은 희망 시작일과 같거나 이후여야 합니다.");
       setSaving(true);
       setError("");
       const result = await careApi.createRequest({
         serviceCategoryId: form.serviceCategoryId,
-        careProductId:
-          form.requestTypeCode === "STANDARD" ? form.careProductId : null,
+        careProductId: null,
         administrativeAreaId: form.administrativeAreaId,
-        requestTypeCode: form.requestTypeCode,
-        requestedScopeText: careScopeWithPricePreference(
-          form.requestedScopeText,
-          form.priceConsultation,
-          form.desiredAmount,
-        ),
+        requestTypeCode: "CUSTOM",
+        requestedScopeText: form.requestedScopeText.trim(),
+        priceNegotiable: form.priceConsultation,
+        desiredMonthlyAmount: !form.priceConsultation && form.desiredAmountType === "MONTHLY" ? Number(form.desiredAmount) : null,
+        desiredVisitAmount: !form.priceConsultation && form.desiredAmountType === "VISIT" ? Number(form.desiredAmount) : null,
         preferredStartDate: form.preferredStartDate,
         detailAddress: form.detailAddress,
         customerAddressId: null,
-        idempotencyKey: `customer-care-request-${crypto.randomUUID()}`,
+        idempotencyKey: requestKey.current,
         recurrence: {
           frequencyTypeCode: form.frequencyTypeCode,
           intervalValue: form.intervalValue,
-          visitsPerPeriod: null,
+          visitsPerPeriod: form.frequencyTypeCode.includes("WEEK") ? form.weekdays.length : null,
           weekdays: form.frequencyTypeCode.includes("WEEK")
             ? form.weekdays
             : [],
@@ -427,56 +473,12 @@ export function NewCustomerCareRequestPage() {
   };
   return (
     <CareLayout
-      title="구독 신청"
-      description="표준상품 또는 주문형으로 필요한 범위와 반복일정을 등록하세요."
+      title="맞춤 케어 요청"
+      description="필요한 서비스 범위와 반복 일정, 희망 비용을 직접 등록하세요."
     >
       <form className="careForm" onSubmit={(event) => void submit(event)}>
         <fieldset>
-          <legend>1. 신청 방식과 서비스</legend>
-          <div className="careChoice">
-            <label
-              className={`careChoiceCard ${form.requestTypeCode === "CUSTOM" ? "isSelected" : ""}`}
-            >
-              <input
-                type="radio"
-                checked={form.requestTypeCode === "CUSTOM"}
-                onChange={() =>
-                  setForm({
-                    ...form,
-                    requestTypeCode: "CUSTOM",
-                    careProductId: "",
-                    desiredAmount: "",
-                  })
-                }
-              />
-              <span>
-                <em>필요한 조건을 직접 정하는 방식</em>
-                <strong>주문형 구독</strong>
-                <small>
-                  대상 서비스 중 하나를 선택하고 방문주기·작업 범위·희망일정을
-                  입력하면, 공급자가 가능한 조건과 금액을 제안합니다.
-                </small>
-              </span>
-            </label>
-            <label
-              className={`careChoiceCard ${form.requestTypeCode === "STANDARD" ? "isSelected" : ""}`}
-            >
-              <input
-                type="radio"
-                checked={form.requestTypeCode === "STANDARD"}
-                onChange={() =>
-                  setForm({ ...form, requestTypeCode: "STANDARD" })
-                }
-              />
-              <span>
-                <em>본사가 미리 구성한 패키지</em> <strong>표준상품</strong>
-                <small>
-                  작업 범위·방문 횟수·예상시간·기준금액이 미리 정해진 상품
-                  중에서 선택합니다.
-                </small>
-              </span>
-            </label>
-          </div>
+          <legend>1. 서비스와 요청 범위</legend>
           <label>
             서비스
             <select
@@ -492,7 +494,6 @@ export function NewCustomerCareRequestPage() {
                 setForm({
                   ...form,
                   serviceCategoryId: event.target.value,
-                  careProductId: "",
                   desiredAmount: "",
                   requestedScopeText:
                     !form.requestedScopeText.trim() ||
@@ -505,41 +506,16 @@ export function NewCustomerCareRequestPage() {
               <option value="">선택</option>
               {services.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.categoryPath}
+                  {item.categoryPath.replace(/^정기구독\s*>\s*/, "")}
                 </option>
               ))}
             </select>
           </label>
-          {form.requestTypeCode === "STANDARD" && (
-            <label>
-              표준상품
-              <select
-                required
-                value={form.careProductId}
-                onChange={(event) => {
-                  const product = products.find(
-                    (item) => item.id === event.target.value,
-                  );
-                  const productAmount =
-                    product?.monthlyAmount ?? product?.visitAmount;
-                  setForm({
-                    ...form,
-                    careProductId: event.target.value,
-                    desiredAmount:
-                      form.priceConsultation || productAmount == null
-                        ? form.desiredAmount
-                        : String(productAmount),
-                  });
-                }}
-              >
-                <option value="">선택</option>
-                {filtered.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.productName} · {money(item.monthlyAmount)}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {selectedService && (
+            <div className="careSelectedServiceVisual">
+              <ServiceThumbnail name={selectedService.serviceName} />
+              <div><small>선택한 하위 서비스</small><strong>{selectedService.serviceName}</strong><span>{selectedService.categoryPath.replace(/^정기구독\s*>\s*/, "")}</span></div>
+            </div>
           )}
           <label>
             요청 범위
@@ -570,57 +546,33 @@ export function NewCustomerCareRequestPage() {
                       priceConsultation: event.target.checked,
                       desiredAmount: event.target.checked
                         ? ""
-                        : standardCareAmount === null
-                          ? form.desiredAmount
-                          : String(standardCareAmount),
+                        : form.desiredAmount,
                     })
                   }
                 />
                 견적상담 후 결정
               </label>
             </div>
+            {!form.priceConsultation && <label>희망 금액 기준
+              <select value={form.desiredAmountType} onChange={(event)=>setForm({...form,desiredAmountType:event.target.value})}>
+                <option value="MONTHLY">월 금액</option><option value="VISIT">회차 금액</option>
+              </select>
+            </label>}
             <input
               aria-label="희망 비용"
-              type="number"
-              min="0"
+              type="text"
+              inputMode="numeric"
               required={!form.priceConsultation}
               disabled={form.priceConsultation}
-              value={form.desiredAmount}
+              value={form.desiredAmount ? Number(form.desiredAmount).toLocaleString("ko-KR") : ""}
               onChange={(event) =>
-                setForm({ ...form, desiredAmount: event.target.value })
+                setForm({ ...form, desiredAmount: amountDigits(event.target.value) })
               }
             />
-            {standardCareAmount !== null && (
-              <div className="careBudgetPresets">
-                {[100, 80, 50].map((rate) => {
-                  const amount = Math.round((standardCareAmount * rate) / 100);
-                  return (
-                    <button
-                      type="button"
-                      disabled={form.priceConsultation}
-                      className={
-                        Number(form.desiredAmount) === amount
-                          ? "isSelected"
-                          : ""
-                      }
-                      onClick={() =>
-                        setForm({ ...form, desiredAmount: String(amount) })
-                      }
-                      key={rate}
-                    >
-                      {rate === 100 ? "표준단가" : `${rate}%`} ·
-                      {amount.toLocaleString()}원
-                    </button>
-                  );
-                })}
-              </div>
-            )}
             <small>
               {form.priceConsultation
-                ? "공급자가 제안한 견적을 확인한 뒤 비용을 결정합니다."
-                : standardCareAmount === null
-                  ? "희망 금액을 직접 입력해 주세요."
-                  : "표준상품 금액을 기준으로 비율을 선택하거나 직접 수정할 수 있습니다."}
+                ? "전문가가 제안한 견적을 확인한 뒤 비용을 결정합니다."
+                : "희망 금액은 전문가 제안을 비교하기 위한 기준이며 최종 금액은 채택 전에 확인합니다."}
             </small>
           </div>
         </fieldset>
@@ -673,7 +625,7 @@ export function NewCustomerCareRequestPage() {
             />
           </label>
           <small>
-            지원 공급자 비교 단계에서는 전화번호와 상세주소가 공개되지 않습니다.
+            지원 전문가 비교 단계에서는 전화번호와 상세주소가 공개되지 않습니다.
           </small>
         </fieldset>
         <fieldset>
@@ -684,6 +636,7 @@ export function NewCustomerCareRequestPage() {
               <input
                 type="date"
                 required
+                min={new Date().toISOString().slice(0, 10)}
                 value={form.preferredStartDate}
                 onChange={(event) =>
                   setForm({ ...form, preferredStartDate: event.target.value })
@@ -695,15 +648,15 @@ export function NewCustomerCareRequestPage() {
               <select
                 value={form.frequencyTypeCode}
                 onChange={(event) =>
-                  setForm({ ...form, frequencyTypeCode: event.target.value })
+                  setForm({ ...form, frequencyTypeCode: event.target.value, intervalValue: 1 })
                 }
               >
                 {[
-                  ["WEEKLY", "주간"],
-                  ["BIWEEKLY", "격주"],
-                  ["MONTHLY", "월간"],
-                  ["QUARTERLY", "분기"],
-                  ["HALF_YEARLY", "반기"],
+                  ["WEEKLY", "매주"],
+                  ["BIWEEKLY", "2주마다(격주)"],
+                  ["MONTHLY", "매월"],
+                  ["QUARTERLY", "3개월마다(분기)"],
+                  ["HALF_YEARLY", "6개월마다(반기)"],
                 ].map(([code, label]) => (
                   <option value={code} key={code}>
                     {label}
@@ -711,21 +664,7 @@ export function NewCustomerCareRequestPage() {
                 ))}
               </select>
             </label>
-            <label>
-              반복 간격
-              <input
-                type="number"
-                min="1"
-                max="24"
-                value={form.intervalValue}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    intervalValue: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
+            <div className="careRecurrenceGuide"><strong>선택한 반복</strong><span>{recurrenceSummary({...form, intervalValue:1})}</span><small>간격 숫자를 따로 입력하지 않습니다. 원하는 반복 주기를 위에서 바로 선택하세요.</small></div>
             <label>
               회당 예상시간(분)
               <input
@@ -765,6 +704,7 @@ export function NewCustomerCareRequestPage() {
               종료일(선택)
               <input
                 type="date"
+                min={form.preferredStartDate || new Date().toISOString().slice(0, 10)}
                 value={form.endDate}
                 onChange={(event) =>
                   setForm({ ...form, endDate: event.target.value })
@@ -774,7 +714,7 @@ export function NewCustomerCareRequestPage() {
           </div>
           {form.frequencyTypeCode.includes("WEEK") && (
             <div className="weekdayChoice">
-              {["일", "월", "화", "수", "목", "금", "토"].map(
+              {weekdayNames.map(
                 (label, index) => (
                   <label key={label}>
                     <input
@@ -795,11 +735,12 @@ export function NewCustomerCareRequestPage() {
               )}
             </div>
           )}
+          <p className="careRecurrencePreview"><strong>저장될 일정</strong> {recurrenceSummary(form)}</p>
         </fieldset>
         {error && <p className="careError">{error}</p>}
         <div className="careStickyAction">
           <button disabled={saving}>
-            {saving ? "신청 중…" : "구독 요청 공개"}
+            {saving ? "신청 중…" : "맞춤 케어 요청 공개"}
           </button>
         </div>
       </form>
@@ -810,24 +751,39 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
   const [items, setItems] = useState<CareRequest[]>([]);
   const [detail, setDetail] = useState<CareRequest | null>(null);
   const [applications, setApplications] = useState<CareApplication[]>([]);
+  const [contractId, setContractId] = useState("");
   const [error, setError] = useState("");
   const [selecting, setSelecting] = useState("");
   useEffect(() => {
     const task = id
-      ? Promise.all([careApi.request(id), careApi.applications(id)]).then(
-          ([a, b]) => {
-            setDetail(a);
-            setApplications(b);
-          },
-        )
+      ? (async () => {
+          try {
+            const [requestDetail, requestApplications] = await Promise.all([careApi.request(id), careApi.applications(id)]);
+            setDetail(requestDetail);
+            setApplications(requestApplications);
+            if (requestDetail.providerSelected) {
+              try {
+                const contracts = await careApi.contracts();
+                setContractId(contracts.find((contract) => contract.requestId === requestDetail.id)?.id ?? "");
+              } catch { setContractId(""); }
+            } else setContractId("");
+          } catch (requestError) {
+            try {
+              await careApi.contract(id);
+              navigate(`/customer/care/contracts/${id}`, true);
+            } catch {
+              throw requestError;
+            }
+          }
+        })()
       : careApi.requests().then(setItems);
     task.catch((reason) => setError(message(reason)));
   }, [id]);
   const choose = async (application: CareApplication) => {
     if (
       !detail ||
-      !window.confirm(
-        `${application.providerName} 공급자를 선택하시겠습니까? 선택 후 구독 계약과 회차가 생성됩니다.`,
+      !await soodalConfirm(
+        `${application.providerName} 전문가를 선택하시겠습니까? 선택 후 맞춤 케어 계약과 회차가 생성됩니다.`,
       )
     )
       return;
@@ -841,18 +797,30 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
       setSelecting("");
     }
   };
+  const cancelRequest = async () => {
+    if (!detail) return;
+    const reason = await soodalPrompt("요청 취소 사유를 입력해 주세요.");
+    if (!reason?.trim()) return;
+    try {
+      online();
+      const next = await careApi.cancelRequest(detail, reason);
+      setDetail(next);
+      setApplications([]);
+    } catch (reason) {
+      setError(message(reason));
+    }
+  };
   if (id)
     return (
       <CareLayout
-        title="구독 요청 상세"
-        description="지원 공급자의 신뢰정보와 실제 제안조건을 같은 기준으로 비교하세요."
+        title="맞춤 케어 요청 상세"
+        description="지원 전문가의 신뢰정보와 실제 제안조건을 같은 기준으로 비교하세요."
       >
         {error && <p className="careError">{error}</p>}
         {detail && (
           <section className="careDetailCard">
             <span>
-              {detail.requestNumber} ·
-              {detail.requestTypeCode === "STANDARD" ? "표준상품형" : "주문형"}
+              {detail.requestNumber} · 맞춤 케어
             </span>
             <h2>{detail.serviceName}</h2> <p>{detail.requestedScope}</p>
             <dl>
@@ -862,26 +830,32 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
               <div>
                 <dt>반복</dt>
                 <dd>
-                  {frequency(detail.recurrence.frequencyTypeCode)} ·
-                  {detail.recurrence.intervalValue} 간격
+                  {recurrenceSummary(detail.recurrence)}
                 </dd>
               </div>
               <div>
                 <dt>시작</dt> <dd>{detail.preferredStartDate}</dd>
               </div>
               <div>
-                <dt>상태</dt> <dd>{detail.statusCode}</dd>
+                <dt>상태</dt> <dd>{requestStatus(detail.statusCode, detail.providerSelected)}</dd>
               </div>
+              <div><dt>희망 비용</dt><dd>{detail.priceNegotiable ? "전문가와 협의" : detail.desiredMonthlyAmount != null ? `월 ${money(detail.desiredMonthlyAmount)}` : `회차 ${money(detail.desiredVisitAmount)}`}</dd></div>
             </dl>
+            {detail.statusCode === "OPEN" && !detail.providerSelected && (
+              <button onClick={() => void cancelRequest()}>맞춤 요청 취소</button>
+            )}
+            {contractId && (
+              <div className="careApplicationActions">
+                <button onClick={() => navigate(`/customer/care/contracts/${contractId}`)}>계약 보기</button>
+                <button onClick={() => void openBusinessChat("customer", "SUBSCRIPTION", contractId).catch((reason) => setError(message(reason)))}>선택한 전문가와 채팅</button>
+              </div>
+            )}
           </section>
         )}
         <section className="careApplications">
           <header>
-            <h2>지원 공급자 비교</h2>
-            <span>
-              수달신뢰점수와 제안내용을 함께 확인하세요. 가격만으로 추천하지
-              않습니다.
-            </span>
+            <h2>지원 전문가 비교</h2>
+            <span>수달신뢰점수와 제안내용을 함께 확인하세요. 가격만으로 추천하지 않습니다.</span>
           </header>
           {applications.map((item) => (
             <article
@@ -893,7 +867,7 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
                   <span>{item.trustDisplay}</span>
                   <h3>{item.providerName}</h3>
                 </div>
-                <strong>{item.isSelected ? "선택됨" : item.statusCode}</strong>
+                <strong>{item.isSelected ? "선택 완료" : careStatusLabel(item.statusCode)}</strong>
               </header>
               <p>{item.proposedScope}</p>
               <div className="applicationPrices">
@@ -906,85 +880,61 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
                   <b>{money(item.proposedVisitAmount)}</b>
                 </div>
               </div>
-              <dl>
-                <div>
-                  <dt>가능 일정</dt>
-                  <dd>{item.availableSchedule ?? "제안 확인 필요"}</dd>
-                </div>
-                <div>
-                  <dt>공개 리뷰</dt> <dd>{item.publicReviewCount}건</dd>
-                </div>
-                <div>
-                  <dt>승인</dt>
-                  <dd>
-                    {item.providerApprovalSummary} ·
-                    {item.serviceApprovalSummary}
-                  </dd>
-                </div>
-                <div>
-                  <dt>요건</dt> <dd>{item.requirementSummary}</dd>
-                </div>
-              </dl>
-              {item.ratingItemAverages.length > 0 && (
-                <div className="ratingAverages">
-                  {item.ratingItemAverages.map((rating) => (
-                    <span key={rating.itemId}>
-                      {rating.itemName}
-                      <b>{rating.averageValue.toFixed(1)}</b>
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="careApplicationActions">
+                <button className="careProfileButton" onClick={() => navigate(`/providers/${item.providerId}`)}>전문가 프로필 보기</button>
               {detail?.statusCode === "OPEN" &&
                 item.statusCode === "SUBMITTED" && (
                   <button
                     disabled={selecting === item.id}
                     onClick={() => void choose(item)}
                   >
-                    {selecting === item.id ? "선택 중…" : "이 공급자 선택"}
+                    {selecting === item.id ? "선택 중…" : "이 전문가 선택"}
                   </button>
                 )}
+              </div>
             </article>
           ))}
           {applications.length === 0 && (
-            <p className="careEmpty">아직 도착한 공급자 지원이 없습니다.</p>
+            <p className="careEmpty">아직 도착한 전문가 지원이 없습니다.</p>
           )}
         </section>
       </CareLayout>
     );
   return (
     <CareLayout
-      title="내 구독 요청"
-      description="표준상품형과 주문형 신청의 모집·비교·선택 상태를 확인하세요."
+      title="내 맞춤 케어 요청"
+      description="전문가 모집·제안 비교·선택 상태를 확인하세요."
     >
       <div className="careToolbar">
         <button onClick={() => navigate("/customer/care/request/new")}>
-          새 구독 요청
+          새 맞춤 케어 요청
         </button>
       </div>
       {error && <p className="careError">{error}</p>}
       <div className="careList">
         {items.map((item) => (
           <button
+            className="careRequestSummaryCard"
             onClick={() => navigate(`/customer/care/requests/${item.id}`)}
             key={item.id}
           >
-            <span>
-              {item.requestTypeCode === "STANDARD" ? "표준상품" : "주문형"} ·{" "}
-              {item.areaName}
-            </span>
-            <strong>{item.serviceName}</strong>
-            <small>
-              {frequency(item.recurrence.frequencyTypeCode)} · 시작
-              {item.preferredStartDate} · 지원 {item.applicationCount}명
-            </small>
-            <b>
-              {item.providerSelected ? "공급자 선택 완료" : item.statusCode}
-            </b>
+            <div className="careRequestSummaryLead">
+              <ServiceThumbnail name={item.serviceName} />
+              <div><span>{item.requestNumber} · {item.areaName}</span><strong>{item.serviceName}</strong></div>
+            </div>
+            <p>{item.requestedScope}</p>
+            <dl className="careRequestSummaryFacts">
+              <div><dt>희망 비용</dt><dd>{item.priceNegotiable ? "전문가와 협의" : money(item.desiredMonthlyAmount)}</dd></div>
+              <div><dt>반복 일정</dt><dd>{recurrenceSummary(item.recurrence)}</dd></div>
+              <div><dt>방문 시간</dt><dd>{clockTime(item.recurrence.preferredTimeFrom) ?? "시간 협의"}{clockTime(item.recurrence.preferredTimeTo) ? `~${clockTime(item.recurrence.preferredTimeTo)}` : ""} · {item.recurrence.expectedDurationMinutes}분</dd></div>
+              <div><dt>이용 기간</dt><dd>{calendarDate(item.preferredStartDate)} ~ {calendarDate(item.recurrence.endDate)}</dd></div>
+              <div><dt>지원 현황</dt><dd>전문가 {item.applicationCount}명</dd></div>
+            </dl>
+            <b>{requestStatus(item.statusCode, item.providerSelected)}</b>
           </button>
         ))}
         {items.length === 0 && (
-          <p className="careEmpty">구독 요청이 없습니다.</p>
+          <p className="careEmpty">맞춤 케어 요청이 없습니다.</p>
         )}
       </div>
     </CareLayout>
@@ -993,6 +943,7 @@ export function CustomerCareRequestsPage({ id }: { id?: string }) {
 export function CustomerCareContractsPage({ id }: { id?: string }) {
   const [items, setItems] = useState<CareContract[]>([]);
   const [detail, setDetail] = useState<CareContract | null>(null);
+  const [contractVisits, setContractVisits] = useState<CareVisit[] | null>(null);
   const [error, setError] = useState("");
   const [reason, setReason] = useState("");
   useEffect(() => {
@@ -1003,32 +954,60 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
   }, [id]);
   const action = async (value: "pause" | "resume" | "terminate") => {
     if (!detail) return;
+    if ((value === "pause" || value === "terminate") && !reason.trim()) {
+      setError(value === "pause" ? "일시정지 사유를 입력해 주세요." : "해지 사유를 입력해 주세요.");
+      return;
+    }
     if (
       value === "terminate" &&
-      !window.confirm(
-        "구독 해지를 요청하시겠습니까? 미래 회차는 취소되며 자동 환불 계산은 하지 않습니다.",
+      !await soodalConfirm(
+        "구독 해지를 요청하시겠습니까? 미래 회차는 취소되고 결제 내역에 따라 남은 기간·미사용 회차 환불이 자동 계산됩니다.",
       )
     )
       return;
     try {
       online();
       const next = await careApi.contractAction(detail.id, value, {
-        reason: reason || null,
+        reason: reason.trim() || null,
         resumePlannedAt: null,
         rowVersion: detail.rowVersion,
         idempotencyKey: `customer-care-${value}-${detail.id}-${crypto.randomUUID()}`,
       });
       setDetail(next);
       setReason("");
+      setError("");
     } catch (reason) {
       setError(message(reason));
     }
   };
+  const toggleContractVisits = async () => {
+    if (!detail) return;
+    if (contractVisits) { setContractVisits(null); return; }
+    try {
+      setError("");
+      setContractVisits(await careApi.visits(detail.id));
+    } catch (reason) {
+      setError(message(reason));
+    }
+  };
+  const serviceScope = detail ? scopeSnapshot(detail.serviceScopeSnapshotJson) : null;
+  const recurrenceRule = detail ? recurrenceSnapshot(detail.recurrenceSnapshotJson) : null;
+  const recurrenceValue = (...names: string[]) => snapshotField(recurrenceRule, ...names);
+  const recurrenceDays = Array.isArray(recurrenceValue("Weekdays"))
+    ? (recurrenceValue("Weekdays") as unknown[]).map((value) => weekdayNames[Number(value)]).filter(Boolean)
+    : [];
+  const plannedEndDate = typeof recurrenceValue("EndDate") === "string" ? recurrenceValue("EndDate") as string : null;
+  const ruleFrequency = String(recurrenceValue("FrequencyTypeCode") ?? "");
+  const intervalValue = Number(recurrenceValue("IntervalValue") ?? 1);
+  const visitsPerPeriod = Number(recurrenceValue("VisitsPerPeriod") ?? recurrenceDays.length);
+  const durationMinutes = Number(recurrenceValue("ExpectedDurationMinutes") ?? 0);
+  const timeFrom = clockTime(recurrenceValue("PreferredTimeFrom"));
+  const timeTo = clockTime(recurrenceValue("PreferredTimeTo"));
   if (id)
     return (
       <CareLayout
-        title="구독 계약 확인"
-        description="법적 전자서명이 아닌 현재 서비스의 구독 업무계약 정보를 확인합니다."
+        title="맞춤 케어 계약 확인"
+        description="선택한 전문가의 맞춤 케어 조건과 반복 방문 계약을 확인합니다."
       >
         {error && <p className="careError">{error}</p>}
         {detail && (
@@ -1038,7 +1017,7 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
                 <span>{detail.contractNumber}</span>
                 <h2>{detail.serviceName}</h2>
                 <p>
-                  {detail.careProductName ?? "주문형 구독"} ·
+                  맞춤 케어 ·
                   {detail.providerName}
                 </p>
               </div>
@@ -1057,16 +1036,17 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
                     <dd>{money(detail.visitAmount, detail.currencyCode)}</dd>
                   </div>
                   <div>
-                    <dt>시작</dt> <dd>{date(detail.startedAt)}</dd>
+                    <dt>계약 시작일</dt> <dd>{date(detail.startedAt)}</dd>
                   </div>
                   <div>
-                    <dt>종료</dt> <dd>{date(detail.endedAt)}</dd>
+                    <dt>계약 종료일</dt> <dd>{calendarDate(plannedEndDate)}</dd>
                   </div>
                   <div>
-                    <dt>다음 방문</dt> <dd>{date(detail.nextVisitAt)}</dd>
+                    <dt>다음 방문</dt>
+                    <dd>{detail.nextVisitAt ? date(detail.nextVisitAt) : detail.statusCode === "PAYMENT_PENDING" ? "첫 결제 완료 후 일정 생성" : "예정된 방문 없음"}</dd>
                   </div>
                   <div>
-                    <dt>선택 당시 Trust</dt>
+                    <dt>선택 당시 신뢰정보</dt>
                     <dd>
                       {detail.providerTrustScoreSnapshot == null
                         ? "신규·평가중"
@@ -1075,54 +1055,59 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
                   </div>
                 </dl>
               </article>
-              <article>
-                <h3>서비스 범위·반복규칙</h3>
-                <pre>{detail.serviceScopeSnapshotJson}</pre>
-                <pre>{detail.recurrenceSnapshotJson}</pre>
+              <article className="careContractTerms">
+                <h3>서비스 범위</h3>
+                <dl className="careScopeDetails">
+                  <div><dt>고객 요청</dt><dd>{serviceScope?.requested ?? "등록된 요청 내용 없음"}</dd></div>
+                  <div><dt>전문가 제안</dt><dd>{serviceScope?.proposed ?? "등록된 제안 내용 없음"}</dd></div>
+                  {serviceScope?.product && <div><dt>상품 기본 범위</dt><dd>{serviceScope.product}</dd></div>}
+                </dl>
+                <h3>반복 방문 규칙</h3>
+                <dl className="careRecurrenceDetails">
+                  <div><dt>방문 주기</dt><dd>{frequency(ruleFrequency)} · {intervalValue > 1 ? `${intervalValue}주기마다` : "매 주기"}</dd></div>
+                  <div><dt>방문 횟수</dt><dd>주기당 {visitsPerPeriod}회</dd></div>
+                  <div><dt>방문 요일</dt><dd>{recurrenceDays.length ? `${recurrenceDays.join("·")}요일` : "요일 협의"}</dd></div>
+                  <div><dt>희망 시간</dt><dd>{timeFrom ?? "시간 협의"}{timeTo ? `~${timeTo}` : ""}{durationMinutes ? ` · 회차당 ${durationMinutes}분` : ""}</dd></div>
+                  <div><dt>이용 기간</dt><dd>{calendarDate(typeof recurrenceValue("StartDate") === "string" ? recurrenceValue("StartDate") as string : null)} ~ {calendarDate(plannedEndDate)}</dd></div>
+                </dl>
               </article>
             </section>
             <section className="careContractActions">
-              <h3>구독 관리</h3>
-              <label>
-                사유
-                <input
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  placeholder="정지 또는 해지 사유"
-                />
-              </label>
-              <div>
-                {detail.statusCode === "ACTIVE" && (
-                  <button onClick={() => void action("pause")}>일시정지</button>
-                )}
-                {detail.statusCode === "PAUSED" && (
-                  <button onClick={() => void action("resume")}>
-                    구독 재개
-                  </button>
-                )}
-                {detail.statusCode !== "TERMINATED" && (
-                  <button
-                    className="danger"
-                    onClick={() => void action("terminate")}
-                  >
-                    해지 요청
-                  </button>
-                )}
-                <button
-                  onClick={() =>
-                    navigate(`/customer/care/visits?contractId=${detail.id}`)
-                  }
-                >
-                  회차 보기
-                </button>
+              <h3>맞춤 케어 관리</h3>
+              <div className="careManagementGrid">
+                <article>
+                  <span>방문 내역</span><h4>회차 확인</h4>
+                  <p>예정된 방문과 완료된 작업, 일정 변경 내역을 확인합니다.</p>
+                  <button onClick={() => void toggleContractVisits()}>{contractVisits ? "회차 닫기" : "회차 보기"}</button>
+                </article>
+                <article>
+                  <span>계약 상태</span><h4>일시정지·해지</h4>
+                  <label>요청 사유<input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="정지 또는 해지 사유를 입력하세요." /></label>
+                  <div className="careManagementButtons">
+                    {detail.statusCode === "ACTIVE" && <button onClick={() => void action("pause")}>일시정지</button>}
+                    {detail.statusCode === "PAUSED" && <button onClick={() => void action("resume")}>구독 재개</button>}
+                    {detail.statusCode !== "TERMINATED" && <button className="danger" onClick={() => void action("terminate")}>해지 요청</button>}
+                  </div>
+                </article>
+                <article>
+                  <span>전문가 지원</span><h4>전문가 변경 문의</h4>
+                  <p>전문가 변경은 고객센터가 진행 상황과 대체 가능 전문가를 확인한 뒤 처리합니다.</p>
+                  <button onClick={() => navigate(`/suggestions?type=OTHER&title=${encodeURIComponent(`전문가 변경 문의 · ${detail.contractNumber}`)}&body=${encodeURIComponent(`계약번호: ${detail.contractNumber}\n서비스: ${detail.serviceName}\n현재 전문가: ${detail.providerName}\n\n변경이 필요한 사유를 입력해 주세요.`)}`)}>전문가 변경 문의</button>
+                </article>
               </div>
-              <p>
-                공급자 변경은 고객이 직접 확정하지 않습니다. 변경이 필요하면
-                고객센터에서 관리자 처리상태를 확인해 주세요.
-              </p>
-              <button onClick={() => navigate("/support")}>
-                공급자 변경 문의
-              </button>
+              {contractVisits && (
+                <section className="careList" aria-label="이 계약의 회차 목록">
+                  {contractVisits.map((visit) => (
+                    <button key={visit.id} onClick={() => navigate(`/customer/care/visits/${visit.id}`)}>
+                      <span>{visit.contractNumber} · {visit.visitNo}회차</span>
+                      <strong>{date(visit.scheduledStartAt)}</strong>
+                      <small>{visit.providerName}</small>
+                      <b>{visit.statusDisplay}</b>
+                    </button>
+                  ))}
+                  {contractVisits.length === 0 && <p className="careEmpty">첫 결제 완료 후 예정 회차가 생성됩니다.</p>}
+                </section>
+              )}
             </section>
           </>
         )}
@@ -1130,7 +1115,7 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
     );
   return (
     <CareLayout
-      title="내 구독"
+      title="내 맞춤 케어"
       description="이용 중·일시정지·해지·종료 상태별 계약을 확인하세요."
     >
       <div className="careTabs">
@@ -1151,21 +1136,9 @@ export function CustomerCareContractsPage({ id }: { id?: string }) {
       </div>
       {error && <p className="careError">{error}</p>}
       <div className="careList">
-        {items.map((item) => (
-          <button
-            onClick={() => navigate(`/customer/care/contracts/${item.id}`)}
-            key={item.id}
-          >
-            <span>{item.contractNumber}</span>
-            <strong>{item.serviceName}</strong>
-            <small>
-              {item.providerName} · 다음 방문 {date(item.nextVisitAt)}
-            </small>
-            <b>{item.statusDisplay}</b>
-          </button>
-        ))}
+        {items.map((item) => <CareContractSummaryCard item={item} key={item.id} />)}
         {items.length === 0 && (
-          <p className="careEmpty">조건에 맞는 구독이 없습니다.</p>
+          <p className="careEmpty">조건에 맞는 맞춤 케어가 없습니다.</p>
         )}
       </div>
     </CareLayout>
@@ -1211,8 +1184,8 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
   const skip = async () => {
     if (
       !detail ||
-      !window.confirm(
-        "이번 회차를 건너뛰시겠습니까? 금액과 환불은 자동 조정되지 않습니다.",
+      !await soodalConfirm(
+        "방문 24시간 전까지만 건너뛸 수 있습니다. 이번 회차를 건너뛰시겠습니까? 금액과 환불은 자동 조정되지 않습니다.",
       )
     )
       return;
@@ -1256,7 +1229,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
   if (id)
     return (
       <CareLayout
-        title={`구독 회차 ${detail?.visit.visitNo ?? ""}`}
+        title={`맞춤 케어 회차 ${detail?.visit.visitNo ?? ""}`}
         description="방문·완료보고·고객확인과 리뷰/A·S/분쟁을 한 화면에서 이어갑니다."
       >
         {error && <p className="careError">{error}</p>}
@@ -1271,7 +1244,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
                   detail.visit.providerCompletionSubmitted ? "done" : ""
                 }
               >
-                <b>2</b> <span>공급자 완료보고</span>
+                <b>2</b> <span>전문가 완료보고</span>
               </div>
               <div className={detail.visit.customerConfirmed ? "done" : ""}>
                 <b>3</b> <span>고객 완료확인</span>
@@ -1288,7 +1261,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
                   <dd>{date(detail.visit.scheduledStartAt)}</dd>
                 </div>
                 <div>
-                  <dt>공급자</dt> <dd>{detail.visit.providerName}</dd>
+                  <dt>전문가</dt> <dd>{detail.visit.providerName}</dd>
                 </div>
                 <div>
                   <dt>상태</dt> <dd>{detail.customerProgressDisplay}</dd>
@@ -1300,7 +1273,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
               </dl>
               {detail.completionNote && (
                 <div className="completionReport">
-                  <h3>공급자 완료보고</h3> <p>{detail.completionNote}</p>
+                  <h3>전문가 완료보고</h3> <p>{detail.completionNote}</p>
                   {detail.completionChecklistJson && (
                     <pre>{detail.completionChecklistJson}</pre>
                   )}
@@ -1356,8 +1329,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
                     이번 회차 건너뛰기
                   </button>
                   <small>
-                    일정변경은 요청 상태로 접수되며 고객이 확정 일정을 직접
-                    바꾸지 않습니다. Skip은 금액을 자동조정하지 않습니다.
+                    일정변경은 상대방이 48시간 안에 응답하며 미응답 시 자동 만료됩니다. 회차 건너뛰기는 방문 24시간 전까지만 가능하고 금액은 자동조정하지 않습니다.
                   </small>
                 </section>
               )}
@@ -1462,8 +1434,8 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
     );
   return (
     <CareLayout
-      title="구독 회차"
-      description="예정·변경·완료 회차와 공급자 완료보고를 확인하세요."
+      title="맞춤 케어 회차"
+      description="예정·변경·완료 회차와 전문가 완료보고를 확인하세요."
     >
       {error && <p className="careError">{error}</p>}
       <div className="careList">
@@ -1483,7 +1455,7 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
           </button>
         ))}
         {items.length === 0 && (
-          <p className="careEmpty">구독 회차가 없습니다.</p>
+          <p className="careEmpty">맞춤 케어 회차가 없습니다.</p>
         )}
       </div>
     </CareLayout>
@@ -1492,48 +1464,66 @@ export function CustomerCareVisitsPage({ id }: { id?: string }) {
 export function CustomerCarePaymentsPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [payments, setPayments] = useState<PaymentHistory[]>([]);
+  const [contracts, setContracts] = useState<CareContract[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [registration,setRegistration]=useState<BillingRegistration|null>(null);
+  const [showRegistration,setShowRegistration]=useState(false);
+  const [registrationAcknowledged,setRegistrationAcknowledged]=useState(false);
+  const callbackHandled=useRef(false);
+  const load=()=>Promise.all([careApi.paymentMethods(), careApi.payments(), careApi.contracts(),careApi.billingRegistration()]).then(([a,b,c,d])=>{setMethods(a);setPayments(b);setContracts(c);setRegistration(d)});
   useEffect(() => {
-    Promise.all([careApi.paymentMethods(), careApi.payments()])
-      .then(([a, b]) => {
-        setMethods(a);
-        setPayments(b);
-      })
-      .catch((reason) => setError(message(reason)));
+    if(callbackHandled.current)return;callbackHandled.current=true;const query=new URLSearchParams(window.location.search);const result=query.get('billing');const authKey=query.get('authKey');const customerKey=query.get('customerKey');
+    const finish=async()=>{if(result==='success'&&authKey&&customerKey){await careApi.completeBillingAuthorization(authKey,customerKey);setNotice('결제수단이 안전하게 등록되었습니다. 결제 대기 구독에서 정기결제에 동의해 주세요.')}else if(result==='fail'){setError(query.get('message')??'결제수단 인증이 취소되었거나 실패했습니다.')}window.history.replaceState({},'',window.location.pathname);await load()};
+    finish().catch((reason)=>setError(message(reason)));
   }, []);
+  const defaultMethod = methods.find((item) => item.isDefault && item.statusCode === 'ACTIVE') ?? methods.find((item) => item.statusCode === 'ACTIVE');
+  const consent = async (contract:CareContract) => {
+    if (!defaultMethod) { setError('먼저 사용할 결제수단을 등록해 주세요.'); return; }
+    setError(''); setNotice('');
+    try { await careApi.consentRecurringPayment(contract.id,defaultMethod.id,contract.rowVersion);await load();setNotice('정기결제 동의와 첫 결제를 처리했습니다. 결제내역에서 결과를 확인해 주세요.'); }
+    catch(reason){setError(message(reason));}
+  };
+  const connectPaymentMethod=async()=>{setError('');setNotice('');try{const config=registration??await careApi.billingRegistration();if(!config.enabled)throw new Error('정기결제 서비스 운영 설정이 아직 완료되지 않았습니다.');const toss=await loadTossPayments();const payment=toss(config.clientKey).payment({customerKey:config.customerKey});setShowRegistration(false);await payment.requestBillingAuth({method:'CARD',successUrl:new URL(config.successUrl,window.location.origin).toString(),failUrl:new URL(config.failUrl,window.location.origin).toString()})}catch(reason){setShowRegistration(false);setError(message(reason))}};
   return (
     <CareLayout
       title="결제수단·결제내역"
-      description="현재 내부 결제 Workflow 상태를 사실대로 조회합니다."
+      description="결제수단 등록부터 첫 결제, 월 자동결제와 환불 상태를 확인합니다."
     >
       <div className="paymentPending">
-        <strong>실제 PG 결제 기능 준비 중</strong>
+        <strong>첫 결제 완료 후 구독 시작</strong>
         <p>
-          카드번호·CVC를 입력받지 않으며 개발용 수동확인을 실제 결제 승인으로
-          표시하지 않습니다.
+          결제수단을 등록하고 정기결제에 동의하면 첫 결제가 실행됩니다. 성공하면 계약이 활성화되고 방문 일정이 자동 생성됩니다.
         </p>
-        <button disabled>결제수단 등록 준비 중</button>
+        <p>월 1회 자동결제 · 1회 최대 500,000원 · 최대 12개월 이용 후 갱신 시 새 동의가 필요합니다.</p>
+        <a href="/policies/subscription-refund" target="_blank" rel="noreferrer">정기구독 취소·해지·환불정책 확인</a>
       </div>
       {error && <p className="careError">{error}</p>}
+      {notice && <p className="careSuccess">{notice}</p>}
       <section className="careSection">
-        <h2>저장된 결제수단 참조</h2>
+        <h2>결제 대기 구독</h2>
+        {contracts.filter((item)=>item.statusCode==='PAYMENT_PENDING').map((item)=><article className="paymentMethod" key={item.id}><strong>{item.serviceName} · {item.providerName}</strong><span>{item.statusDisplay} · {money(item.monthlyAmount??item.visitAmount??0,item.currencyCode)}</span><button disabled={item.billingStatusCode==='AUTO_PAY_CONSENTED'} onClick={()=>defaultMethod?void consent(item):setShowRegistration(true)}>{item.billingStatusCode==='AUTO_PAY_CONSENTED'?'정기결제 동의 완료':defaultMethod?'정기결제 동의·첫 결제':'결제수단 등록 후 첫 결제'}</button></article>)}
+        {contracts.every((item)=>item.statusCode!=='PAYMENT_PENDING')&&<p className="careEmpty">첫 결제 대기 중인 구독이 없습니다.</p>}
+      </section>
+      <section className="careSection">
+        <div className="sectionHeading"><h2>저장된 결제수단</h2><button onClick={()=>{setRegistrationAcknowledged(false);setShowRegistration(true)}}>결제수단 등록</button></div>
         {methods.map((item) => (
           <article className="paymentMethod" key={item.id}>
             <strong>
-              {item.maskedDisplayText ?? item.paymentMethodTypeCode}
+              {item.maskedDisplayText ?? paymentMethodLabel(item.paymentMethodTypeCode)}
             </strong>
             <span>
-              {item.providerCode ?? "PG 미연결"} · {item.statusCode}
+              {paymentProviderLabel(item.providerCode)} · {paymentMethodStatusLabel(item.statusCode)}
             </span>
             {item.isDefault && <b>기본</b>}
           </article>
         ))}
         {methods.length === 0 && (
-          <p className="careEmpty">연결된 결제수단 참조가 없습니다.</p>
+            <p className="careEmpty">연결된 결제수단이 없습니다.</p>
         )}
       </section>
       <section className="careSection">
-        <h2>결제 Workflow 내역</h2>
+        <h2>결제 내역</h2>
         <div className="paymentHistory">
           {payments.map((item) => (
             <article key={item.id}>
@@ -1544,7 +1534,7 @@ export function CustomerCarePaymentsPage() {
                   </span>
                   <h3>{item.serviceName}</h3>
                 </div>
-                <b>{item.statusCode}</b>
+                <b>{paymentStatusLabel(item.statusCode)}</b>
               </header>
               <strong>{money(item.requestedAmount, item.currencyCode)}</strong>
               <small>
@@ -1554,7 +1544,7 @@ export function CustomerCarePaymentsPage() {
               {item.failureReason && <p>{item.failureReason}</p>}
               {item.refunds.map((refund) => (
                 <div className="refund" key={refund.id}>
-                  <span>환불/조정 {refund.statusCode}</span>
+                  <span>{refundTypeLabel(refund.typeCode)} · {refundStatusLabel(refund.statusCode)}</span>
                   <b>
                     {money(refund.approvedAmount ?? refund.requestedAmount)}
                   </b>
@@ -1563,10 +1553,19 @@ export function CustomerCarePaymentsPage() {
             </article>
           ))}
           {payments.length === 0 && (
-            <p className="careEmpty">결제 Workflow 내역이 없습니다.</p>
+            <p className="careEmpty">실제로 처리된 결제 내역이 없습니다.</p>
           )}
         </div>
       </section>
+      {showRegistration && <div className="carePaymentRegistrationBackdrop" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShowRegistration(false)}}>
+        <section className="carePaymentRegistration" role="dialog" aria-modal="true" aria-labelledby="care-payment-registration-title">
+          <header><div><span>안전한 카드 연결</span><h2 id="care-payment-registration-title">결제수단 등록</h2></div><button type="button" aria-label="닫기" onClick={()=>setShowRegistration(false)}>×</button></header>
+          <p>카드 정보는 토스페이먼츠의 보안 등록 화면에서 입력합니다. 수달 라이프는 카드번호와 비밀번호를 직접 저장하지 않습니다.</p>
+          <ul><li>등록만으로 결제되지 않습니다.</li><li>결제 대기 구독에서 정기결제에 동의해야 첫 결제가 진행됩니다.</li><li>결제 완료 후 계약이 시작되고 방문 회차가 생성됩니다.</li></ul>
+          <label className="carePaymentRegistrationCheck"><input type="checkbox" checked={registrationAcknowledged} onChange={(event)=>setRegistrationAcknowledged(event.target.checked)}/><span>결제수단 등록 절차와 정기결제 안내를 확인했습니다.</span></label>
+          <footer><button type="button" onClick={()=>setShowRegistration(false)}>취소</button><button type="button" disabled={!registrationAcknowledged} onClick={()=>void connectPaymentMethod()}>카드 등록 계속</button></footer>
+        </section>
+      </div>}
     </CareLayout>
   );
 }
@@ -1590,7 +1589,7 @@ export function CustomerProgressPage() {
   return (
     <CustomerAppLayout>
       <section className="careHero">
-        <p>MY PROGRESS</p> <h1>진행 중인 서비스</h1>
+        <p>진행 현황</p> <h1>진행 중인 서비스</h1>
         <span>일반 거래, 수달 케어, 수달 인테리어를 구분하여 확인하세요.</span>
       </section>
       <div className="progressChoices">

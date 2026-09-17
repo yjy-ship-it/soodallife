@@ -1,0 +1,20 @@
+Release: V152 provider coverage limits and quote closure
+Release date: 2026-08-28
+Database schema changed: true (provider_service_categories.is_nationwide)
+Applications: API, customer, partner, admin
+Service category limit: maximum 10 per expert
+Area limit: maximum 10 SIGUNGU per service
+Coverage limit: maximum 50 service-area combinations per expert
+Nationwide scope: policy-confirmed remote, online and shipping services only
+Emergency scope: exact travel areas required; nationwide selection prohibited
+Quote closure: fifth submitted quote expires remaining unanswered dispatches and drafts atomically
+Preservation: five submitted quotes and selected or active work are unchanged
+Realtime: targeted InboxChanged event includes request id
+Notification center: each affected expert receives an idempotent closure record
+Customer message: 견적 5개 도착 · 비교 후 전문가를 선택해 주세요
+API application data preserved: true
+API production settings preserved: true
+Database backup and verification: enabled
+Rollback file backup: enabled
+IIS configuration backup: enabled
+Post-deployment health and role-route checks: enabled

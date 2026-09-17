@@ -11,7 +11,9 @@ public sealed class AutomationOptions
     public int OutboxBaseRetrySeconds { get; set; } = 30;
     public int OutboxMaxRetrySeconds { get; set; } = 900;
     public int SubscriptionIntervalMinutes { get; set; } = 60;
+    public int ProviderAdvertisingRenewalIntervalMinutes { get; set; } = 60;
     public int PasswordResetIntervalMinutes { get; set; } = 60;
+    public int CustomerEngagementReminderIntervalMinutes { get; set; } = 5;
     public int? EmergencyResponseExpiryMinutes { get; set; }
 }
 

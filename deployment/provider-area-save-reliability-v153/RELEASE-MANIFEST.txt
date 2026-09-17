@@ -1,0 +1,15 @@
+Release: V153 provider area save reliability
+Release date: 2026-08-28
+Database schema changed: false
+Applications: API, customer, partner, admin
+Provider area persistence: save response and reload verified
+Rematching: separated from the primary save result
+Emergency areas: inactive historical rows ignored
+Emergency summary: any available enabled service makes the overall status available
+Provider UX: saved state, pending changes, completion feedback and immediate emergency status
+API application data preserved: true
+API production settings preserved: true
+Database backup and verification: enabled
+Rollback file backup: enabled
+IIS configuration backup: enabled
+Post-deployment health and partner route checks: enabled

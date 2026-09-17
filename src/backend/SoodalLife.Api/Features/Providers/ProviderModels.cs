@@ -75,7 +75,14 @@ public sealed record ReplaceProviderServiceCategoriesInput(IReadOnlyList<Guid> C
 
 public sealed record ProviderServiceAreaResponse(
     Guid ServiceCategoryId,
+    Guid MiddleCategoryId,
+    string MiddleCategoryName,
+    string MiddleCategoryPath,
     string CategoryPath,
+    bool IsNationwide,
+    bool NationwideAllowed,
+    string CoverageTypeCode,
+    string CoverageTypeName,
     IReadOnlyList<ProviderAreaResponse> Areas);
 
 public sealed record ProviderAreaResponse(Guid Id, string Name, string AreaCode);
@@ -84,8 +91,14 @@ public sealed record ProviderServiceAreaSelection(
     Guid ServiceCategoryId,
     IReadOnlyList<Guid> AdministrativeAreaIds);
 
+public sealed record ProviderMiddleServiceAreaSelection(
+    Guid MiddleCategoryId,
+    IReadOnlyList<Guid> AdministrativeAreaIds);
+
 public sealed record ReplaceProviderServiceAreasInput(
-    IReadOnlyList<ProviderServiceAreaSelection> Services);
+    IReadOnlyList<ProviderServiceAreaSelection>? Services,
+    IReadOnlyList<ProviderMiddleServiceAreaSelection>? Middles,
+    IReadOnlyList<Guid>? NationwideServiceCategoryIds = null);
 
 public sealed record ProviderRequirementResponse(
     Guid VerificationId,
@@ -113,6 +126,7 @@ public sealed record ProviderDocumentResponse(Guid Id, Guid FileId, string Docum
     DateOnly? IssuedAt, DateOnly? ExpiresAt, string? PublicNote, DateTime CreatedAt);
 public sealed record RegisterProviderDocumentInput(Guid DocumentTypeId, string? DocumentNumber, DateOnly? IssuedAt, DateOnly? ExpiresAt);
 public sealed record LinkProviderEvidenceInput(Guid DocumentId);
+public sealed record ResubmitProviderApprovalInput(string? Note, string ConcurrencyToken);
 
 public sealed record ProviderOnboardingDashboardResponse(
     string ApprovalStatus,
@@ -144,10 +158,10 @@ public sealed record ProviderLegalDocumentResponse(Guid Id, Guid VersionId, stri
     string Title, string Content, int Version, DateTime EffectiveFrom, DateTime? EffectiveTo, bool IsPlaceholder);
 public sealed record ProviderConsentInput(Guid LegalDocumentVersionId, bool Agreed);
 public sealed record RegisterProviderRequest(string LoginId, string Password, string PasswordConfirmation,
-    string? Email, string? Phone, string? PhoneVerificationToken, string BusinessName, string RepresentativeName, string ContactName,
+    string? Email, string? Phone, string? PhoneVerificationToken, string? ProviderTypeCode, string BusinessName, string RepresentativeName, string ContactName,
     string? BusinessRegistrationNumber, string? BusinessAddress, string? BusinessTypeText,
     string? BusinessItemText, string? Introduction, IReadOnlyList<ProviderConsentInput> Consents);
-public sealed record AddProviderRoleRequest(string BusinessName, string RepresentativeName, string ContactName,
+public sealed record AddProviderRoleRequest(string? ProviderTypeCode, string BusinessName, string RepresentativeName, string ContactName,
     string? BusinessRegistrationNumber, string? BusinessAddress, string? BusinessTypeText,
     string? BusinessItemText, string? Introduction, IReadOnlyList<ProviderConsentInput> Consents);
 public sealed record ProviderRegistrationResponse(Guid UserId, Guid ProviderId, string LoginId, IReadOnlyList<string> Roles,

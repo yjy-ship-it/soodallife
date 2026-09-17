@@ -1,0 +1,16 @@
+﻿Release: V237 image upload policy
+PowerShell encoding: UTF-8 with BOM
+Database changed: false
+API changed: true
+Customer frontend changed: true
+Partner frontend changed: true
+Admin frontend changed: true
+Allowed uploads: JPG JPEG PNG only
+Maximum upload: 5MB
+True type validation: enabled
+Maximum dimensions: 12000x12000 and 25000000 pixels
+Image reencoding: enabled
+Metadata removal: enabled
+Random storage keys: enabled
+External scanner: not required for accepted image-only policy
+Legacy PDF uploads: rejected

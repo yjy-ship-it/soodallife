@@ -1,0 +1,11 @@
+﻿Release: V239 care workflow labels
+PowerShell encoding: UTF-8 with BOM
+Database changed: false
+API changed: false
+Customer frontend changed: true
+Partner frontend changed: true
+Admin frontend changed: true
+Care labels: seven-updated
+Care process guide: enabled
+Provider visit guide: enabled
+Responsive guide: enabled

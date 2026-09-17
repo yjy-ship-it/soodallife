@@ -1,0 +1,13 @@
+Release: V240 provider quote templates
+PowerShell encoding: UTF-8 with BOM
+Database changed: true
+API changed: true
+Customer frontend changed: true
+Partner frontend changed: true
+Admin frontend changed: true
+App_Data preserved: true
+Appsettings preserved: true
+Quote template persistence: provider-scoped database storage
+Quote template operations: save-load-update-delete
+Maximum templates per provider: 30
+Request-specific dates copied: false

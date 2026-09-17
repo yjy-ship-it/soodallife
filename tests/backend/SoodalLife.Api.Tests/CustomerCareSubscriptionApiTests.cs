@@ -13,6 +13,36 @@ namespace SoodalLife.Api.Tests;
 public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicationFactory factory) : IClassFixture<AuthenticationWebApplicationFactory>
 {
     [Fact]
+    public async Task RequestLists_IgnoreIncompleteLegacyRows_InsteadOfFailingTheWholePage()
+    {
+        await EnableSubscription();
+        using var customer = Client(); using var admin = Client();
+        await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        await Login(admin, factory.Credentials[RoleCodes.Admin]);
+        Guid incompleteId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var customerId = await (from user in db.Users join profile in db.CustomerProfiles on user.Id equals profile.UserId where user.LoginId == factory.Credentials[RoleCodes.Customer].LoginId select profile.Id).SingleAsync();
+            var serviceId = await db.ServiceCategories.Where(item => item.PublicId == factory.Catalog.ServiceId).Select(item => item.Id).SingleAsync();
+            var areaId = await db.AdministrativeAreas.Where(item => item.PublicId == factory.Catalog.AreaId).Select(item => item.Id).SingleAsync();
+            var now = DateTime.UtcNow;
+            var incomplete = new SubscriptionRequest { CustomerProfileId = customerId, ServiceCategoryId = serviceId, AdministrativeAreaId = areaId, RequestTypeCode = "CUSTOM", RequestedScopeText = "저장 도중 중단된 이전 요청", PreferredStartDate = DateOnly.FromDateTime(DateTime.Today.AddDays(7)), StatusCode = "OPEN", CreatedAt = now, UpdatedAt = now };
+            db.SubscriptionRequests.Add(incomplete); await db.SaveChangesAsync(); incompleteId = incomplete.PublicId;
+        }
+
+        var customerList = await customer.GetAsync("/api/v1/customers/me/care/requests");
+        var adminList = await admin.GetAsync("/api/v1/admin/subscriptions/requests");
+        var home = await customer.GetAsync("/api/v1/customers/me/care/home");
+        Assert.Equal(HttpStatusCode.OK, customerList.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, adminList.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+        Assert.DoesNotContain(incompleteId.ToString(), await customerList.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(incompleteId.ToString(), await adminList.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.NotFound, (await customer.GetAsync($"/api/v1/customers/me/care/requests/{incompleteId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task PublicCatalog_UsesEligibleCategories_AndActiveProducts_WithoutInternalFields()
     {
         await EnableSubscription();
@@ -122,7 +152,7 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         var terminate = await flow.Customer.PostAsJsonAsync($"/api/v1/customers/me/care/contracts/{flow.Contract.Id}/terminate", new { idempotencyKey = $"terminate-{Guid.NewGuid():N}", reason = "고객 해지 요청", resumePlannedAt = (DateTime?)null, rowVersion = (string?)null });
         Assert.Equal(HttpStatusCode.OK, terminate.StatusCode);
         var pendingTermination = await terminate.Content.ReadFromJsonAsync<CustomerSubscriptionContractResponse>();
-        Assert.Equal("TERMINATION_REQUESTED", pendingTermination!.StatusCode); Assert.Equal("해지 처리 대기", pendingTermination.StatusDisplay); Assert.NotNull(pendingTermination.TerminationRequestedAt);
+        Assert.Equal("TERMINATED", pendingTermination!.StatusCode); Assert.Equal("해지", pendingTermination.StatusDisplay); Assert.NotNull(pendingTermination.TerminationRequestedAt); Assert.NotNull(pendingTermination.TerminatedAt);
 
         db.ChangeTracker.Clear();
         var preservedPast = await db.SubscriptionVisitSchedules.AsNoTracking().SingleAsync(item => item.Id == pastVisitId);
@@ -162,6 +192,18 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/v1/admin/subscriptions/contracts")).StatusCode);
     }
 
+    [Fact]
+    public async Task BillingAuthorization_Consent_FirstCharge_ActivatesContractAndCreatesVisits()
+    {
+        await EnableSubscription();using var customer=Client();using var provider=Client();await Login(customer,factory.Credentials[RoleCodes.Customer]);await Login(provider,factory.Credentials[RoleCodes.Provider]);
+        var request=await CreateRequest(customer,null,$"billing-request-{Guid.NewGuid():N}");var application=await Apply(provider,request.Id);var selection=await customer.PostAsJsonAsync($"/api/v1/subscriptions/requests/{request.Id}/selection",new{applicationId=application.Id,idempotencyKey=$"billing-select-{Guid.NewGuid():N}"});Assert.Equal(HttpStatusCode.OK,selection.StatusCode);var pending=(await selection.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!;Assert.Equal("PAYMENT_PENDING",pending.StatusCode);
+        var registration=(await customer.GetFromJsonAsync<SubscriptionBillingRegistrationResponse>("/api/v1/customers/me/care/billing-registration"))!;Assert.True(registration.Enabled);var authorization=await customer.PostAsJsonAsync("/api/v1/customers/me/care/billing-authorizations",new{authKey=$"auth-{Guid.NewGuid():N}",registration.CustomerKey,isDefault=true});Assert.Equal(HttpStatusCode.OK,authorization.StatusCode);var method=(await authorization.Content.ReadFromJsonAsync<CustomerSubscriptionPaymentMethodResponse>())!;
+        var consent=await customer.PostAsJsonAsync($"/api/v1/customers/me/care/contracts/{pending.Id}/recurring-payment-consent",new{paymentMethodId=method.Id,consent=true,idempotencyKey=$"billing-consent-{Guid.NewGuid():N}",rowVersion=pending.RowVersion});Assert.Equal(HttpStatusCode.OK,consent.StatusCode);var active=(await consent.Content.ReadFromJsonAsync<CustomerSubscriptionContractResponse>())!;Assert.Equal("ACTIVE",active.StatusCode);Assert.Equal("ACTIVE",active.BillingStatusCode);
+        var payments=(await customer.GetFromJsonAsync<List<CustomerSubscriptionPaymentHistoryResponse>>("/api/v1/customers/me/care/payments"))!;Assert.Contains(payments,x=>x.ContractId==pending.Id&&x.StatusCode=="COMPLETED");var visits=(await customer.GetFromJsonAsync<List<CustomerSubscriptionVisitListItem>>($"/api/v1/customers/me/care/visits?contractId={pending.Id}"))!;Assert.NotEmpty(visits);
+        using(var scope=factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();var contract=await db.SubscriptionContracts.SingleAsync(x=>x.PublicId==pending.Id);var initial=await db.SubscriptionPaymentRequests.SingleAsync(x=>x.SubscriptionContractId==contract.Id);initial.BillingPeriodStart=DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1));initial.BillingPeriodEnd=DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));contract.NextBillingAt=DateTime.UtcNow.AddMinutes(-1);await db.SaveChangesAsync();var billing=scope.ServiceProvider.GetRequiredService<SubscriptionBillingService>();await billing.GenerateRecurringPaymentRequests(default);}
+        payments=(await customer.GetFromJsonAsync<List<CustomerSubscriptionPaymentHistoryResponse>>("/api/v1/customers/me/care/payments"))!;Assert.Equal(2,payments.Count(x=>x.ContractId==pending.Id&&x.StatusCode=="COMPLETED"));
+    }
+
     private async Task<Flow> CreateFlow()
     {
         await EnableSubscription();
@@ -171,7 +213,12 @@ public sealed class CustomerCareSubscriptionApiTests(AuthenticationWebApplicatio
         var application = await Apply(provider, request.Id);
         var response = await customer.PostAsJsonAsync($"/api/v1/subscriptions/requests/{request.Id}/selection", new { applicationId = application.Id, idempotencyKey = $"select-{Guid.NewGuid():N}" });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return new Flow(customer, provider, request, application, (await response.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!);
+        var contract=(await response.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!;
+        using var admin=Client();await Login(admin,factory.Credentials[RoleCodes.Admin]);
+        var payment=Assert.Single((await admin.GetFromJsonAsync<List<SubscriptionPaymentResponse>>("/api/v1/admin/subscription-accounting/payments"))!,x=>x.ContractId==contract.Id&&x.StatusCode=="REQUESTED");
+        var confirmation=await admin.PostAsJsonAsync($"/api/v1/admin/subscription-accounting/payments/{payment.Id}/development-confirmation",new{idempotencyKey=$"confirm-{Guid.NewGuid():N}",externalPaymentReference=$"test-payment-{Guid.NewGuid():N}",payment.RowVersion});
+        Assert.Equal(HttpStatusCode.OK,confirmation.StatusCode);
+        return new Flow(customer, provider, request, application, contract);
     }
 
     private async Task<SubscriptionRequestResponse> CreateRequest(HttpClient customer, Guid? addressId, string key)

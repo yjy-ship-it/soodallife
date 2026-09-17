@@ -1,0 +1,4 @@
+.workListLead{display:flex;align-items:flex-start;gap:14px;min-width:0}
+.workListLead>.serviceThumbnail{width:100px;height:78px;min-width:100px;border-radius:14px;object-fit:cover}
+.workListLead>div{min-width:0}.workListLead h2{margin-top:8px}.workListLead p{min-height:0;margin-bottom:0}
+@media(max-width:640px){.workListLead>.serviceThumbnail{width:82px;height:66px;min-width:82px}}

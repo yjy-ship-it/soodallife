@@ -20,7 +20,8 @@ internal sealed class ChatRoomConfiguration() : EntityConfiguration<ChatRoom>("c
         b.HasIndex(x => x.StatusCode);
         b.ToTable("chat_rooms", t =>
         {
-            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION','SUBSCRIPTION','INTERIOR','AFTER_SERVICE')");
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION','SUBSCRIPTION','INTERIOR','AFTER_SERVICE','PROVIDER_CONSULTATION')");
             t.HasCheckConstraint("CK_chat_rooms_room_type", "[room_type] IN ('DIRECT','PRIMARY_CONTRACTOR','SITE_SURVEY')");
             t.HasCheckConstraint("CK_chat_rooms_status", "[status_code] IN ('ACTIVE','READ_ONLY','CLOSED')");
         });
@@ -47,6 +48,7 @@ internal sealed class ChatParticipantConfiguration() : EntityConfiguration<ChatP
         b.HasIndex(x => new { x.UserId, x.StatusCode });
         b.ToTable("chat_participants", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_chat_participants_role", "[participant_role] IN ('CUSTOMER','PROVIDER')");
             t.HasCheckConstraint("CK_chat_participants_status", "[status_code] IN ('ACTIVE','ENDED')");
             t.HasCheckConstraint("CK_chat_participants_access", "[access_ended_at] IS NULL OR [access_ended_at] >= [access_started_at]");

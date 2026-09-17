@@ -1,0 +1,5 @@
+Release: V181 request consistency
+Components: API, customer, partner, admin
+DatabaseChanged: false
+ProductionSettingsChanged: false
+AppDataPreserved: true

@@ -1,0 +1,15 @@
+SOODAL LIFE V164 - Help Room Provider Advice Limits
+Base database migration: AddHelpRoomAndSuggestionBoxV163R2
+Migration: AddHelpRoomProviderAdviceLimitsV164
+
+SERVER POLICIES
+- one initial provider advice per help post
+- later advice requires a customer follow-up newer than that provider's latest advice
+- one-minute provider/post cooldown
+- normalized duplicate advice blocking
+- no advice after resolved, converted or hidden state
+- serializable write transaction and provider/post/created-at lookup index
+
+REVIEW VISIBILITY
+- help-room resolution remains inside the help-room post
+- it is not exposed as a transaction review, provider rating, advertising review or quote-request review

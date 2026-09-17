@@ -21,11 +21,13 @@ public sealed class ProviderOperationsHubApiTests(AuthenticationWebApplicationFa
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var hub = await response.Content.ReadFromJsonAsync<ProviderOperationsHubResponse>();
         Assert.NotNull(hub);
-        Assert.Equal(7, hub.Summary.Count);
+        Assert.Equal(8, hub.Summary.Count);
         Assert.InRange(hub.Inbox.PageSize, 1, 50);
         Assert.All(hub.Inbox.Items, item => Assert.StartsWith("/provider", item.Route));
         Assert.All(hub.Schedule, item => Assert.StartsWith("/provider", item.Route));
         Assert.All(hub.RecentChats, item => Assert.StartsWith("/provider/messages/", item.Route));
+        var availabilityWindows = hub.Emergency.TodayAvailability.Split(", ", StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(availabilityWindows.Distinct(StringComparer.Ordinal).Count(), availabilityWindows.Length);
 
         var json = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("customerPhone", json, StringComparison.OrdinalIgnoreCase);
@@ -84,6 +86,26 @@ public sealed class ProviderOperationsHubApiTests(AuthenticationWebApplicationFa
     }
 
     [Fact]
+    public async Task Hub_ActiveOnly_IsServerFilteredPagedAndIncludesNewOperationalMetrics()
+    {
+        using var provider = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var page = await provider.GetFromJsonAsync<ProviderOperationsHubResponse>(
+            "/api/v1/providers/me/operations-hub?activeOnly=true&page=1&pageSize=5");
+
+        Assert.NotNull(page);
+        Assert.Equal(5, page.Inbox.PageSize);
+        Assert.All(page.Inbox.Items, item =>
+        {
+            Assert.DoesNotContain(item.Type, new[] { "GENERAL_REQUEST", "INTERIOR_REQUEST", "CARE_REQUEST", "EMERGENCY_REQUEST", "CHAT_UNREAD", "VERIFICATION", "WALLET_ALERT", "REVIEW_REPLY" });
+            Assert.DoesNotContain(item.PriorityGroup, new[] { "NEW", "OPERATIONS" });
+        });
+        Assert.Contains(page.Summary.SelectMany(x => x.Items), x => x.Key == "proposal-application" && x.Route.StartsWith("/provider/inbox"));
+        Assert.Contains(page.Summary.SelectMany(x => x.Items), x => x.Key == "review-reply" && x.Route.StartsWith("/provider/inbox"));
+        Assert.Contains(page.Summary.SelectMany(x => x.Items), x => x.Key == "proposal-progress" && x.Route.StartsWith("/provider/progress"));
+    }
+
+    [Fact]
     public async Task Hub_IsObjectScopedAcrossProviders()
     {
         using var first = Client(); using var second = Client();
@@ -94,6 +116,29 @@ public sealed class ProviderOperationsHubApiTests(AuthenticationWebApplicationFa
         Assert.NotNull(firstHub); Assert.NotNull(secondHub);
         var firstIds = firstHub.Inbox.Items.Select(x => x.PublicId).ToHashSet();
         Assert.DoesNotContain(secondHub.Inbox.Items, x => firstIds.Contains(x.PublicId));
+    }
+
+    [Fact]
+    public async Task RequestStatus_IsLightweightProviderScopedAndConcurrentSafe()
+    {
+        using var provider = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var responses = await Task.WhenAll(Enumerable.Range(0, 12)
+            .Select(_ => provider.GetAsync("/api/v1/providers/me/request-status")));
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        var status = await responses[0].Content.ReadFromJsonAsync<ProviderRequestStatusResponse>();
+        Assert.NotNull(status);
+        Assert.InRange(status.Items.Count, 0, 200);
+        Assert.All(status.Items, item => Assert.Contains(item.Type, new[] { "GENERAL_REQUEST", "INTERIOR_REQUEST", "CARE_REQUEST", "EMERGENCY_REQUEST" }));
+        Assert.All(status.Items, item => Assert.StartsWith("/provider", item.Route));
+    }
+
+    [Fact]
+    public async Task RequestStatus_RejectsCustomer()
+    {
+        using var customer = Client();
+        await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync("/api/v1/providers/me/request-status")).StatusCode);
     }
 
     private static int Metric(ProviderOperationsHubResponse hub, string key) =>

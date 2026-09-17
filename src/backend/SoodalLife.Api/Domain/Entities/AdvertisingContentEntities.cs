@@ -100,6 +100,95 @@ public sealed class AdvertisingEvent
     public DateTime OccurredAt { get; set; }
 }
 
+public sealed class ProviderAdvertisingRatePolicy
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long PlacementId { get; set; }
+    public int DurationDays { get; set; }
+    public decimal FixedAmount { get; set; }
+    public decimal ProvinceUnitAmount { get; set; } = 10000;
+    public decimal DistrictUnitAmount { get; set; } = 2000;
+    public decimal RegionalFeeCapAmount { get; set; } = 30000;
+    public string CurrencyCode { get; set; } = "KRW";
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ProviderAdvertisingApplication
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long CampaignId { get; set; }
+    public long ProviderProfileId { get; set; }
+    public long RatePolicyId { get; set; }
+    public long WalletId { get; set; }
+    public int DurationDays { get; set; }
+    public decimal FeeAmount { get; set; }
+    public decimal BaseFeeAmount { get; set; }
+    public decimal RegionalFeeAmount { get; set; }
+    public int ProvinceTargetCount { get; set; }
+    public int DistrictTargetCount { get; set; }
+    public bool AutoRenewEnabled { get; set; }
+    public string AutoRenewStatusCode { get; set; } = "OFF";
+    public DateTime? NextRenewalAt { get; set; }
+    public DateTime? RenewalNoticeSentAt { get; set; }
+    public bool RenewalConsentRequired { get; set; }
+    public DateTime? RenewalConsentAt { get; set; }
+    public decimal? RenewalConsentFeeAmount { get; set; }
+    public string? RenewalConsentPolicyFingerprint { get; set; }
+    public int RenewalCycleNo { get; set; }
+    public DateTime? LastRenewedAt { get; set; }
+    public DateTime? AutoRenewDisabledAt { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string StatusCode { get; set; } = "SUBMITTED";
+    public string FeeStatusCode { get; set; } = "RESERVED";
+    public long ReserveLedgerEntryId { get; set; }
+    public long? CaptureLedgerEntryId { get; set; }
+    public long? ReleaseLedgerEntryId { get; set; }
+    public string? SupplementNote { get; set; }
+    public string? RejectionReason { get; set; }
+    public DateTime SubmittedAt { get; set; }
+    public DateTime? ResubmittedAt { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ProviderAdvertisingRenewalHistory
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ProviderAdvertisingApplicationId { get; set; }
+    public int CycleNo { get; set; }
+    public DateTime DueAt { get; set; }
+    public decimal BaseFeeAmount { get; set; }
+    public decimal RegionalFeeAmount { get; set; }
+    public decimal FeeAmount { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string StatusCode { get; set; } = "PENDING";
+    public long? ReserveLedgerEntryId { get; set; }
+    public long? CaptureLedgerEntryId { get; set; }
+    public DateTime? NoticeSentAt { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+    public string? FailureReason { get; set; }
+    public string PolicyFingerprint { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class ManagedContent
 {
     public long Id { get; set; }

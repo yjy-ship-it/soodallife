@@ -53,6 +53,19 @@ public sealed class ProvidersController(ProviderConfigurationService providerSer
         catch (ProviderConfigurationException exception) { return Error(exception); }
     }
 
+    [HttpPost("approval/resubmit")]
+    public async Task<ActionResult> ResubmitApproval(ResubmitProviderApprovalInput input, CancellationToken token)
+    {
+        try { return Ok(await providerService.ResubmitApprovalAsync(User, input, token)); }
+        catch (ProviderConfigurationException exception) { return Error(exception); }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Provider approval resubmission failed. TraceId={TraceId}", HttpContext.TraceIdentifier);
+            return StatusCode(StatusCodes.Status500InternalServerError, ApiErrorResponse.Create(HttpContext,
+                "PROVIDER_APPROVAL_RESUBMIT_FAILED", $"보완 제출 처리 중 서버 오류가 발생했습니다. 오류번호: {HttpContext.TraceIdentifier}"));
+        }
+    }
+
     [HttpGet("requirements")]
     public Task<ActionResult> Requirements(CancellationToken token) => Run(async () => await providerService.GetRequirementsAsync(User, token));
 

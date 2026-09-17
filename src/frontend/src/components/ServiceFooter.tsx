@@ -1,8 +1,5 @@
-import {
-  familySites,
-  serviceCompany,
-  servicePolicyLinks,
-} from '../config/serviceCompany'
+import { serviceCompany, servicePolicyLinks } from '../config/serviceCompany'
+import { useState } from 'react'
 import './ServiceFooter.css'
 
 type ServiceFooterProps = {
@@ -13,19 +10,29 @@ function PendingValue() {
   return <span className="serviceFooterPending">확정 전</span>
 }
 
+function RegistrationPending() {
+  return <span className="serviceFooterPending">신고 진행 중</span>
+}
+
 function ContactLink({ href, children }: { href: string | null; children: string | null }) {
   return href && children ? <a href={href}>{children}</a> : <PendingValue />
 }
 
 export function ServiceFooter({ variant }: ServiceFooterProps) {
+  const [mobileExpanded, setMobileExpanded] = useState(false)
   const audienceLabel = {
     customer: '고객 서비스',
-    provider: '공급자 서비스',
+    provider: '전문가 서비스',
     admin: '본사 관리자 서비스',
   }[variant]
   return (
     <footer className="serviceFooter" data-variant={variant} aria-label={`${audienceLabel} 공통 푸터`}>
       <div className="serviceFooterInner">
+        <button className="serviceFooterMobileToggle" type="button" aria-expanded={mobileExpanded} aria-controls={`service-footer-details-${variant}`} onClick={() => setMobileExpanded(value => !value)}>
+          <span><strong>수달 라이프 사업자·정책 정보</strong><small>이용약관, 고객센터와 사업자 정보를 확인합니다.</small></span>
+          <b>{mobileExpanded ? '접기' : '펼치기'}</b>
+        </button>
+        <div id={`service-footer-details-${variant}`} className={`serviceFooterCollapsible${mobileExpanded ? ' isExpanded' : ''}`}>
         <nav className="serviceFooterPolicies" aria-label="서비스 정책 및 고객지원">
           {servicePolicyLinks.map((link) =>
             link.href ? (
@@ -53,13 +60,12 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
               <h2 id="service-footer-company">
                 {serviceCompany.serviceName} <span aria-hidden="true">|</span> {serviceCompany.serviceNameEnglish}
               </h2>
-              <strong className="verifiedBadge">사업자등록증명 확인</strong>
             </div>
             <p>{serviceCompany.companyName}</p>
             <dl className="serviceFooterDetails">
               <div><dt>대표</dt><dd>{serviceCompany.ceoName}</dd></div>
               <div><dt>사업자등록번호</dt><dd>{serviceCompany.businessRegistrationNumber}</dd></div>
-              <div><dt>통신판매업 신고번호</dt><dd>{serviceCompany.ecommerceRegistrationNumber ?? <PendingValue />}</dd></div>
+              <div><dt>통신판매업 신고번호</dt><dd>{serviceCompany.ecommerceRegistrationNumber ?? <RegistrationPending />}</dd></div>
               <div className="serviceFooterAddress"><dt>주소</dt><dd>{serviceCompany.address}</dd></div>
             </dl>
           </section>
@@ -77,12 +83,10 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
             </ContactLink>
           </section>
 
-          <section className="serviceFooterContact" aria-labelledby="service-footer-partnership">
-            <h3 id="service-footer-partnership">패밀리 사이트</h3>
-            {familySites.map(site => <a href={site.href} target="_blank" rel="noopener noreferrer" key={site.href}>{site.label}</a>)}
-            <h3 className="serviceFooterSubheading">개인정보보호 문의</h3>
-            <ContactLink href={`tel:${serviceCompany.privacyContact.replaceAll('-', '')}`}>
-              {serviceCompany.privacyContact}
+          <section className="serviceFooterContact" aria-labelledby="service-footer-privacy">
+            <h3 id="service-footer-privacy" className="serviceFooterSubheading">개인정보보호 문의</h3>
+            <ContactLink href={serviceCompany.privacyEmail ? `mailto:${serviceCompany.privacyEmail}` : null}>
+              {serviceCompany.privacyEmail}
             </ContactLink>
           </section>
         </div>
@@ -91,6 +95,7 @@ export function ServiceFooter({ variant }: ServiceFooterProps) {
           {serviceCompany.platformNotice}
         </aside>
         <p className="serviceFooterCopyright">{serviceCompany.copyright}</p>
+        </div>
       </div>
     </footer>
   )

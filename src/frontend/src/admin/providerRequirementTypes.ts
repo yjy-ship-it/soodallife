@@ -11,7 +11,15 @@ export interface AdminProviderRequirement {
   effectiveStatus: ProviderRequirementStatus
   isCurrentlyEffective: boolean
   isActive: boolean
+  rowVersion: string
   structuredRequirements: AdminCategoryProviderRequirement[]
+}
+
+export interface SaveAdminOperationPolicyInput {
+  qualificationAndLicenseRequirement: string
+  insuranceRequirement: string
+  safetyGradeCode: 'NORMAL' | 'MEDIUM' | 'HIGH'
+  rowVersion: string
 }
 
 export interface AdminCategoryProviderRequirementEvidence { documentTypeId: string; code: string; name: string; isRequired: boolean; displayOrder: number }

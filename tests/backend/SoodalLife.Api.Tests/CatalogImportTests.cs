@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.CatalogImport;
@@ -21,6 +22,7 @@ public sealed class CatalogImportTests
             row["입력유형"] == "선택" && string.IsNullOrWhiteSpace(row["선택값·단위"])));
         Assert.All(workbook.RequestFields, row => Assert.Matches("^FLD-[0-9]{5}$", row["필드ID"]));
         Assert.Equal(837, workbook.RequestFields.Select(row => row["필드ID"]).Distinct().Count());
+        Assert.Equal(11, workbook.RequestFields.Count(row => row["적용 서비스"] != "해당 중분류 전체"));
         Assert.Equal(17, workbook.RequestFields
             .GroupBy(row => (row["대분류"], row["중분류"], row["필드키"]))
             .Count(group => group.Count() > 1));
@@ -31,6 +33,7 @@ public sealed class CatalogImportTests
     {
         var options = new DbContextOptionsBuilder<SoodalLifeDbContext>()
             .UseInMemoryDatabase($"catalog-import-{Guid.NewGuid():N}")
+            .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         await using var dbContext = new SoodalLifeDbContext(options);
         var importer = new CatalogReferenceDataImporter(
@@ -41,7 +44,7 @@ public sealed class CatalogImportTests
         var first = await importer.ImportAsync(GetWorkbookPath(), includeDevelopmentAreas: false);
         var second = await importer.ImportAsync(GetWorkbookPath(), includeDevelopmentAreas: false);
 
-        Assert.Equal((6, 82, 677, 837, 837, 677),
+        Assert.Equal((6, 82, 677, 837, 879, 677),
             (first.MajorCategoryCount, first.MiddleCategoryCount, first.ServiceCategoryCount,
                 first.FieldDefinitionCount, first.FieldAssignmentCount, first.CategoryPolicyCount));
         Assert.Equal(18, first.SelectWithoutOptionsFallbackFieldIds.Count);
@@ -49,7 +52,8 @@ public sealed class CatalogImportTests
         Assert.Equal(first.SelectWithoutOptionsFallbackFieldIds, second.SelectWithoutOptionsFallbackFieldIds);
         Assert.Equal(765, await dbContext.ServiceCategories.CountAsync());
         Assert.Equal(837, await dbContext.CategoryFieldDefinitions.CountAsync());
-        Assert.Equal(837, await dbContext.CategoryFieldAssignments.CountAsync());
+        Assert.Equal(879, await dbContext.CategoryFieldAssignments.CountAsync());
+        Assert.Equal(879, await dbContext.CategoryFieldAssignments.CountAsync(assignment => assignment.IsActive));
         Assert.Equal(677, await dbContext.CategoryPolicies.CountAsync());
         Assert.Equal(9, await dbContext.FeePolicies.CountAsync());
         Assert.Equal(3, await dbContext.CompletionPhotoRoles.CountAsync());
@@ -61,6 +65,19 @@ public sealed class CatalogImportTests
         Assert.Equal(18, await dbContext.CategoryFieldDefinitions.CountAsync(field =>
             first.SelectWithoutOptionsFallbackFieldIds.Contains(field.SourceFieldId) && field.FieldTypeCode == "TEXT"));
         Assert.Equal(66, await dbContext.CategoryFieldDefinitions.CountAsync(field => field.FieldTypeCode == "SELECT"));
+
+        var kitchenFaucet = await dbContext.ServiceCategories.SingleAsync(category =>
+            category.LevelCode == "SERVICE" && category.Name == "주방 수전 교체");
+        var kitchenMiddle = await dbContext.ServiceCategories.SingleAsync(category =>
+            category.LevelCode == "MIDDLE" && category.Name == "주방 수리");
+        var quantityField = await dbContext.CategoryFieldDefinitions.SingleAsync(field => field.SourceFieldId == "FLD-00058");
+        Assert.Equal("target_quantity", quantityField.FieldKey);
+        Assert.Equal("수리·교체 대상 수량", quantityField.Label);
+        Assert.Equal("개", quantityField.UnitText);
+        Assert.True(await dbContext.CategoryFieldAssignments.AnyAsync(assignment =>
+            assignment.FieldDefinitionId == quantityField.Id && assignment.TargetCategoryId == kitchenFaucet.Id && assignment.IsActive));
+        Assert.False(await dbContext.CategoryFieldAssignments.AnyAsync(assignment =>
+            assignment.FieldDefinitionId == quantityField.Id && assignment.TargetCategoryId == kitchenMiddle.Id && assignment.IsActive));
 
         var duplicateBusinessKeyGroups = (await dbContext.CategoryFieldDefinitions.ToListAsync())
             .GroupBy(field => (field.OwnerMiddleCategoryId, field.FieldKey))
@@ -75,6 +92,7 @@ public sealed class CatalogImportTests
     {
         var options = new DbContextOptionsBuilder<SoodalLifeDbContext>()
             .UseInMemoryDatabase($"catalog-model-{Guid.NewGuid():N}")
+            .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         using var dbContext = new SoodalLifeDbContext(options);
         var entityType = dbContext.Model.FindEntityType(typeof(CategoryFieldDefinition));

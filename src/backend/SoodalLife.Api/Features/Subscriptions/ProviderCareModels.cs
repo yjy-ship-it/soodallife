@@ -10,7 +10,9 @@ public sealed record ProviderCareDashboardResponse(
 public sealed record ProviderCareRequestItem(
     Guid Id, string RequestNumber, Guid ServiceCategoryId, string ServiceName, string AreaName,
     string RequestTypeCode, string RequestedScope, DateOnly PreferredStartDate,
-    SubscriptionRecurrenceResponse Recurrence, string StatusCode, bool HasApplied, DateTime CreatedAt);
+    bool PriceNegotiable, decimal? DesiredMonthlyAmount, decimal? DesiredVisitAmount,
+    SubscriptionRecurrenceResponse Recurrence, string StatusCode, bool HasApplied, DateTime CreatedAt,
+    bool CanApply, string? EligibilityReasonCode, string? EligibilityReason);
 
 public sealed record ProviderCareApplicationItem(
     Guid Id, Guid RequestId, string RequestNumber, string ServiceName, string AreaName,

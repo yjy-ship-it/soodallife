@@ -18,6 +18,7 @@ public sealed class ProviderCareService(
     SoodalLifeDbContext db,
     ProviderTradingEligibilityService eligibility,
     CareSubscriptionService core,
+    SubscriptionTerminationService terminationService,
     IPrivacyContract privacy,
     IPrivateFileStorage storage,
     IUserRelationshipBlockPolicy relationshipBlocks)
@@ -50,6 +51,60 @@ public sealed class ProviderCareService(
     public Task<SubscriptionApplicationResponse> Apply(Guid requestId, SubmitSubscriptionApplicationRequest input, ClaimsPrincipal principal, CancellationToken token) =>
         core.Apply(requestId, input, principal, token);
 
+    public async Task<ProviderCareApplicationItem> WithdrawApplication(Guid id, WithdrawSubscriptionApplicationRequest input, ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await Provider(principal, token);
+        var row = await (from app in db.SubscriptionApplications
+                         join request in db.SubscriptionRequests on app.SubscriptionRequestId equals request.Id
+                         join service in db.ServiceCategories on request.ServiceCategoryId equals service.Id
+                         join area in db.AdministrativeAreas on request.AdministrativeAreaId equals area.Id
+                         where app.PublicId == id && app.ProviderProfileId == identity.ProviderId
+                         select new { app, request, service, area }).SingleOrDefaultAsync(token)
+                  ?? throw NotFound("SUBSCRIPTION_APPLICATION_NOT_FOUND", "수달 케어 지원을 찾을 수 없습니다.");
+        if (row.app.StatusCode == "WITHDRAWN") return new(row.app.PublicId, row.request.PublicId, Number("SR", row.request.PublicId), row.service.Name,
+            row.area.AreaName, row.app.ProposedScopeText, row.app.ProposedMonthlyAmount, row.app.ProposedVisitAmount, row.app.AvailableScheduleText,
+            row.app.StatusCode, ApplicationStatus(row.app.StatusCode), row.app.SubmittedAt, null, Version(row.app.RowVersion));
+        if (row.app.StatusCode != "SUBMITTED" || row.request.SelectedApplicationId.HasValue)
+            throw Conflict("SUBSCRIPTION_APPLICATION_WITHDRAW_INVALID", "고객이 선택하기 전의 지원만 철회할 수 있습니다.");
+        if (await db.SubscriptionEvents.AsNoTracking().AnyAsync(x => x.IdempotencyKey == input.IdempotencyKey, token))
+            throw Conflict("IDEMPOTENCY_KEY_REUSED", "이미 처리된 요청입니다. 목록을 새로고침해 주세요.");
+        ApplyVersion(row.app, input.RowVersion);
+        var now = DateTime.UtcNow; row.app.StatusCode = "WITHDRAWN"; row.app.UpdatedAt = now; row.app.UpdatedByUserId = identity.UserId;
+        db.SubscriptionEvents.Add(new SubscriptionEvent { SubscriptionRequestId = row.request.Id, EventTypeCode = "APPLICATION_WITHDRAWN",
+            EventDataJson = JsonSerializer.Serialize(new { applicationId = row.app.PublicId, input.Reason }), OccurredAt = now,
+            ActorUserId = identity.UserId, IdempotencyKey = input.IdempotencyKey });
+        db.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = identity.UserId, ActorRoleCode = RoleCodes.Provider,
+            ActionCode = "SUBSCRIPTION_APPLICATION_WITHDRAWN", EntityType = "SubscriptionApplication", EntityPublicId = row.app.PublicId,
+            ResultCode = "SUCCESS", Reason = input.Reason });
+        await SaveConcurrent(token);
+        return new(row.app.PublicId, row.request.PublicId, Number("SR", row.request.PublicId), row.service.Name, row.area.AreaName,
+            row.app.ProposedScopeText, row.app.ProposedMonthlyAmount, row.app.ProposedVisitAmount, row.app.AvailableScheduleText,
+            row.app.StatusCode, ApplicationStatus(row.app.StatusCode), row.app.SubmittedAt, null, Version(row.app.RowVersion));
+    }
+
+    public async Task<ProviderCareContractListItem> RequestTermination(Guid id, ProviderSubscriptionContractActionRequest input, ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await Provider(principal, token);
+        var contract = await db.SubscriptionContracts.SingleOrDefaultAsync(x => x.PublicId == id && x.ProviderProfileId == identity.ProviderId, token)
+                       ?? throw NotFound("SUBSCRIPTION_CONTRACT_NOT_FOUND", "구독 계약을 찾을 수 없습니다.");
+        if (contract.StatusCode == "TERMINATED" || contract.TerminationRequestedAt.HasValue)
+            throw Conflict("CONTRACT_STATE_INVALID", "이미 해지되었거나 처리 중인 구독입니다.");
+        if (contract.StatusCode is not ("ACTIVE" or "PAUSED" or "PAYMENT_PENDING"))
+            throw Conflict("CONTRACT_STATE_INVALID", "운영 중인 구독만 종료를 요청할 수 있습니다.");
+        ApplyVersion(contract, input.RowVersion);
+        var now = DateTime.UtcNow;
+        await terminationService.RequestTerminationAsync(contract, identity.UserId, input.Reason, input.IdempotencyKey, now, token);
+        db.SubscriptionEvents.Add(new SubscriptionEvent { SubscriptionRequestId = contract.SubscriptionRequestId, SubscriptionContractId = contract.Id,
+            EventTypeCode = "PROVIDER_TERMINATION_REQUESTED", EventDataJson = JsonSerializer.Serialize(new { input.Reason }), OccurredAt = now,
+            ActorUserId = identity.UserId, IdempotencyKey = input.IdempotencyKey });
+        db.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = identity.UserId, ActorRoleCode = RoleCodes.Provider,
+            ActionCode = "SUBSCRIPTION_PROVIDER_TERMINATION_REQUESTED", EntityType = "SubscriptionContract", EntityPublicId = contract.PublicId,
+            ResultCode = "SUCCESS", Reason = input.Reason });
+        await SaveConcurrent(token);
+        var row = await ContractQuery(identity.ProviderId).SingleAsync(x => x.contract.PublicId == id, token);
+        return await MapContract(row, token);
+    }
+
     public async Task<IReadOnlyList<ProviderCareApplicationItem>> Applications(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Provider(principal, token);
@@ -57,6 +112,7 @@ public sealed class ProviderCareService(
                           join request in db.SubscriptionRequests.AsNoTracking() on app.SubscriptionRequestId equals request.Id
                           join service in db.ServiceCategories.AsNoTracking() on request.ServiceCategoryId equals service.Id
                           join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                          join parent0 in db.AdministrativeAreas.AsNoTracking() on area.ParentAreaId equals (long?)parent0.Id into parents from parent in parents.DefaultIfEmpty()
                           where app.ProviderProfileId == identity.ProviderId
                           orderby app.SubmittedAt descending
                           select new { app, request, service, area }).ToListAsync(token);
@@ -93,7 +149,7 @@ public sealed class ProviderCareService(
         return new(contract, row.contract.ServiceScopeSnapshotJson, row.contract.RecurrenceSnapshotJson,
             row.contract.ProviderTrustScoreSnapshot, BillingDisplay(row.contract.BillingStatusCode), "정산 기능 준비 중",
             allowed, allowed ? row.user.Phone : null, allowed ? row.request.DetailAddress : null,
-            allowed ? "현재 계약 공급자와 유효 회차에 한해 업무 연락처가 공개됩니다." : "업무 배정이 유효하지 않아 연락처와 상세주소가 비공개입니다.");
+            allowed ? "현재 계약 전문가와 유효 회차에 한해 업무 연락처가 공개됩니다." : "업무 배정이 유효하지 않아 연락처와 상세주소가 비공개입니다.");
     }
 
     public async Task<IReadOnlyList<ProviderCareVisitListItem>> Visits(ClaimsPrincipal principal, string? filter, CancellationToken token)
@@ -139,7 +195,7 @@ public sealed class ProviderCareService(
             row.visit.PossessionVerificationStatusCode, row.visit.VisitVerificationStatusCode, row.visit.WorkStartedAt,
             row.visit.WorkCompletedAt, row.visit.CompletionChecklistJson, row.visit.CompletionNote, allowed,
             allowed ? row.user.Phone : null, allowed ? row.request.DetailAddress : null,
-            allowed ? "현재 계약 공급자와 유효 회차에 한해 공개됩니다." : "교체·종료 또는 비유효 회차이므로 개인정보가 비공개입니다.",
+            allowed ? "현재 계약 전문가와 유효 회차에 한해 공개됩니다." : "교체·종료 또는 비유효 회차이므로 개인정보가 비공개입니다.",
             files, await db.AfterServiceCases.AsNoTracking().Where(x => x.SubscriptionVisitScheduleId == row.visit.Id).Select(x => (Guid?)x.PublicId).FirstOrDefaultAsync(token),
             await db.DisputeCases.AsNoTracking().Where(x => x.SubscriptionVisitScheduleId == row.visit.Id).Select(x => (Guid?)x.PublicId).FirstOrDefaultAsync(token),
             row.visit.StatusCode switch { "PROVIDER_COMPLETED" => "고객 확인 대기", "COMPLETED" => "고객 확인 완료", "DISPUTED" => "분쟁 전환", _ => "완료보고 전" });
@@ -170,7 +226,7 @@ public sealed class ProviderCareService(
             return await Visit(id, principal, token);
         }
         if (row.contract.StatusCode != "ACTIVE") throw Conflict("SUBSCRIPTION_CONTRACT_NOT_ACTIVE", "활성 구독 계약의 회차만 시작할 수 있습니다.");
-        if (row.contract.ProviderProfileId != identity.ProviderId) throw NotFound("SUBSCRIPTION_VISIT_NOT_FOUND", "현재 계약 공급자의 회차만 시작할 수 있습니다.");
+        if (row.contract.ProviderProfileId != identity.ProviderId) throw NotFound("SUBSCRIPTION_VISIT_NOT_FOUND", "현재 계약 전문가의 회차만 시작할 수 있습니다.");
         if (row.visit.StatusCode is not ("SCHEDULED" or "RESCHEDULED")) throw Conflict("SUBSCRIPTION_VISIT_START_INVALID", "예정 또는 변경 확정 회차만 시작할 수 있습니다.");
         if (row.visit.ScheduledEndAt.HasValue && row.visit.ScheduledEndAt <= row.visit.ScheduledStartAt) throw Conflict("SUBSCRIPTION_VISIT_SCHEDULE_INVALID", "유효한 일정이 없는 회차는 시작할 수 없습니다.");
         ApplyVersion(row.visit, input.RowVersion);
@@ -254,21 +310,39 @@ public sealed class ProviderCareService(
         var rows = await (from request in db.SubscriptionRequests.AsNoTracking()
                           join service in db.ServiceCategories.AsNoTracking() on request.ServiceCategoryId equals service.Id
                           join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                          join parent0 in db.AdministrativeAreas.AsNoTracking() on area.ParentAreaId equals (long?)parent0.Id into parents from parent in parents.DefaultIfEmpty()
                           join rule in db.SubscriptionRecurrenceRules.AsNoTracking() on request.Id equals rule.SubscriptionRequestId
                           where request.StatusCode == "OPEN"
                           orderby request.CreatedAt descending
-                          select new { request, service, area, rule }).Take(300).ToListAsync(token);
+                          select new { request, service, area, parent, rule }).Take(300).ToListAsync(token);
         var result = new List<ProviderCareRequestItem>();
         foreach (var row in rows)
         {
             var decision = await eligibility.EvaluateAsync(identity.ProviderId, row.request.ServiceCategoryId, row.request.AdministrativeAreaId, token);
-            if (!decision.IsEligible || await relationshipBlocks.IsBlockedAsync(row.request.CustomerProfileId, identity.ProviderId, token)) continue;
-            result.Add(new(row.request.PublicId, Number("SR", row.request.PublicId), row.service.PublicId, row.service.Name, row.area.AreaName,
-                row.request.RequestTypeCode, row.request.RequestedScopeText, row.request.PreferredStartDate, MapRule(row.rule), row.request.StatusCode,
-                await db.SubscriptionApplications.AsNoTracking().AnyAsync(x => x.SubscriptionRequestId == row.request.Id && x.ProviderProfileId == identity.ProviderId, token), row.request.CreatedAt));
+            // A matching service/area request must remain visible even when an approval or evidence
+            // prerequisite is incomplete. Submission still uses the strict eligibility check in Apply.
+            if (!decision.ServiceRegistered || !decision.AreaMatched ||
+                await relationshipBlocks.IsBlockedAsync(row.request.CustomerProfileId, identity.ProviderId, token)) continue;
+            var preference = CareSubscriptionService.PricePreference(row.rule);
+            result.Add(new(row.request.PublicId, Number("SR", row.request.PublicId), row.service.PublicId, row.service.Name, row.parent==null||row.parent.AreaName==row.area.AreaName?row.area.AreaName:row.parent.AreaName+" "+row.area.AreaName,
+                row.request.RequestTypeCode, row.request.RequestedScopeText, row.request.PreferredStartDate, preference.PriceNegotiable,
+                preference.DesiredMonthlyAmount, preference.DesiredVisitAmount, MapRule(row.rule), row.request.StatusCode,
+                await db.SubscriptionApplications.AsNoTracking().AnyAsync(x => x.SubscriptionRequestId == row.request.Id && x.ProviderProfileId == identity.ProviderId, token), row.request.CreatedAt,
+                decision.IsEligible, decision.ReasonCode, EligibilityMessage(decision.ReasonCode)));
         }
         return result;
     }
+
+    private static string? EligibilityMessage(string? code) => code switch
+    {
+        null => null,
+        "PROVIDER_EXIT_IN_PROGRESS" => "전문가 활동 종료 처리가 진행 중이어서 지금은 제안할 수 없습니다.",
+        "PROVIDER_USER_OR_ROLE_INACTIVE" => "전문가 계정의 활동 상태를 확인해 주세요.",
+        "PROVIDER_NOT_APPROVED_ACTIVE" => "전문가 전체 승인이 완료되면 제안할 수 있습니다.",
+        "SERVICE_NOT_APPROVED" => "이 서비스의 승인이 완료되면 제안할 수 있습니다.",
+        "REQUIRED_EVIDENCE_INVALID" => "이 서비스의 필수 자격·증빙 확인이 완료되면 제안할 수 있습니다.",
+        _ => "제안 가능 조건을 확인해 주세요."
+    };
 
     private async Task<IReadOnlyList<ProviderCareScheduleChangeItem>> IncomingScheduleChanges(ProviderIdentity identity, CancellationToken token)
     {
@@ -345,14 +419,15 @@ public sealed class ProviderCareService(
                       join provider in db.ProviderProfiles.AsNoTracking() on user.Id equals provider.UserId
                       where user.PublicId == id && user.StatusCode == "ACTIVE"
                       select new ProviderIdentity(user.Id, provider.Id)).SingleOrDefaultAsync(token)
-               ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "공급자 프로필이 필요합니다.");
+               ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "전문가 프로필이 필요합니다.");
     }
 
-    private void ApplyVersion(SubscriptionVisitSchedule entity, string? value)
+    private void ApplyVersion(object entity, string? value)
     {
+        var current = (byte[]?)db.Entry(entity).Property("RowVersion").CurrentValue ?? [];
         if (string.IsNullOrWhiteSpace(value))
         {
-            if (entity.RowVersion.Length > 0) throw Bad("ROW_VERSION_REQUIRED", "최신 변경 버전 값이 필요합니다.");
+            if (current.Length > 0) throw Bad("ROW_VERSION_REQUIRED", "최신 변경 버전 값이 필요합니다.");
             return;
         }
         try { db.Entry(entity).Property("RowVersion").OriginalValue = Convert.FromBase64String(value); }
@@ -417,10 +492,20 @@ public sealed class ProviderCareService(
             value.PreferredTimeFrom, value.PreferredTimeTo, value.ExpectedDurationMinutes, value.StartDate, value.EndDate);
     }
 
-    private static string ContractStatus(string value) => value switch { "ACTIVE" => "이용 중", "PAUSED" => "일시정지", "TERMINATION_REQUESTED" => "해지 처리 대기", "TERMINATED" => "해지 완료", _ => value };
-    private static string ApplicationStatus(string value) => value switch { "SUBMITTED" => "고객 선택 대기", "SELECTED" => "선택됨", "NOT_SELECTED" => "미선택", "WITHDRAWN" => "종료", _ => value };
-    private static string VisitStatus(string value) => value switch { "SCHEDULED" => "방문 예정", "RESCHEDULED" => "변경 일정 확정", "IN_PROGRESS" => "진행 중", "PROVIDER_COMPLETED" => "고객 확인 대기", "COMPLETED" => "완료", "SKIPPED" => "건너뜀", "PAUSED" => "일시정지", "CANCELLED" => "취소", "DISPUTED" => "분쟁", _ => value };
-    private static string BillingDisplay(string? value) => value switch { "PAID" => "결제 확인", "FAILED" => "결제 확인 필요", null or "" => "결제 연동 준비 중", _ => "결제 상태 확인 중" };
+    private static string ContractStatus(string value) => value switch { "PAYMENT_PENDING" => "첫 결제 대기", "ACTIVE" => "이용 중", "PAUSED" => "일시정지", "TERMINATION_REQUESTED" => "해지 처리 대기", "TERMINATED" => "해지 완료", _ => "상태 확인 중" };
+    private static string ApplicationStatus(string value) => value switch { "SUBMITTED" => "고객 선택 대기", "SELECTED" => "선택됨", "NOT_SELECTED" => "미선택", "WITHDRAWN" => "철회", _ => "상태 확인 중" };
+    private static string VisitStatus(string value) => value switch { "SCHEDULED" => "방문 예정", "RESCHEDULED" => "변경 일정 확정", "IN_PROGRESS" => "진행 중", "PROVIDER_COMPLETED" => "고객 확인 대기", "COMPLETED" => "완료", "SKIPPED" => "건너뜀", "PAUSED" => "일시정지", "CANCELLED" => "취소", "DISPUTED" => "분쟁", _ => "상태 확인 중" };
+    private static string BillingDisplay(string? value) => value switch
+    {
+        "INITIAL_PAYMENT_REQUIRED" => "고객 결제수단 등록·첫 결제 대기",
+        "AUTO_PAY_CONSENTED" => "고객 정기결제 동의 완료·결제 처리 대기",
+        "PAYMENT_PROCESSING" => "결제 처리 중",
+        "PAYMENT_RESULT_UNKNOWN" => "결제기관 결과 확인 중",
+        "ACTIVE" or "PAID" => "결제 완료·자동결제 이용 중",
+        "OVERDUE" or "FAILED" => "결제 실패·고객 확인 필요",
+        null or "" => "고객 결제 준비 전",
+        _ => "결제 상태 확인 중"
+    };
     private static string SafeFileName(string contentType) => "completion-evidence" + (contentType switch { "image/jpeg" => ".jpg", "image/png" => ".png", "application/pdf" => ".pdf", _ => ".bin" });
     private static string Number(string prefix, Guid id) => $"{prefix}-{id.ToString("N")[..8].ToUpperInvariant()}";
     private static string Version(byte[] value) => value.Length == 0 ? string.Empty : Convert.ToBase64String(value);

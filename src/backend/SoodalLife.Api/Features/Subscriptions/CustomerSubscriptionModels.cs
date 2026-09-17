@@ -44,6 +44,9 @@ public sealed record CustomerSubscriptionRequestResponse(
     string StatusCode,
     int ApplicationCount,
     bool ProviderSelected,
+    bool PriceNegotiable,
+    decimal? DesiredMonthlyAmount,
+    decimal? DesiredVisitAmount,
     SubscriptionRecurrenceResponse Recurrence,
     DateTime CreatedAt,
     string RowVersion);
@@ -85,6 +88,12 @@ public sealed record CustomerSubscriptionContractResponse(
     Guid RequestId,
     string ServiceName,
     string? CareProductName,
+    string RequestAreaName,
+    string RequestedScope,
+    DateOnly PreferredStartDate,
+    bool RequestPriceNegotiable,
+    decimal? RequestedMonthlyAmount,
+    decimal? RequestedVisitAmount,
     Guid ProviderId,
     string ProviderName,
     string StatusCode,
@@ -104,6 +113,8 @@ public sealed record CustomerSubscriptionContractResponse(
     string RecurrenceSnapshotJson,
     decimal? ProviderTrustScoreSnapshot,
     bool ProviderReplacementRequiresSupport,
+    DateTime? NextBillingAt,
+    string? BillingStatusCode,
     string RowVersion);
 
 public sealed record CustomerSubscriptionVisitFileResponse(
@@ -168,6 +179,12 @@ public sealed record CustomerSubscriptionPaymentHistoryResponse(
     DateTime? ProcessedAt,
     string? FailureReason,
     IReadOnlyList<CustomerSubscriptionRefundResponse> Refunds);
+
+public sealed record CustomerRecurringPaymentConsentRequest(
+    Guid PaymentMethodId,
+    bool Consent,
+    [param: Required, StringLength(150)] string IdempotencyKey,
+    string? RowVersion);
 
 public sealed record CustomerSubscriptionRefundResponse(
     Guid Id,

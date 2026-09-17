@@ -1,0 +1,1 @@
+async function e(e,t){let n=await fetch(e,{credentials:`include`,...t,headers:t?.body&&!(t.body instanceof FormData)?{"Content-Type":`application/json`,...t.headers}:t?.headers});if(!n.ok){let e=await n.json().catch(()=>null);throw Error(e?.message??`요청을 처리하지 못했습니다.`)}return n.status===204?void 0:n.json()}export{e as t};

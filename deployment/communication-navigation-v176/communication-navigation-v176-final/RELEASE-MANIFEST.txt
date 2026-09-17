@@ -1,0 +1,23 @@
+SOODAL LIFE V176 CUSTOMER COMMUNICATION NAVIGATION RELEASE
+Release date: 2026-08-31
+Database schema/data changed: false
+API changed: false
+Customer app changed: true
+Partner app changed: true
+Admin app changed: true
+
+Verified changes
+- Customer desktop Communication menu opens the communication hub directly.
+- Work Chat and Review/Comment selections use browser-native links.
+- Chat list keeps Communication tabs and highlights Work Chat.
+- Header dropdowns close before page navigation.
+- Communication cards show hover and keyboard focus feedback.
+- Mobile Communication menu remains available.
+
+Verification
+- Frontend TypeScript production build: passed
+- Required route and CSS markers: validated before packaging
+
+Key artifact SHA-256
+- index-GFCjGiL_.js | 1323839 bytes | 5BDB38CDB6BA18BD1FB1F818837EF94E35D17EFCDEF5AC502BE1725036DFC2ED
+- index-Da6dxq8q.css | 323929 bytes | BDDA454BD0D1608F5492065B06B1DFBD7DE75D9A6B632F7FE0AB170D9FCC49AE

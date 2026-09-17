@@ -25,6 +25,8 @@ public sealed class AdminProviderRequirementStandardsController(AdminProviderReq
     public Task<ActionResult<AdminProviderDocumentTypeResponse>> CreateDocumentType(SaveAdminProviderDocumentTypeRequest request, CancellationToken cancellationToken) => Execute(() => service.CreateDocumentTypeAsync(request, ActorId(), cancellationToken), StatusCodes.Status201Created);
     [HttpPut("document-types/{id:guid}")]
     public Task<ActionResult<AdminProviderDocumentTypeResponse>> UpdateDocumentType(Guid id, SaveAdminProviderDocumentTypeRequest request, CancellationToken cancellationToken) => Execute(() => service.UpdateDocumentTypeAsync(id, request, ActorId(), cancellationToken));
+    [HttpPost("defaults/apply")]
+    public Task<ActionResult<AdminProviderRequirementDefaultsResponse>> ApplyDefaults(CancellationToken cancellationToken) => Execute(() => service.ApplyDefaultsAsync(ActorId(), cancellationToken));
     private Guid ActorId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private async Task<ActionResult<T>> Execute<T>(Func<Task<T>> action, int status = StatusCodes.Status200OK)
     {

@@ -17,12 +17,16 @@ public sealed record PublicPriceSummaryResponse(
     decimal? RecommendedMaxAmount,
     string? WorkUnit,
     string Currency,
+    string VatPolicyCode,
     string VatDisplayText,
+    decimal? VatAmount,
+    decimal? TotalAmount,
     string GuidanceText);
 
 public sealed record PublicServiceSummaryResponse(
     Guid Id,
     string? Code,
+    string? Slug,
     string Name,
     Guid MajorId,
     string MajorName,
@@ -42,6 +46,7 @@ public sealed record PublicServiceRequestFieldResponse(
 public sealed record PublicServiceDetailResponse(
     Guid Id,
     string? Code,
+    string? Slug,
     string Name,
     Guid MajorId,
     string MajorName,
@@ -50,9 +55,14 @@ public sealed record PublicServiceDetailResponse(
     string? Description,
     PublicPriceSummaryResponse? Price,
     string OnsiteRequirement,
+    string CoverageTypeCode,
+    bool RequiresServiceAddress,
     bool EmergencyRequestAllowed,
     bool SubscriptionAvailable,
     int DefaultWarrantyDays,
     string RequestGuide,
     string? ProviderRequirementGuide,
+    string SeoTitle,
+    string SeoDescription,
+    string? SearchKeywordsText,
     IReadOnlyList<PublicServiceRequestFieldResponse> RequestFields);

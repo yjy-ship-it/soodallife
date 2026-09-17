@@ -1,0 +1,193 @@
+.workEvidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.workEvidenceItem {
+  min-width: 0;
+}
+
+.workEvidence .authenticatedFilePreview {
+  height: 100%;
+}
+
+.directPaymentFlow {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid #b8ddd5;
+  border-radius: 13px;
+  background: #eefaf7;
+  color: #315f57;
+}
+
+.directPaymentFlow strong,
+.selectedEvidenceName {
+  color: #0f766e;
+}
+
+.selectedEvidenceName {
+  display: block;
+  margin-top: 6px;
+}
+
+.completionSaveGuide {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f1f7f5;
+  color: #536c65;
+  font-size: .82rem;
+}
+
+.completionSaveGuide strong {
+  color: #174b43;
+}
+
+.completionSavedNotice {
+  margin-bottom: 14px;
+}
+
+.photoAutoUpload {
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.photoAutoUpload small {
+  color: #667b75;
+  font-size: .72rem;
+}
+
+.uploadThumbs {
+  grid-template-columns: 1fr;
+}
+
+.uploadThumbs .authenticatedFileVisual {
+  height: 120px;
+}
+
+.completionSubmitButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  margin: 14px 0;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #0f766e !important;
+  color: #fff !important;
+  font: inherit;
+  font-weight: 900;
+}
+
+.completionSubmitButton:disabled {
+  background: #dbe8e4 !important;
+  color: #70837d !important;
+}
+
+.editablePhoto {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.photoRemoveButton {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #e8b7ae;
+  border-radius: 9px;
+  background: #fff7f5;
+  color: #9e321f;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photoRemoveButton:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.reviewEntryGuide b {
+  color: #0f766e;
+}
+
+.reviewRatingGuide {
+  margin: 10px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0faf7;
+  color: #315f57;
+  line-height: 1.65;
+}
+
+.reviewRatingGuide b {
+  display: block;
+  color: #0f766e;
+}
+
+.reviewForm label small,
+.reviewSavedHelp {
+  display: block;
+  margin-top: 4px;
+  color: #687a76;
+}
+
+.reviewPhotoPicker {
+  padding: 12px;
+  border: 1px dashed #82c6b9;
+  border-radius: 10px;
+  background: #f8fffd;
+}
+
+.reviewPhotoPreviews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(150px,1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.reviewPhotoPreviews article {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #d8e7e3;
+  border-radius: 12px;
+}
+
+.reviewPhotoPreviews img,
+.reviewPhotoPreviews .authenticatedFileVisual {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.reviewPhotoPreviews b {
+  overflow: hidden;
+  font-size: .8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewPhotoPreviews button {
+  min-height: 34px;
+}
+
+.reviewProgress {
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.reviewSubmitButton:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}

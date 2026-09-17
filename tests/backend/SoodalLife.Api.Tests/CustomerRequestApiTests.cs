@@ -72,10 +72,13 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
     }
 
     [Fact]
-    public async Task EmergencyCategoryHierarchy_OnlyReturnsEmergencyEnabledServices()
+    public async Task EmergencyCategoryHierarchy_UsesPolicyEvenWithoutAvailableProviders()
     {
         using var client = CreateClient();
         await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        Assert.False(await db.ProviderEmergencySettings.AnyAsync());
 
         var majors = await client.GetFromJsonAsync<List<CategoryResponse>>("/api/v1/categories/majors?emergencyOnly=true");
         Assert.Contains(majors!, item => item.Id == factory.Catalog.MajorId);
@@ -86,6 +89,70 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         var services = await client.GetFromJsonAsync<List<CategoryResponse>>($"/api/v1/categories/{middle.Id}/services?emergencyOnly=true");
         Assert.Contains(services!, item => item.Id == factory.Catalog.ServiceId);
         Assert.DoesNotContain(services!, item => item.Id == factory.Catalog.OtherServiceId);
+    }
+
+    [Fact]
+    public async Task Customer_CannotCreateEmergencyRequestForPolicyDisallowedService()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+
+        var response = await client.PostAsJsonAsync("/api/v1/requests", new
+        {
+            categoryId = factory.Catalog.OtherServiceId,
+            administrativeAreaId = factory.Catalog.AreaId,
+            title = "허용되지 않은 긴급 요청",
+            isUrgent = true,
+            idempotencyKey = $"emergency-policy-{Guid.NewGuid():N}",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task EmergencyRequest_UsesAllowedPolicyWhenAnotherCurrentPolicyIsDisallowed()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var categoryId = await db.ServiceCategories.Where(x => x.PublicId == factory.Catalog.ServiceId).Select(x => x.Id).SingleAsync();
+        var feePolicyId = await db.CategoryPolicies.Where(x => x.CategoryId == categoryId).Select(x => x.FeePolicyId).FirstAsync();
+        var conflictingPolicy = new SoodalLife.Api.Domain.Entities.CategoryPolicy
+        {
+            CategoryId = categoryId,
+            PolicyVersion = $"emergency-conflict-{Guid.NewGuid():N}",
+            TransactionTypeCode = "ONE_TIME",
+            IsEmergencyAllowed = false,
+            CurrencyCode = "KRW",
+            MaxQuoteCount = 5,
+            QuoteValidityMinutes = 120,
+            ProviderResponseDeadlineMinutes = 30,
+            FeePolicyId = feePolicyId,
+            EffectiveFrom = DateOnly.FromDateTime(DateTime.UtcNow),
+        };
+        db.CategoryPolicies.Add(conflictingPolicy);
+        await db.SaveChangesAsync();
+
+        try
+        {
+            using var client = CreateClient();
+            await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+            var detail = await client.GetFromJsonAsync<PublicServiceDetailResponse>($"/api/v1/public/catalog/services/{factory.Catalog.ServiceId}");
+            Assert.True(detail!.EmergencyRequestAllowed);
+
+            var response = await client.PostAsJsonAsync("/api/v1/requests", new
+            {
+                categoryId = factory.Catalog.ServiceId,
+                title = "긴급 정책 선택 테스트",
+                isUrgent = true,
+                idempotencyKey = $"emergency-selection-{Guid.NewGuid():N}",
+            });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+        finally
+        {
+            db.CategoryPolicies.Remove(conflictingPolicy);
+            await db.SaveChangesAsync();
+        }
     }
 
     [Fact]
@@ -101,6 +168,72 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         Assert.NotNull(detail);
         Assert.Equal(created.Id, detail.Id);
         Assert.Equal(3, detail.Answers.Count);
+    }
+
+    [Fact]
+    public async Task NationwideRemoteRequest_DoesNotCollectAddress_AndStillMatchesNationwideProvider()
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var categoryId = await db.ServiceCategories.Where(x => x.PublicId == factory.Catalog.ServiceId).Select(x => x.Id).SingleAsync();
+        var operation = await db.CategoryOperationPolicies.SingleAsync(x => x.CategoryId == categoryId && x.IsActive);
+        var provider = await (from user in db.Users join profile in db.ProviderProfiles on user.Id equals profile.UserId
+                              where user.LoginId == factory.Credentials[RoleCodes.Provider].LoginId select profile).SingleAsync();
+        var providerService = await db.ProviderServiceCategories.SingleAsync(x => x.ProviderProfileId == provider.Id && x.CategoryId == categoryId);
+        var originalCoverage = operation.CoverageTypeCode;
+        var originalNationwide = providerService.IsNationwide;
+
+        try
+        {
+            operation.CoverageTypeCode = "NATIONWIDE_REMOTE";
+            providerService.IsNationwide = true;
+            await db.SaveChangesAsync();
+
+            using var customer = CreateClient();
+            await LoginAsync(customer, factory.Credentials[RoleCodes.Customer]);
+            var serviceDetail = await customer.GetFromJsonAsync<PublicServiceDetailResponse>($"/api/v1/public/catalog/services/{factory.Catalog.ServiceId}");
+            Assert.NotNull(serviceDetail);
+            Assert.Equal("NATIONWIDE_REMOTE", serviceDetail.CoverageTypeCode);
+            Assert.False(serviceDetail.RequiresServiceAddress);
+            var response = await customer.PostAsJsonAsync("/api/v1/requests", new
+            {
+                categoryId = factory.Catalog.ServiceId,
+                title = "전국 온라인 요청",
+                description = "주소 없이 온라인으로 진행합니다.",
+                detailAddress = "저장되면 안 되는 주소",
+                detailAddressDisclosureCode = "BEFORE_QUOTE",
+                isUrgent = false,
+                idempotencyKey = $"remote-{Guid.NewGuid():N}",
+                answers = ValidAnswers(),
+            });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var created = (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+            var createdRequest = await db.ServiceRequests.SingleAsync(item => item.PublicId == created.Id);
+            createdRequest.AbuseCountExcluded = true;
+            await db.SaveChangesAsync();
+            Assert.Equal(HttpStatusCode.OK, (await customer.PostAsync($"/api/v1/requests/{created.Id}/publish", null)).StatusCode);
+
+            var detail = await customer.GetFromJsonAsync<ServiceRequestDetailResponse>($"/api/v1/requests/{created.Id}");
+            Assert.Null(detail!.AdministrativeAreaId);
+            Assert.Null(detail.DetailAddress);
+            Assert.Equal("AFTER_SELECTION", detail.DetailAddressDisclosureCode);
+
+            using var providerClient = CreateClient();
+            await LoginAsync(providerClient, factory.Credentials[RoleCodes.Provider]);
+            var inbox = await providerClient.GetFromJsonAsync<List<SoodalLife.Api.Features.Matching.ProviderMatchedRequestListItem>>("/api/v1/providers/me/matched-requests");
+            Assert.Contains(inbox!, item => item.RequestId == created.Id && item.AreaName == "전국·온라인");
+            var matchedRequest = await providerClient.GetFromJsonAsync<SoodalLife.Api.Features.Matching.ProviderMatchedRequestDetail>($"/api/v1/providers/me/matched-requests/{created.Id}");
+            Assert.NotNull(matchedRequest);
+            Assert.False(matchedRequest.RequiresServiceAddress);
+            Assert.Null(matchedRequest.DetailAddress);
+            Assert.Null(matchedRequest.ApproximateDistanceKm);
+        }
+        finally
+        {
+            operation.CoverageTypeCode = originalCoverage;
+            providerService.IsNationwide = originalNationwide;
+            await db.SaveChangesAsync();
+        }
     }
 
     [Fact]
@@ -153,10 +286,15 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    public static TheoryData<string, string, byte[], HttpStatusCode> RequestFileCases => new()
+    {
+        { "sample.jpg", "image/jpeg", TestFileSamples.ValidJpeg(), HttpStatusCode.OK },
+        { "sample.jpg", "image/jpeg", new byte[] { 0x00, 0x01, 0x02 }, HttpStatusCode.BadRequest },
+        { "sample.exe", "application/octet-stream", new byte[] { 0x4D, 0x5A }, HttpStatusCode.BadRequest },
+    };
+
     [Theory]
-    [InlineData("sample.jpg", "image/jpeg", new byte[] { 0xFF, 0xD8, 0xFF, 0x01 }, HttpStatusCode.OK)]
-    [InlineData("sample.jpg", "image/jpeg", new byte[] { 0x00, 0x01, 0x02 }, HttpStatusCode.BadRequest)]
-    [InlineData("sample.exe", "application/octet-stream", new byte[] { 0x4D, 0x5A }, HttpStatusCode.BadRequest)]
+    [MemberData(nameof(RequestFileCases))]
     public async Task RequestFile_ValidatesTypeExtensionAndSignature(string name, string contentType, byte[] bytes, HttpStatusCode expected)
     {
         using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(client);
@@ -169,7 +307,7 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
     public async Task OtherCustomer_CannotUploadToOwnedDraft()
     {
         using var owner = CreateClient(); await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]); var draft = await CreateValidRequestAsync(owner);
-        using var other = CreateClient(); await LoginAsync(other, factory.OtherCustomerCredential); using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent([0xFF, 0xD8, 0xFF]); content.Headers.ContentType = new("image/jpeg"); form.Add(content, "file", "safe.jpg");
+        using var other = CreateClient(); await LoginAsync(other, factory.OtherCustomerCredential); using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent(TestFileSamples.ValidJpeg()); content.Headers.ContentType = new("image/jpeg"); form.Add(content, "file", "safe.jpg");
         Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsync($"/api/v1/requests/{draft.Id}/files", form)).StatusCode);
     }
 
@@ -180,7 +318,7 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         await LoginAsync(owner, factory.Credentials[RoleCodes.Customer]);
         var draft = await CreateValidRequestAsync(owner);
         using var form = new MultipartFormDataContent();
-        using var content = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0x01]);
+        using var content = new ByteArrayContent(TestFileSamples.ValidJpeg());
         content.Headers.ContentType = new("image/jpeg");
         form.Add(content, "file", "customer-private.jpg");
         var uploaded = await owner.PostAsync($"/api/v1/requests/{draft.Id}/files", form);
@@ -290,9 +428,36 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Customer_CanPublishRequestWithMinutePrecisionDesiredDate()
+    {
+        using var client = CreateClient();
+        await LoginAsync(client, factory.Credentials[RoleCodes.Customer]);
+        var desiredAt = DateTimeOffset.UtcNow.AddDays(2).AddMinutes(7).ToString("O");
+        var response = await client.PostAsJsonAsync("/api/v1/requests", new
+        {
+            categoryId = factory.Catalog.ServiceId,
+            administrativeAreaId = factory.Catalog.AreaId,
+            title = "분 단위 희망일시 테스트",
+            detailAddress = "테스트 상세주소",
+            idempotencyKey = $"minute-precision-{Guid.NewGuid():N}",
+            answers = new object[]
+            {
+                new { fieldId = factory.Catalog.FieldIds[0], value = "분 단위 희망일시가 저장되는지 확인하는 요청입니다." },
+                new { fieldId = factory.Catalog.FieldIds[1], value = desiredAt },
+                new { fieldId = factory.Catalog.FieldIds[2], value = "주거" },
+            },
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+
+        var publish = await client.PostAsync($"/api/v1/requests/{created.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, publish.StatusCode);
+    }
+
     private async Task<ServiceRequestCreatedResponse> CreateValidRequestAsync(HttpClient client)
     {
-        var desiredAt = DateTimeOffset.UtcNow.AddDays(2).ToString("O");
+        var desiredAt = FutureThirtyMinuteSlot();
         var answers = new object[]
         {
             new { fieldId = factory.Catalog.FieldIds[0], value = "요청 내용을 충분히 자세하게 작성한 테스트 데이터입니다." },
@@ -311,15 +476,24 @@ public sealed class CustomerRequestApiTests(AuthenticationWebApplicationFactory 
             answers,
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+        var created = (await response.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
+        await TestRequestData.ExcludeFromAbuseLimitsAsync(factory, created.Id);
+        return created;
     }
 
     private object[] ValidAnswers() =>
     [
         new { fieldId = factory.Catalog.FieldIds[0], value = "요청 내용을 충분히 자세하게 작성한 테스트 데이터입니다." },
-        new { fieldId = factory.Catalog.FieldIds[1], value = DateTimeOffset.UtcNow.AddDays(2).ToString("O") },
+        new { fieldId = factory.Catalog.FieldIds[1], value = FutureThirtyMinuteSlot() },
         new { fieldId = factory.Catalog.FieldIds[2], value = "주거" },
     ];
+
+    private static string FutureThirtyMinuteSlot()
+    {
+        var future = DateTimeOffset.UtcNow.AddDays(2);
+        var hour = new DateTimeOffset(future.Year, future.Month, future.Day, future.Hour, 0, 0, TimeSpan.Zero);
+        return hour.AddMinutes(future.Minute < 30 ? 30 : 60).ToString("O");
+    }
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions
     {

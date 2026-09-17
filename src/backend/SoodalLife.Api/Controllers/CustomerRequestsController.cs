@@ -40,6 +40,16 @@ public sealed class CustomerRequestsController(CustomerServiceRequestService req
         catch (RequestValidationException exception) { return Error(exception); }
     }
 
+    [HttpPost("{requestId:guid}/draft")]
+    public async Task<ActionResult<ServiceRequestDetailResponse>> UpdateDraft(
+        Guid requestId,
+        UpdateServiceRequestDraftInput input,
+        CancellationToken cancellationToken)
+    {
+        try { return Ok(await requestService.UpdateDraftAsync(User, requestId, input, cancellationToken)); }
+        catch (RequestValidationException exception) { return Error(exception); }
+    }
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ServiceRequestListItemResponse>>> GetMine(CancellationToken cancellationToken) =>
         Ok(await requestService.GetMineAsync(User, cancellationToken));

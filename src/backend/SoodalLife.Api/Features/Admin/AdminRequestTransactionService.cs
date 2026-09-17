@@ -82,7 +82,7 @@ public sealed class AdminRequestTransactionService(SoodalLifeDbContext db)
         return new(row.Request.PublicId, RequestNumber(row.Request.PublicId), row.Customer.DisplayName, AdminPrivacy.Phone(row.User.Phone), row.Service.Name,
             row.Major.Name + " > " + row.Middle.Name + " > " + row.Service.Name, row.Area.AreaName, AdminPrivacy.DetailAddress(row.Request.DetailAddress),
             row.Request.Title, row.Request.Description, row.Request.CreatedAt, row.Request.StatusCode,
-            transactionId.HasValue ? "채택 공급자에게 공개" : "공급자 비공개", answers, candidates, quotes, acceptedQuote, transactionId, history);
+            transactionId.HasValue ? "채택 전문가에게 공개" : "전문가 비공개", answers, candidates, quotes, acceptedQuote, transactionId, history);
     }
 
     public async Task<AdminTransactionListResponse> SearchTransactionsAsync(string? search, string? status, DateOnly? createdFrom,
@@ -95,8 +95,16 @@ public sealed class AdminRequestTransactionService(SoodalLifeDbContext db)
                     join provider in db.ProviderProfiles.AsNoTracking() on transaction.ProviderProfileId equals provider.Id
                     select new { Transaction = transaction, Category = category, Customer = customer, Provider = provider };
         var term = search?.Trim();
-        if (!string.IsNullOrWhiteSpace(term)) query = Guid.TryParse(term, out var id) ? query.Where(row => row.Transaction.PublicId == id)
-            : query.Where(row => row.Category.Name.Contains(term) || row.Customer.DisplayName.Contains(term) || row.Provider.BusinessName.Contains(term));
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            if (Guid.TryParse(term, out var id)) query = query.Where(row => row.Transaction.PublicId == id);
+            else if (term.StartsWith("거래-", StringComparison.OrdinalIgnoreCase) && term.Length > 3)
+            {
+                var numberPrefix = term[3..].Replace("-", string.Empty).Trim().ToLowerInvariant();
+                query = query.Where(row => row.Transaction.PublicId.ToString().StartsWith(numberPrefix));
+            }
+            else query = query.Where(row => row.Category.Name.Contains(term) || row.Customer.DisplayName.Contains(term) || row.Provider.BusinessName.Contains(term));
+        }
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(row => row.Transaction.StatusCode == status.Trim().ToUpperInvariant());
         if (createdFrom.HasValue) query = query.Where(row => row.Transaction.CreatedAt >= createdFrom.Value.ToDateTime(TimeOnly.MinValue));
         if (createdTo.HasValue) query = query.Where(row => row.Transaction.CreatedAt < createdTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue));

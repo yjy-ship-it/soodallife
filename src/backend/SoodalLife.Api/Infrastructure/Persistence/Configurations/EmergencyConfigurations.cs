@@ -23,11 +23,24 @@ internal sealed class ProviderEmergencyServiceSettingConfiguration() : EntityCon
     {
         Mapping.PublicId(b); Mapping.Long(b,nameof(ProviderEmergencyServiceSetting.ProviderEmergencySettingId),"provider_emergency_setting_id");
         Mapping.Long(b,nameof(ProviderEmergencyServiceSetting.ProviderServiceCategoryId),"provider_service_category_id");
-        Mapping.Bool(b,nameof(ProviderEmergencyServiceSetting.IsEnabled),"is_enabled",false); Mapping.FullAudit(b);
+        Mapping.Bool(b,nameof(ProviderEmergencyServiceSetting.IsEnabled),"is_enabled",false);
+        Mapping.Decimal(b,nameof(ProviderEmergencyServiceSetting.BaseDispatchFeeAmount),"base_dispatch_fee_amount");
+        Mapping.String(b,nameof(ProviderEmergencyServiceSetting.PaymentModeCode),"payment_mode_code",30,unicode:false,defaultValue:"ON_SITE");
+        Mapping.Decimal(b,nameof(ProviderEmergencyServiceSetting.NoShowFeeAmount),"no_show_fee_amount");
+        b.Property(x=>x.NoShowWaitMinutes).HasColumnName("no_show_wait_minutes").HasColumnType("int").HasDefaultValue(10);
+        Mapping.Bool(b,nameof(ProviderEmergencyServiceSetting.WorkFeeSeparate),"work_fee_separate",true);
+        Mapping.String(b,nameof(ProviderEmergencyServiceSetting.AdditionalFeeText),"additional_fee_text",1000,nullable:true);
+        Mapping.String(b,nameof(ProviderEmergencyServiceSetting.PaymentInstructionProtected),"payment_instruction_protected",2000,nullable:true);
+        Mapping.FullAudit(b);
         Mapping.Fk<ProviderEmergencyServiceSetting,ProviderEmergencySetting>(b,nameof(ProviderEmergencyServiceSetting.ProviderEmergencySettingId));
         Mapping.Fk<ProviderEmergencyServiceSetting,ProviderServiceCategory>(b,nameof(ProviderEmergencyServiceSetting.ProviderServiceCategoryId));
         b.HasIndex(x=>x.ProviderServiceCategoryId).IsUnique();
         b.HasIndex(x=>new{x.ProviderEmergencySettingId,x.IsEnabled});
+        b.ToTable("provider_emergency_service_settings",t=>{
+            t.HasCheckConstraint("CK_provider_emergency_service_payment_mode","[payment_mode_code] IN ('NO_FEE','ON_SITE','TRANSFER_REPORTED','TRANSFER_CONFIRMED')");
+            t.HasCheckConstraint("CK_provider_emergency_service_amounts","[base_dispatch_fee_amount] >= 0 AND [no_show_fee_amount] >= 0 AND [no_show_fee_amount] <= [base_dispatch_fee_amount]");
+            t.HasCheckConstraint("CK_provider_emergency_service_wait","[no_show_wait_minutes] BETWEEN 5 AND 60");
+        });
     }
 }
 
@@ -69,7 +82,14 @@ internal sealed class EmergencyResponseConfiguration() : EntityConfiguration<Eme
         Mapping.PublicId(b); Mapping.Long(b,nameof(EmergencyResponse.ServiceRequestId),"service_request_id"); Mapping.Long(b,nameof(EmergencyResponse.RequestDispatchId),"request_dispatch_id"); Mapping.Long(b,nameof(EmergencyResponse.ProviderProfileId),"provider_profile_id");
         Mapping.String(b,nameof(EmergencyResponse.StatusCode),"status_code",20,unicode:false,defaultValue:"PENDING");
         b.Property(x=>x.EtaMinutes).HasColumnName("eta_minutes").HasColumnType("int"); Mapping.DateTime(b,nameof(EmergencyResponse.EstimatedArrivalAt),"estimated_arrival_at",nullable:true);
-        Mapping.String(b,nameof(EmergencyResponse.ConditionsText),"conditions_text",1000,nullable:true); Mapping.DateTime(b,nameof(EmergencyResponse.RespondedAt),"responded_at"); Mapping.DateTime(b,nameof(EmergencyResponse.ExpiresAt),"expires_at");
+        Mapping.String(b,nameof(EmergencyResponse.ConditionsText),"conditions_text",1000,nullable:true);
+        Mapping.Decimal(b,nameof(EmergencyResponse.BaseDispatchFeeAmount),"base_dispatch_fee_amount");
+        Mapping.String(b,nameof(EmergencyResponse.PaymentModeCode),"payment_mode_code",30,unicode:false,defaultValue:"ON_SITE");
+        Mapping.Decimal(b,nameof(EmergencyResponse.NoShowFeeAmount),"no_show_fee_amount");
+        b.Property(x=>x.NoShowWaitMinutes).HasColumnName("no_show_wait_minutes").HasColumnType("int").HasDefaultValue(10);
+        Mapping.Bool(b,nameof(EmergencyResponse.WorkFeeSeparate),"work_fee_separate",true);
+        Mapping.String(b,nameof(EmergencyResponse.AdditionalFeeText),"additional_fee_text",1000,nullable:true);
+        Mapping.DateTime(b,nameof(EmergencyResponse.RespondedAt),"responded_at"); Mapping.DateTime(b,nameof(EmergencyResponse.ExpiresAt),"expires_at");
         Mapping.String(b,nameof(EmergencyResponse.IdempotencyKey),"idempotency_key",100,unicode:false); Mapping.DateTime(b,nameof(EmergencyResponse.SelectedAt),"selected_at",nullable:true); Mapping.FullAudit(b);
         Mapping.Fk<EmergencyResponse,ServiceRequest>(b,nameof(EmergencyResponse.ServiceRequestId)); Mapping.Fk<EmergencyResponse,RequestDispatch>(b,nameof(EmergencyResponse.RequestDispatchId)); Mapping.Fk<EmergencyResponse,ProviderProfile>(b,nameof(EmergencyResponse.ProviderProfileId));
         b.HasIndex(x=>x.RequestDispatchId).IsUnique(); b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.ServiceRequestId,x.StatusCode});
@@ -88,6 +108,38 @@ internal sealed class EmergencyProgressEventConfiguration() : EntityConfiguratio
         Mapping.String(b,nameof(EmergencyProgressEvent.EventTypeCode),"event_type_code",30,unicode:false); Mapping.String(b,nameof(EmergencyProgressEvent.Note),"note",1000,nullable:true); Mapping.DateTime(b,nameof(EmergencyProgressEvent.OccurredAt),"occurred_at"); Mapping.String(b,nameof(EmergencyProgressEvent.IdempotencyKey),"idempotency_key",100,unicode:false);
         Mapping.Fk<EmergencyProgressEvent,TransactionRecord>(b,nameof(EmergencyProgressEvent.TransactionId)); Mapping.Fk<EmergencyProgressEvent,User>(b,nameof(EmergencyProgressEvent.ActorUserId));
         b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.TransactionId,x.OccurredAt});
-        b.ToTable("emergency_progress_events",t=>t.HasCheckConstraint("CK_emergency_progress_events_type","[event_type_code] IN ('DISPATCH_CONFIRMED','DEPARTED','EN_ROUTE','ARRIVED')"));
+        b.ToTable("emergency_progress_events",t=>t.HasCheckConstraint("CK_emergency_progress_events_type","[event_type_code] IN ('DISPATCH_CONFIRMED','PAYMENT_REPORTED','PAYMENT_CONFIRMED','PAYMENT_REJECTED','DEPARTED','ARRIVED','COMPLETED','NO_SHOW_WAITING','CUSTOMER_NO_SHOW','PROVIDER_NO_SHOW','NO_SHOW_DISPUTED')"));
+    }
+}
+
+internal sealed class EmergencyDispatchAgreementConfiguration() : EntityConfiguration<EmergencyDispatchAgreement>("emergency_dispatch_agreements")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<EmergencyDispatchAgreement> b)
+    {
+        Mapping.PublicId(b); Mapping.Long(b,nameof(EmergencyDispatchAgreement.TransactionId),"transaction_id");
+        Mapping.Decimal(b,nameof(EmergencyDispatchAgreement.BaseDispatchFeeAmount),"base_dispatch_fee_amount");
+        Mapping.String(b,nameof(EmergencyDispatchAgreement.PaymentModeCode),"payment_mode_code",30,unicode:false);
+        Mapping.String(b,nameof(EmergencyDispatchAgreement.PaymentStatusCode),"payment_status_code",30,unicode:false);
+        Mapping.Decimal(b,nameof(EmergencyDispatchAgreement.NoShowFeeAmount),"no_show_fee_amount");
+        b.Property(x=>x.NoShowWaitMinutes).HasColumnName("no_show_wait_minutes").HasColumnType("int");
+        Mapping.Bool(b,nameof(EmergencyDispatchAgreement.WorkFeeSeparate),"work_fee_separate",true);
+        Mapping.String(b,nameof(EmergencyDispatchAgreement.AdditionalFeeText),"additional_fee_text",1000,nullable:true);
+        Mapping.String(b,nameof(EmergencyDispatchAgreement.PaymentInstructionProtected),"payment_instruction_protected",2000,nullable:true);
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.TermsAcceptedAt),"terms_accepted_at");
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.PaymentReportedAt),"payment_reported_at",nullable:true);
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.PaymentConfirmedAt),"payment_confirmed_at",nullable:true);
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.ArrivedAt),"arrived_at",nullable:true);
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.NoShowWaitUntil),"no_show_wait_until",nullable:true);
+        Mapping.String(b,nameof(EmergencyDispatchAgreement.NoShowStatusCode),"no_show_status_code",30,nullable:true,unicode:false);
+        Mapping.DateTime(b,nameof(EmergencyDispatchAgreement.NoShowReportedAt),"no_show_reported_at",nullable:true);
+        Mapping.NullableLong(b,nameof(EmergencyDispatchAgreement.NoShowReportedByUserId),"no_show_reported_by_user_id");
+        Mapping.FullAudit(b); Mapping.Fk<EmergencyDispatchAgreement,TransactionRecord>(b,nameof(EmergencyDispatchAgreement.TransactionId));
+        Mapping.Fk<EmergencyDispatchAgreement,User>(b,nameof(EmergencyDispatchAgreement.NoShowReportedByUserId));
+        b.HasIndex(x=>x.TransactionId).IsUnique();
+        b.ToTable("emergency_dispatch_agreements",t=>{
+            t.HasCheckConstraint("CK_emergency_agreement_payment_mode","[payment_mode_code] IN ('NO_FEE','ON_SITE','TRANSFER_REPORTED','TRANSFER_CONFIRMED')");
+            t.HasCheckConstraint("CK_emergency_agreement_payment_status","[payment_status_code] IN ('NOT_REQUIRED','ON_SITE_PENDING','AWAITING_TRANSFER','REPORTED','CONFIRMED','REJECTED')");
+            t.HasCheckConstraint("CK_emergency_agreement_no_show","[no_show_status_code] IS NULL OR [no_show_status_code] IN ('WAITING','CUSTOMER_NO_SHOW','PROVIDER_NO_SHOW','DISPUTED')");
+        });
     }
 }

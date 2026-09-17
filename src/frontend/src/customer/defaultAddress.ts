@@ -7,6 +7,7 @@ export type DefaultAddressSelection = {
   address: CustomerAddress
   area: AdministrativeArea | null
   sidoId: string
+  sidoLabel: string
   regionLabel: string
   fullAddress: string
 }
@@ -20,6 +21,7 @@ export async function loadDefaultAddress(): Promise<DefaultAddressSelection | nu
     address,
     area,
     sidoId: area?.parentId ?? '',
+    sidoLabel: area?.parentName ?? address.administrativeAreaName?.trim().split(/\s+/)[0] ?? '',
     regionLabel: area ? [area.parentName, area.name].filter(Boolean).join(' ') : address.administrativeAreaName ?? '',
     fullAddress: [address.roadAddress, address.detailAddress].filter(Boolean).join(' ').trim(),
   }

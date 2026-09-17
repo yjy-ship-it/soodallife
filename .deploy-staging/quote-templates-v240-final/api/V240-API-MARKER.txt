@@ -1,0 +1,4 @@
+V240 quote templates: enabled
+Provider scoped: true
+Saved fields: summary, terms, duration, VAT mode and quote items
+Excluded fields: request-specific dates and revision reason

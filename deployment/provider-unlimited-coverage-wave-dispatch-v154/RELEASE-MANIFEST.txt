@@ -1,0 +1,20 @@
+Release: V154 unlimited provider coverage and wave dispatch
+Release date: 2026-08-28
+Database schema changed: false
+Applications: API, customer, partner, admin
+Service category count: unlimited
+Ordinary activity areas per service: unlimited
+Total service-area combinations: unlimited
+Nationwide coverage: policy-approved remote/online/shipping services only
+Emergency coverage: actual active districts only; nationwide prohibited
+Initial matching wave: up to 10 experts
+Expansion: up to 10 additional experts every 5 minutes while fewer than five quotes exist
+Ranking: exact district first, then trust score, then stable provider order
+Fifth quote closure: preserved
+Late registration and configuration changes: reevaluated without duplicate dispatches
+API application data preserved: true
+API production settings preserved: true
+Database backup and verification: enabled
+Rollback file backup: enabled
+IIS configuration backup: enabled
+Post-deployment health and partner route checks: enabled

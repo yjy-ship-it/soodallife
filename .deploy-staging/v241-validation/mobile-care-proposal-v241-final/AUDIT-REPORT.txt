@@ -1,0 +1,7 @@
+﻿V241 verification summary
+- Frontend TypeScript and production build: passed
+- Focused backend tests: 10 passed, 0 failed
+- Distance decline regression: passed
+- Care subscription recurrence tests: passed
+- Full selected-class run had one unrelated legacy fake-JPEG upload expectation failure after the V237 image validation policy; the V241 focused paths passed.
+- Production deployment was not executed while packaging.

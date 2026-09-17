@@ -1,0 +1,16 @@
+SOODAL LIFE V158 - Customer home representative services and mobile footer
+
+Release scope
+- Customer home representative service cards are diversified across major and middle categories.
+- Selection starts with one service per major category and fills remaining slots in a round-robin order.
+- A middle category can occupy at most two of the eight representative slots.
+- The common footer is collapsed by default at 620px and below and expands only when the user selects the toggle.
+- Desktop and tablet footer presentation remains expanded.
+
+Database schema changed: No
+Production appsettings preserved: Yes
+API App_Data preserved: Yes
+
+Verification
+- Backend PublicCatalogApiTests: 5 passed
+- Frontend production build: passed

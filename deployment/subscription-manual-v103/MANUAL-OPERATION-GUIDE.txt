@@ -1,0 +1,23 @@
+SOODAL LIFE SUBSCRIPTION MANUAL OPERATION MODE (V103)
+
+Current mode
+- SubscriptionPaymentGateway__Enabled=false is set during deployment.
+- Toss client/secret keys are not required and are never written into the package.
+- Existing Machine-level Toss keys, if any, are preserved for later activation.
+- Provider payouts can be completed after bank transfer from the admin subscription accounting screen.
+
+Important operating limits before Toss integration
+- Customers cannot register a Toss billing key or run automatic recurring payments.
+- Actual customer collection and PG refunds are not recorded as successful automatically.
+- Do not mark an uncollected customer payment as paid.
+- Subscription schedules that require a successful first payment must not be treated as active until the payment integration is enabled and verified.
+
+Switching to Toss later
+1. Complete the Toss automatic billing contract and obtain live keys for the same MID.
+2. Register ClientKey and SecretKey as protected Windows Machine environment variables.
+3. Set SubscriptionPaymentGateway__Enabled=true.
+4. Register the subscription webhook and restart the SoodalLife.Api application pool.
+5. Perform one low-value live authorization, charge, cancellation and refund test before production use.
+
+Webhook URL
+https://api.soodallife.kr/api/v1/webhooks/toss/subscriptions

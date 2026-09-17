@@ -1,0 +1,5 @@
+﻿Release: V237 image upload policy
+Image reencoding: enabled
+Metadata removal: enabled
+Allowed types: JPG JPEG PNG
+Maximum bytes: 5242880

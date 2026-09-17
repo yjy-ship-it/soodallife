@@ -64,8 +64,51 @@ public sealed class NotificationPreference
     public bool SmsEnabled { get; set; }
     public bool EmailEnabled { get; set; }
     public bool PushEnabled { get; set; }
+    public bool NightMarketingEnabled { get; set; }
+    public string? ConsentVersion { get; set; }
+    public string ConsentSourceCode { get; set; } = "MY_SOODAL";
+    public DateTime? ConsentedAt { get; set; }
+    public DateTime? WithdrawnAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class NotificationPreferenceEvent
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long NotificationPreferenceId { get; set; }
+    public long UserId { get; set; }
+    public string EventGroupCode { get; set; } = string.Empty;
+    public string EventTypeCode { get; set; } = string.Empty;
+    public string ChannelSnapshotJson { get; set; } = "{}";
+    public string? ConsentVersion { get; set; }
+    public string SourceCode { get; set; } = "MY_SOODAL";
+    public DateTime OccurredAt { get; set; }
+}
+
+public sealed class NotificationChannelSetting
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public string ChannelCode { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public bool IsEnabled { get; set; }
+    public string OperationModeCode { get; set; } = "DISABLED";
+    public string? ProviderCode { get; set; }
+    public string? SenderIdentity { get; set; }
+    public string? ReplyTo { get; set; }
+    public int BatchSize { get; set; } = 50;
+    public int MaxAttempts { get; set; } = 5;
+    public int BaseRetrySeconds { get; set; } = 30;
+    public int MaxRetrySeconds { get; set; } = 900;
+    public int SendWindowStartHour { get; set; }
+    public int SendWindowEndHour { get; set; } = 24;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
 

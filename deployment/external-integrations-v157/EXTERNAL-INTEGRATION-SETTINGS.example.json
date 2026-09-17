@@ -1,0 +1,28 @@
+{
+  "NiceIdentityVerification": {
+    "Mode": "TEST",
+    "VerificationUrl": "https://YOUR-NICE-CONTRACT-BRIDGE/verify",
+    "ClientId": "SET_IN_SERVER_SECRET_STORE",
+    "ClientSecret": "SET_IN_SERVER_SECRET_STORE",
+    "TestCode": "SET_A_TEST_ONLY_CODE",
+    "TokenLifetimeMinutes": 10
+  },
+  "NhnNotification": {
+    "Mode": "TEST",
+    "TestRecipients": ["01000000000", "test@example.com", "TEST_USER_UID"],
+    "Sms": { "BaseUrl": "https://api-sms.cloud.toast.com", "AppKey": "", "SecretKey": "", "Sender": "" },
+    "Kakao": { "BaseUrl": "https://api-alimtalk.cloud.toast.com", "AppKey": "", "SecretKey": "", "Sender": "", "DefaultTemplateCode": "" },
+    "Email": { "BaseUrl": "https://email.api.nhncloudservice.com", "AppKey": "", "SecretKey": "", "Sender": "" },
+    "Push": { "BaseUrl": "https://api-push.cloud.toast.com", "AppKey": "", "SecretKey": "" }
+  },
+  "TossWalletTopUp": {
+    "Mode": "TEST",
+    "BaseUrl": "https://api.tosspayments.com",
+    "ClientKey": "SET_TEST_CLIENT_KEY",
+    "SecretKey": "SET_TEST_SECRET_KEY",
+    "MinimumAmount": 1000,
+    "MaximumAmount": 10000000,
+    "SuccessPath": "/provider/wallet?topUp=success",
+    "FailPath": "/provider/wallet?topUp=fail"
+  }
+}

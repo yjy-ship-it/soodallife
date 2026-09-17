@@ -6,27 +6,33 @@ namespace SoodalLife.Api.Features.Catalog;
 
 public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
 {
-    public async Task<IReadOnlyList<CategoryResponse>> GetMajorCategoriesAsync(bool emergencyOnly, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>> GetMajorCategoriesAsync(bool emergencyOnly, bool includeSubscription, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return await dbContext.ServiceCategories.AsNoTracking()
             .Where(major => major.LevelCode == "MAJOR" && major.StatusCode == "ACTIVE")
+            .Where(major => includeSubscription || major.Name != "정기구독")
             .Where(major => dbContext.ServiceCategories.Any(middle =>
                 middle.ParentId == major.Id && middle.StatusCode == "ACTIVE" &&
                 dbContext.ServiceCategories.Any(service =>
                     service.ParentId == middle.Id && service.StatusCode == "ACTIVE" &&
-                    dbContext.CategoryPolicies.Any(policy =>
-                        policy.CategoryId == service.Id &&
-                        (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
-                        (!emergencyOnly || policy.IsEmergencyAllowed) &&
-                        policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))))
-            .OrderBy(category => category.SortOrder)
+                    (dbContext.CategoryPolicies.Any(policy =>
+                         policy.CategoryId == service.Id &&
+                         (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                         (!emergencyOnly || policy.IsEmergencyAllowed) &&
+                         policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)) ||
+                     (includeSubscription && !emergencyOnly && dbContext.CategoryOperationPolicies.Any(policy =>
+                         policy.CategoryId == service.Id && policy.IsActive && policy.SubscriptionOptionText == "허용" &&
+                         policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))))))
+            .OrderBy(category => category.ExternalCode == null)
+            .ThenBy(category => category.ExternalCode)
+            .ThenBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
             .Select(category => new CategoryResponse(category.PublicId, category.Name, category.LevelCode, category.ExternalCode, category.SortOrder))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CategoryResponse>?> GetMiddleCategoriesAsync(Guid majorPublicId, bool emergencyOnly, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>?> GetMiddleCategoriesAsync(Guid majorPublicId, bool emergencyOnly, bool includeSubscription, CancellationToken cancellationToken)
     {
         var major = await dbContext.ServiceCategories.AsNoTracking()
             .SingleOrDefaultAsync(category => category.PublicId == majorPublicId && category.LevelCode == "MAJOR" && category.StatusCode == "ACTIVE", cancellationToken);
@@ -38,20 +44,24 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return await dbContext.ServiceCategories.AsNoTracking()
             .Where(middle => middle.ParentId == major.Id && middle.LevelCode == "MIDDLE" && middle.StatusCode == "ACTIVE")
+            .Where(middle => emergencyOnly || middle.Name != "긴급출동")
             .Where(middle => dbContext.ServiceCategories.Any(service =>
                 service.ParentId == middle.Id && service.StatusCode == "ACTIVE" &&
-                dbContext.CategoryPolicies.Any(policy =>
-                    policy.CategoryId == service.Id &&
-                    (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
-                    (!emergencyOnly || policy.IsEmergencyAllowed) &&
-                    policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today))))
+                (dbContext.CategoryPolicies.Any(policy =>
+                     policy.CategoryId == service.Id &&
+                     (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                     (!emergencyOnly || policy.IsEmergencyAllowed) &&
+                     policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)) ||
+                 (includeSubscription && !emergencyOnly && dbContext.CategoryOperationPolicies.Any(policy =>
+                     policy.CategoryId == service.Id && policy.IsActive && policy.SubscriptionOptionText == "허용" &&
+                     policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today))))))
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
             .Select(category => new CategoryResponse(category.PublicId, category.Name, category.LevelCode, category.ExternalCode, category.SortOrder))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CategoryResponse>?> GetServicesAsync(Guid middlePublicId, bool emergencyOnly, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CategoryResponse>?> GetServicesAsync(Guid middlePublicId, bool emergencyOnly, bool includeSubscription, CancellationToken cancellationToken)
     {
         var middle = await dbContext.ServiceCategories.AsNoTracking()
             .SingleOrDefaultAsync(category => category.PublicId == middlePublicId && category.LevelCode == "MIDDLE" && category.StatusCode == "ACTIVE", cancellationToken);
@@ -64,10 +74,13 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
         return await dbContext.ServiceCategories.AsNoTracking()
             .Where(service => service.ParentId == middle.Id && service.LevelCode == "SERVICE" && service.StatusCode == "ACTIVE")
             .Where(service => dbContext.CategoryPolicies.Any(policy =>
-                policy.CategoryId == service.Id &&
-                (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
-                (!emergencyOnly || policy.IsEmergencyAllowed) &&
-                policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))
+                    policy.CategoryId == service.Id &&
+                    (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                    (!emergencyOnly || policy.IsEmergencyAllowed) &&
+                    policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)) ||
+                (includeSubscription && !emergencyOnly && dbContext.CategoryOperationPolicies.Any(policy =>
+                    policy.CategoryId == service.Id && policy.IsActive && policy.SubscriptionOptionText == "허용" &&
+                    policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today))))
             .OrderBy(category => category.SortOrder)
             .ThenBy(category => category.Name)
             .Select(category => new CategoryResponse(category.PublicId, category.Name, category.LevelCode, category.ExternalCode, category.SortOrder))
@@ -109,6 +122,7 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             .OrderBy(option => option.DisplayOrder)
             .ThenBy(option => option.Id)
             .ToListAsync(cancellationToken);
+        var firstDateTimeFieldId = assignedFields.FirstOrDefault(item => item.Field.FieldTypeCode == "DATETIME")?.Field.Id;
 
         return assignedFields
             .Where(item => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(item.Field))
@@ -117,7 +131,7 @@ public sealed class CatalogQueryService(SoodalLifeDbContext dbContext)
             item.Field.FieldKey,
             item.Field.Label,
             item.Field.FieldTypeCode,
-            item.Assignment.IsRequired,
+            item.Assignment.IsRequired && (item.Field.FieldTypeCode != "DATETIME" || item.Field.Id == firstDateTimeFieldId),
             null,
             options.Where(option => option.FieldDefinitionId == item.Field.Id).Select(option => option.Value).ToArray(),
             item.Field.UnitText,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createAdminPricePolicy, createAdminPricePolicyOption, createAdminPricePolicySurcharge, getAdminPricePolicies, updateAdminPricePolicy } from './pricePolicyApi'
 import type { AdminPricePolicy, AdminPricePolicyList } from './pricePolicyTypes'
+import { soodalConfirm } from '../components/soodalDialog'
 
 const statusLabels = { CURRENT: '현재 적용 중', SCHEDULED: '적용 예정', ENDED: '적용 종료', INACTIVE: '비활성' } as const
 const won = (value: number | null) => value === null ? '원본 의미 확인 필요' : `${value.toLocaleString('ko-KR')}원`
@@ -63,7 +64,7 @@ export function AdminPricePoliciesPanel({ serviceId, serviceName }: { serviceId:
       minimumBudgetAmount: method === '견적형' ? null : Number(minimumBudget || 0),
       unit: unit.trim() || null, vatRule, effectiveFrom, effectiveTo: effectiveTo || null, isActive,
     }
-    if (creating && !window.confirm(`'${serviceName}'의 새 가격정책 버전을 등록합니다. 기존 정책의 적용 종료일이 조정될 수 있습니다. 계속할까요?`)) return
+    if (creating && !await soodalConfirm(`'${serviceName}'의 새 가격정책 버전을 등록합니다. 기존 정책의 적용 종료일이 조정될 수 있습니다. 계속할까요?`)) return
     setSaving(true); setError(null); setNotice(null)
     try {
       const saved = creating ? await createAdminPricePolicy(serviceId, input) : await updateAdminPricePolicy(serviceId, selected.id, input)

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /partner
+Disallow: /customer/mysudal
+Disallow: /customer/requests
+Sitemap: https://soodallife.kr/sitemap.xml

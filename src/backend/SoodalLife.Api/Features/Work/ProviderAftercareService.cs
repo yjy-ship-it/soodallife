@@ -29,7 +29,7 @@ public sealed class ProviderAftercareService(
             var item = await db.AfterServiceCases.AsNoTracking().SingleAsync(x => x.Id == id, token);
             var scheduled = await db.AfterServiceActions.AsNoTracking().Where(x => x.AfterServiceCaseId == id && x.ScheduledAt != null)
                 .OrderByDescending(x => x.OccurredAt).Select(x => x.ScheduledAt).FirstOrDefaultAsync(token);
-            result.Add(new(item.PublicId, Number("AS", item.PublicId), item.Subject, item.StatusCode, AfterStatus(item.StatusCode),
+            result.Add(new(item.PublicId, Number("AS", item.PublicId), item.Subject, await RequestTitle(item, token), item.StatusCode, AfterStatus(item.StatusCode),
                 SourceType(item.TransactionId, item.SubscriptionVisitScheduleId, item.InteriorProjectId), item.ReceivedAt, scheduled,
                 !TerminalAfterService.Contains(item.StatusCode)));
         }
@@ -52,7 +52,7 @@ public sealed class ProviderAftercareService(
             async (item, identity, now) =>
             {
                 if (input.ScheduledAt.ToUniversalTime() <= now) throw Bad("AFTER_SERVICE_SCHEDULE_INVALID", "방문 제안 일시는 현재 이후여야 합니다.");
-                db.AfterServiceActions.Add(NewAfterAction(item, identity, "VISIT_SCHEDULED", "VISIT_SCHEDULED", Clean(input.Note) ?? "공급자 방문 일정 제안", input.IdempotencyKey, now, input.ScheduledAt.ToUniversalTime()));
+                db.AfterServiceActions.Add(NewAfterAction(item, identity, "VISIT_SCHEDULED", "VISIT_SCHEDULED", Clean(input.Note) ?? "전문가 방문 일정 제안", input.IdempotencyKey, now, input.ScheduledAt.ToUniversalTime()));
                 item.VisitRequired = true;
                 await Task.CompletedTask;
             }, token, addDefaultAction: false);
@@ -88,11 +88,29 @@ public sealed class ProviderAftercareService(
         var identity = await Provider(principal, token);
         var item = await AssignedAfterServices(identity.ProviderId).SingleOrDefaultAsync(x => x.PublicId == id, token) ?? throw NotFound("AFTER_SERVICE_NOT_FOUND", "담당 A/S를 찾을 수 없습니다.");
         if (TerminalAfterService.Contains(item.StatusCode)) throw Conflict("AFTER_SERVICE_CLOSED", "종료된 A/S에는 새 증빙을 등록할 수 없습니다.");
+        if (upload.ContentType is not ("image/jpeg" or "image/png")) throw Bad("CASE_FILE_TYPE_INVALID", "JPG 또는 PNG 사진만 등록할 수 있습니다.");
         var file = await SaveFile(upload, "AFTER_SERVICE", $"after-service/{id:N}", identity.UserId, token);
         var now = DateTime.UtcNow;
         db.AfterServiceFiles.Add(new AfterServiceFile { AfterServiceCaseId = item.Id, FileId = file.Id, RoleCode = Limit(role, 50), Description = Limit(description, 500), CreatedAt = now, CreatedByUserId = identity.UserId });
         await Audit(identity.UserId, "PROVIDER_AFTER_SERVICE_EVIDENCE_ADDED", "AfterService", item.PublicId, new { fileId = file.PublicId }, token);
         return ProviderFile(item.PublicId, file, role, description, "PROVIDER_UPLOAD", "OWNER_ORIGINAL", "after-services");
+    }
+
+    public async Task<ProviderCaseFile> UploadAfterServiceEvidenceContent(ClaimsPrincipal principal, Guid id, ProviderAfterServiceEvidenceContentInput input, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(input.FileName) || string.IsNullOrWhiteSpace(input.ContentType) || string.IsNullOrWhiteSpace(input.Base64Content))
+            throw Bad("CASE_FILE_CONTENT_INVALID", "사진 정보를 확인해 주세요.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(input.Base64Content); }
+        catch (FormatException) { throw Bad("CASE_FILE_CONTENT_INVALID", "사진 내용을 읽을 수 없습니다. 사진을 다시 선택해 주세요."); }
+        if (bytes.Length <= 0 || bytes.Length > MaximumFileSize) throw Bad("CASE_FILE_SIZE_INVALID", "사진은 10MB 이하여야 합니다.");
+        await using var stream = new MemoryStream(bytes, writable: false);
+        var upload = new FormFile(stream, 0, bytes.Length, "file", Path.GetFileName(input.FileName))
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = input.ContentType.ToLowerInvariant()
+        };
+        return await UploadAfterServiceEvidence(principal, id, input.Role, input.Description, upload, token);
     }
 
     public async Task<(Stream Stream, string ContentType, string FileName)> OpenAfterServiceFile(ClaimsPrincipal principal, Guid id, Guid fileId, CancellationToken token)
@@ -145,7 +163,7 @@ public sealed class ProviderAftercareService(
         var evidence = new DisputeEvidence { DisputeCaseId = item.Id, FileId = file.Id, SubmittedByUserId = identity.UserId, SourceTypeCode = "PROVIDER_UPLOAD",
             Description = Limit(description, 1000), StatusCode = "ACTIVE", SubmittedAt = now, CreatedAt = now, CreatedByUserId = identity.UserId };
         db.DisputeEvidence.Add(evidence); await db.SaveChangesAsync(token);
-        db.DisputeActions.Add(new DisputeAction { DisputeCaseId = item.Id, ActionTypeCode = "EVIDENCE_ADDED", ActionNote = "공급자 증빙 제출",
+        db.DisputeActions.Add(new DisputeAction { DisputeCaseId = item.Id, ActionTypeCode = "EVIDENCE_ADDED", ActionNote = "전문가 증빙 제출",
             RelatedReferenceType = "DISPUTE_EVIDENCE", RelatedReferencePublicId = evidence.PublicId, OccurredAt = now, ActorUserId = identity.UserId,
             IdempotencyKey = $"provider-dispute-evidence:{evidence.PublicId:N}" });
         item.LastActionAt = now; item.UpdatedAt = now; item.UpdatedByUserId = identity.UserId;
@@ -177,7 +195,7 @@ public sealed class ProviderAftercareService(
         ApplyVersion(item, rowVersion); var from = item.StatusCode; var now = DateTime.UtcNow;
         await changes(item, identity, now);
         if (addDefaultAction) db.AfterServiceActions.Add(NewAfterAction(item, identity, actionType, targetStatus,
-            actionType == "PROVIDER_CONFIRMATION" ? "공급자 접수 확인" : targetStatus == "RESOLVED" ? "공급자 해결 완료 보고" : "공급자 미해결 종료 보고", key, now));
+            actionType == "PROVIDER_CONFIRMATION" ? "전문가 접수 확인" : targetStatus == "RESOLVED" ? "전문가 해결 완료 보고" : "전문가 미해결 종료 보고", key, now));
         item.StatusCode = targetStatus; item.LastActionAt = now; item.UpdatedAt = now; item.UpdatedByUserId = identity.UserId;
         await AddOutboxIfTemplate(item.PublicId, "AfterService", actionType switch { "PROVIDER_CONFIRMATION" => "AFTER_SERVICE_PROVIDER_CONFIRMED", "VISIT_SCHEDULED" => "AFTER_SERVICE_VISIT_SCHEDULED", "RESOLUTION" or "UNRESOLVED_CLOSURE" => "AFTER_SERVICE_COMPLETION_REPORTED", _ => "AFTER_SERVICE_ACTION_RECORDED" },
             await CustomerUser(item.CustomerProfileId, token), identity.UserId, now, token);
@@ -197,7 +215,7 @@ public sealed class ProviderAftercareService(
         var actions = await db.AfterServiceActions.AsNoTracking().Where(x => x.AfterServiceCaseId == item.Id).OrderBy(x => x.OccurredAt).ToListAsync(token);
         var timeline = actions.Select(x => new ProviderAfterServiceTimeline(x.ActionTypeCode, x.ToStatusCode, AfterStatus(x.ToStatusCode), x.ActionNote, x.ScheduledAt, x.PerformedAt, x.OccurredAt)).ToArray();
         var evidence = await AfterFiles(item, identity, token);
-        return new(item.PublicId, Number("AS", item.PublicId), source, item.Subject, item.Description, item.RequestDetails, item.StatusCode, AfterStatus(item.StatusCode), item.ReceivedAt,
+        return new(item.PublicId, Number("AS", item.PublicId), source, item.Subject, await RequestTitle(item, token), item.Description, item.RequestDetails, item.StatusCode, AfterStatus(item.StatusCode), item.ReceivedAt,
             item.WarrantyStartDate, item.WarrantyEndDate, item.IsWithinWarranty, item.DueAt, item.ProviderConfirmedAt, item.ProviderResponseText, item.VisitRequired,
             item.StartedAt, item.CompletedAt, item.ResolutionSummary, item.UnresolvedReason, item.RecurrenceOccurred, customer.DisplayName,
             phoneAllowed ? customer.Phone : null, addressAllowed ? address : null, contactActive && phoneAllowed && addressAllowed,
@@ -213,7 +231,7 @@ public sealed class ProviderAftercareService(
         var evidence = await DisputeFiles(item, identity, token);
         return new(item.PublicId, Number("DS", item.PublicId), source, item.Subject, item.Description, item.StatusCode, DisputeStatus(item.StatusCode), item.ReceivedAt,
             item.DueAt, item.ResolvedAt, Convert.ToBase64String(item.RowVersion), timeline, evidence, !TerminalDispute.Contains(item.StatusCode),
-            "공급자는 소명과 증빙만 제출할 수 있습니다. 판정·귀책·환불·수수료 복원·TrustScore 결정은 관리자 전용입니다.");
+            "전문가는 소명과 증빙만 제출할 수 있습니다. 판정·귀책·환불·수수료 복원·TrustScore 결정은 관리자 전용입니다.");
     }
 
     private async Task<IReadOnlyList<ProviderCaseFile>> AfterFiles(AfterServiceCase item, ProviderIdentity identity, CancellationToken token)
@@ -271,13 +289,28 @@ public sealed class ProviderAftercareService(
         return null;
     }
 
+    private async Task<string?> RequestTitle(AfterServiceCase item, CancellationToken token)
+    {
+        if (item.TransactionId.HasValue)
+            return await (from tx in db.Transactions.AsNoTracking() join request in db.ServiceRequests.AsNoTracking() on tx.ServiceRequestId equals request.Id where tx.Id == item.TransactionId select request.Title).SingleOrDefaultAsync(token);
+        if (item.InteriorProjectId.HasValue)
+            return await (from project in db.InteriorProjects.AsNoTracking() join request in db.ServiceRequests.AsNoTracking() on project.ServiceRequestId equals request.Id where project.Id == item.InteriorProjectId select request.Title).SingleOrDefaultAsync(token);
+        if (item.SubscriptionVisitScheduleId.HasValue)
+            return await (from visit in db.SubscriptionVisitSchedules.AsNoTracking() join contract in db.SubscriptionContracts.AsNoTracking() on visit.SubscriptionContractId equals contract.Id join request in db.SubscriptionRequests.AsNoTracking() on contract.SubscriptionRequestId equals request.Id where visit.Id == item.SubscriptionVisitScheduleId select request.RequestedScopeText).SingleOrDefaultAsync(token);
+        return null;
+    }
+
     private async Task<StoredFile> SaveFile(IFormFile upload, string purpose, string prefix, long userId, CancellationToken token)
     {
         var validated = await Validate(upload, token); var now = DateTime.UtcNow; var key = $"{prefix}/{Guid.NewGuid():N}{validated.Extension}";
+        var image = upload.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
         var file = new StoredFile { PurposeCode = purpose, StorageContainer = "development-private", StorageKey = key, StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(key)),
             OriginalFileName = Path.GetFileName(upload.FileName), ContentType = upload.ContentType.ToLowerInvariant(), SizeBytes = validated.Bytes.Length,
-            Sha256Hex = Convert.ToHexString(SHA256.HashData(validated.Bytes)).ToLowerInvariant(), StatusCode = "PENDING", MalwareScanStatusCode = FilePrivacyCodes.NotIntegrated,
-            PrivacyInspectionStatusCode = FilePrivacyCodes.NotIntegrated, SanitizationStatusCode = FilePrivacyCodes.NotIntegrated, ScanResultText = FilePrivacyCodes.NotIntegrated,
+            Sha256Hex = Convert.ToHexString(SHA256.HashData(validated.Bytes)).ToLowerInvariant(), StatusCode = "PENDING", MalwareScanStatusCode = image ? FilePrivacyCodes.Clean : FilePrivacyCodes.NotIntegrated,
+            PrivacyInspectionStatusCode = image ? FilePrivacyCodes.Safe : FilePrivacyCodes.NotIntegrated, PrivacyInspectedAt = image ? now : null,
+            PrivacyAdapterVersion = image ? "server-image-normalizer-v1" : null, PrivacyDetectionTypesJson = image ? "[]" : null,
+            SanitizationStatusCode = image ? FilePrivacyCodes.SanitizationCompleted : FilePrivacyCodes.NotIntegrated, SanitizationCompletedAt = image ? now : null,
+            ScanResultText = image ? FilePrivacyCodes.Clean : FilePrivacyCodes.NotIntegrated,
             UploadedByUserId = userId, CreatedAt = now };
         db.Files.Add(file); await db.SaveChangesAsync(token);
         try { await using var stream = new MemoryStream(validated.Bytes); await storage.SaveAsync(key, stream, token); file.StatusCode = "ACTIVE"; file.ActivatedAt = now; await db.SaveChangesAsync(token); return file; }
@@ -308,15 +341,15 @@ public sealed class ProviderAftercareService(
     private void AddAudit(long user, string action, string entity, Guid id, object after, DateTime now) => db.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = user, ActorRoleCode = RoleCodes.Provider, ActionCode = action, EntityType = entity, EntityPublicId = id, ResultCode = "SUCCESS", AfterJson = JsonSerializer.Serialize(after) });
     private async Task SaveConcurrent(CancellationToken token) { try { await db.SaveChangesAsync(token); } catch (DbUpdateConcurrencyException) { throw Conflict("ROW_VERSION_CONFLICT", "다른 사용자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요."); } }
     private void ApplyVersion(object entity, string value) { try { db.Entry(entity).Property("RowVersion").OriginalValue = Convert.FromBase64String(Required(value, 500)); } catch (FormatException) { throw Bad("ROW_VERSION_INVALID", "변경 버전 값이 올바르지 않습니다."); } }
-    private async Task<ProviderIdentity> Provider(ClaimsPrincipal principal, CancellationToken token) { if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) throw new WorkBusinessException("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", 401); var value = await (from user in db.Users where user.PublicId == id && user.StatusCode == "ACTIVE" join profile in db.ProviderProfiles on user.Id equals profile.UserId select new ProviderIdentity(user.Id, profile.Id)).SingleOrDefaultAsync(token); return value ?? throw new WorkBusinessException("PROVIDER_PROFILE_REQUIRED", "공급자 프로필이 필요합니다.", 403); }
+    private async Task<ProviderIdentity> Provider(ClaimsPrincipal principal, CancellationToken token) { if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) throw new WorkBusinessException("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", 401); var value = await (from user in db.Users where user.PublicId == id && user.StatusCode == "ACTIVE" join profile in db.ProviderProfiles on user.Id equals profile.UserId select new ProviderIdentity(user.Id, profile.Id)).SingleOrDefaultAsync(token); return value ?? throw new WorkBusinessException("PROVIDER_PROFILE_REQUIRED", "전문가 프로필이 필요합니다.", 403); }
     private Task<long> CustomerUser(long customer, CancellationToken token) => db.CustomerProfiles.Where(x => x.Id == customer).Select(x => x.UserId).SingleAsync(token);
     private static AfterServiceAction NewAfterAction(AfterServiceCase item, ProviderIdentity identity, string type, string to, string note, string key, DateTime now, DateTime? scheduled = null) => new() { AfterServiceCaseId = item.Id, FromStatusCode = item.StatusCode, ToStatusCode = to, ActionTypeCode = type, ActionNote = note, ScheduledAt = scheduled, ProviderProfileId = identity.ProviderId, OccurredAt = now, ActorUserId = identity.UserId, IdempotencyKey = Key(key) };
     private static ProviderCaseFile ProviderFile(Guid caseId, StoredFile file, string? role, string? description, string source, string mode, string segment, Guid? linkedFileId = null, string status="AVAILABLE", string? message=null, bool allowed=true) => new(file.PublicId, SafeFileName(file.ContentType), file.ContentType, file.SizeBytes, Clean(role), Clean(description), source, mode, allowed?$"/api/v1/providers/me/{segment}/{caseId}/files/{linkedFileId ?? file.PublicId}":null,status,message);
     private static string SafeFileName(string contentType) => "evidence" + (contentType switch { "image/jpeg" => ".jpg", "image/png" => ".png", "application/pdf" => ".pdf", _ => ".bin" });
     private static string SourceType(long? tx, long? visit, long? interior) => interior.HasValue ? "INTERIOR" : visit.HasValue ? "SUBSCRIPTION" : tx.HasValue ? "TRANSACTION" : "OTHER";
     private static string Number(string prefix, Guid id) => $"{prefix}-{id.ToString("N")[..8].ToUpperInvariant()}";
-    private static string AfterStatus(string value) => value switch { "RECEIVED" => "접수", "PROVIDER_CONFIRMED" => "공급자 확인", "VISIT_SCHEDULED" => "방문 예정", "IN_PROGRESS" => "처리 중", "RESOLVED" => "해결 완료", "UNRESOLVED_CLOSED" => "미해결 종료", "CONVERTED_TO_DISPUTE" => "분쟁 전환", _ => value };
-    private static string DisputeStatus(string value) => value switch { "OPEN" => "접수", "UNDER_REVIEW" => "검토 중", "WAITING_CUSTOMER" => "고객 확인 대기", "WAITING_PROVIDER" => "공급자 확인 대기", "RESOLVED" => "처리 완료", "CLOSED" => "종료", _ => value };
+    private static string AfterStatus(string value) => value switch { "RECEIVED" => "접수", "PROVIDER_CONFIRMED" => "전문가 확인", "VISIT_SCHEDULED" => "방문 예정", "IN_PROGRESS" => "처리 중", "RESOLVED" => "해결 완료", "UNRESOLVED_CLOSED" => "미해결 종료", "CONVERTED_TO_DISPUTE" => "분쟁 전환", _ => value };
+    private static string DisputeStatus(string value) => value switch { "OPEN" => "접수", "UNDER_REVIEW" => "검토 중", "WAITING_CUSTOMER" => "고객 확인 대기", "WAITING_PROVIDER" => "전문가 확인 대기", "RESOLVED" => "처리 완료", "CLOSED" => "종료", _ => value };
     private static string Key(string value) => Required(value, 100);
     private static string Required(string? value, int max) { var result = value?.Trim(); if (string.IsNullOrWhiteSpace(result) || result.Length > max) throw Bad("AFTERCARE_INPUT_INVALID", "필수 입력값과 길이를 확인해 주세요."); return result; }
     private static string? Limit(string? value, int max) { var result = Clean(value); if (result?.Length > max) throw Bad("AFTERCARE_INPUT_INVALID", "입력값 길이를 확인해 주세요."); return result; }

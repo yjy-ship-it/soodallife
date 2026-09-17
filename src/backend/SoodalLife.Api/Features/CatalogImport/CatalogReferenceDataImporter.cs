@@ -55,7 +55,12 @@ public sealed class CatalogReferenceDataImporter(
         var feePolicies = await ImportFeePoliciesAsync(workbook.FeePolicies, now, cancellationToken);
         var categoryPolicyCount = await ImportCategoryPoliciesAsync(workbook.Categories, categories.ServicesBySourceId, feePolicies, now, cancellationToken);
         await ImportCompletionPhotoPoliciesAsync(now, cancellationToken);
-        var fieldResult = await ImportFieldsAsync(workbook.RequestFields, categories.MiddleByPath, now, cancellationToken);
+        var fieldResult = await ImportFieldsAsync(
+            workbook.RequestFields,
+            categories.MiddleByPath,
+            categories.ServicesByPath,
+            now,
+            cancellationToken);
         var developmentAreaCount = includeDevelopmentAreas
             ? await EnsureDevelopmentAreasAsync(now, cancellationToken)
             : 0;
@@ -131,6 +136,7 @@ public sealed class CatalogReferenceDataImporter(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var services = new Dictionary<string, ServiceCategory>(StringComparer.Ordinal);
+        var servicesByPath = new Dictionary<string, ServiceCategory>(StringComparer.Ordinal);
         var serviceSort = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var row in rows)
         {
@@ -146,10 +152,11 @@ public sealed class CatalogReferenceDataImporter(
             UpdateCategory(category, "SERVICE", parent.Id, name, externalCode, sourceId, sortOrder, now);
             category.StatusCode = MapCategoryStatus(Required(row, "사용여부"));
             services[sourceId] = category;
+            servicesByPath[ServicePath(Required(row, "대분류"), Required(row, "중분류"), name)] = category;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new CategoryImportState(majorNames.Length, middlePaths.Length, rows.Count, middles, services);
+        return new CategoryImportState(majorNames.Length, middlePaths.Length, rows.Count, middles, services, servicesByPath);
     }
 
     private async Task<Dictionary<string, FeePolicy>> ImportFeePoliciesAsync(
@@ -238,7 +245,7 @@ public sealed class CatalogReferenceDataImporter(
             policy.FeeRestoreConditionText = Required(row, "수수료 복원조건");
             policy.MatchingAreaRuleText = Required(row, "알림 매칭지역");
             policy.NotificationTargetRuleText = Required(row, "알림톡 발송");
-            policy.ProviderResponseDeadlineMinutes = ParseDurationMinutes(Required(row, "공급자 응답기한"), numericMeansHours: false);
+            policy.ProviderResponseDeadlineMinutes = ParseDurationMinutes(RequiredAny(row, "전문가 응답기한", "공급자 응답기한"), numericMeansHours: false);
             policy.RequestFieldSummaryText = Required(row, "요청 필수필드 요약");
             policy.RequiredCompletionPhotoCount = ParseShort(row, "필수사진 수");
             policy.RequiredQualificationSummaryText = Required(row, "필수 자격·증빙");
@@ -339,12 +346,13 @@ public sealed class CatalogReferenceDataImporter(
     private async Task<FieldImportResult> ImportFieldsAsync(
         IReadOnlyList<IReadOnlyDictionary<string, string>> rows,
         IReadOnlyDictionary<string, ServiceCategory> middleByPath,
+        IReadOnlyDictionary<string, ServiceCategory> servicesByPath,
         DateTime now,
         CancellationToken cancellationToken)
     {
         var tracked = await dbContext.CategoryFieldDefinitions.ToListAsync(cancellationToken);
         var fallbackIds = new List<string>();
-        var imported = new Dictionary<string, (CategoryFieldDefinition Definition, ServiceCategory Middle)>(StringComparer.Ordinal);
+        var imported = new Dictionary<string, (CategoryFieldDefinition Definition, ServiceCategory Middle, IReadOnlyList<ServiceCategory> Targets)>(StringComparer.Ordinal);
 
         for (var index = 0; index < rows.Count; index++)
         {
@@ -369,13 +377,13 @@ public sealed class CatalogReferenceDataImporter(
             definition.IsRequired = Required(row, "필수여부") == "필수";
             definition.OptionsOrUnitText = options;
             definition.UnitText = typeCode == "SELECT" ? null : options;
-            definition.ProviderVisibilityCode = Required(row, "공급자 공개") == "공개" ? "FULL" : "AREA_ONLY";
+            definition.ProviderVisibilityCode = RequiredAny(row, "전문가 공개", "공급자 공개") == "공개" ? "FULL" : "AREA_ONLY";
             definition.PreAcceptMaskingCode = Required(row, "채택 전 마스킹") == "상세주소 마스킹" ? "DETAIL_ADDRESS" : "NONE";
             definition.ValidationRuleText = Required(row, "검증 규칙");
             definition.DisplayOrder = index + 1;
             definition.StatusCode = "ACTIVE";
             definition.UpdatedAt = now;
-            imported[sourceId] = (definition, middle);
+            imported[sourceId] = (definition, middle, ResolveFieldTargets(row, middle, servicesByPath));
         }
 
         if (!fallbackIds.ToHashSet(StringComparer.Ordinal).SetEquals(ApprovedSelectWithoutOptionsFallbacks))
@@ -427,32 +435,69 @@ public sealed class CatalogReferenceDataImporter(
             assignment.UpdatedAt = now;
         }
 
+        var activeAssignmentCount = 0;
         foreach (var (_, value) in imported)
         {
-            var assignment = assignments.SingleOrDefault(item =>
-                item.FieldDefinitionId == value.Definition.Id && item.TargetCategoryId == value.Middle.Id);
-            if (assignment is null)
+            foreach (var target in value.Targets)
             {
-                assignment = new CategoryFieldAssignment
+                var assignment = assignments.SingleOrDefault(item =>
+                    item.FieldDefinitionId == value.Definition.Id && item.TargetCategoryId == target.Id);
+                if (assignment is null)
                 {
-                    FieldDefinitionId = value.Definition.Id,
-                    TargetCategoryId = value.Middle.Id,
-                    CreatedAt = now,
-                    UpdatedAt = now,
-                };
-                dbContext.CategoryFieldAssignments.Add(assignment);
-                assignments.Add(assignment);
-            }
+                    assignment = new CategoryFieldAssignment
+                    {
+                        FieldDefinitionId = value.Definition.Id,
+                        TargetCategoryId = target.Id,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    };
+                    dbContext.CategoryFieldAssignments.Add(assignment);
+                    assignments.Add(assignment);
+                }
 
-            assignment.ScopeCode = "MIDDLE";
-            assignment.IsActive = true;
-            assignment.IsRequired = value.Definition.IsRequired;
-            assignment.DisplayOrder = value.Definition.DisplayOrder;
-            assignment.UpdatedAt = now;
+                assignment.ScopeCode = target.LevelCode;
+                assignment.IsActive = true;
+                assignment.IsRequired = value.Definition.IsRequired;
+                assignment.DisplayOrder = value.Definition.DisplayOrder;
+                assignment.UpdatedAt = now;
+                activeAssignmentCount++;
+            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new FieldImportResult(rows.Count, imported.Count, fallbackIds.Order(StringComparer.Ordinal).ToArray());
+        return new FieldImportResult(rows.Count, activeAssignmentCount, fallbackIds.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    private static IReadOnlyList<ServiceCategory> ResolveFieldTargets(
+        IReadOnlyDictionary<string, string> row,
+        ServiceCategory middle,
+        IReadOnlyDictionary<string, ServiceCategory> servicesByPath)
+    {
+        var applicability = Required(row, "적용 서비스");
+        if (applicability == "해당 중분류 전체") return [middle];
+        if (applicability == "적용 안 함") return [];
+
+        var majorName = Required(row, "대분류");
+        var middleName = Required(row, "중분류");
+        var names = applicability.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .SelectMany(value =>
+            {
+                if (servicesByPath.ContainsKey(ServicePath(majorName, middleName, value))) return [value];
+                return value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            })
+            .ToArray();
+        if (names.Length == 0)
+            throw new InvalidDataException($"Field '{Required(row, "필드ID")}' has no applicable services.");
+
+        var targets = new List<ServiceCategory>(names.Length);
+        foreach (var name in names.Distinct(StringComparer.Ordinal))
+        {
+            var key = ServicePath(majorName, middleName, name);
+            if (!servicesByPath.TryGetValue(key, out var service))
+                throw new InvalidDataException($"Field '{Required(row, "필드ID")}' references unknown service '{majorName} > {middleName} > {name}'.");
+            targets.Add(service);
+        }
+        return targets;
     }
 
     private async Task<int> EnsureDevelopmentAreasAsync(DateTime now, CancellationToken cancellationToken)
@@ -663,8 +708,12 @@ public sealed class CatalogReferenceDataImporter(
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
     private static string Required(IReadOnlyDictionary<string, string> row, string column) =>
         !string.IsNullOrWhiteSpace(Value(row, column)) ? Value(row, column) : throw new InvalidDataException($"Required Excel column '{column}' is blank.");
+    private static string RequiredAny(IReadOnlyDictionary<string, string> row, params string[] columns) =>
+        columns.Select(column => Value(row, column)).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+        ?? throw new InvalidDataException($"Required Excel columns '{string.Join("' or '", columns)}' are blank.");
     private static string Value(IReadOnlyDictionary<string, string> row, string column) => row.GetValueOrDefault(column, string.Empty);
     private static string CategoryPath(string major, string middle) => $"{major}\u001F{middle}";
+    private static string ServicePath(string major, string middle, string service) => $"{major}\u001F{middle}\u001F{service}";
     private static string StableSourceId(string prefix, string value) =>
         $"{prefix}-{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..16]}";
 
@@ -673,6 +722,7 @@ public sealed class CatalogReferenceDataImporter(
         int MiddleCount,
         int ServiceCount,
         IReadOnlyDictionary<string, ServiceCategory> MiddleByPath,
-        IReadOnlyDictionary<string, ServiceCategory> ServicesBySourceId);
+        IReadOnlyDictionary<string, ServiceCategory> ServicesBySourceId,
+        IReadOnlyDictionary<string, ServiceCategory> ServicesByPath);
     private sealed record FieldImportResult(int DefinitionCount, int AssignmentCount, IReadOnlyList<string> FallbackFieldIds);
 }

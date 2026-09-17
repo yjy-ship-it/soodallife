@@ -22,7 +22,33 @@ public sealed class PublicProviderRegistrationController(ProviderRegistrationSer
     [HttpGet("legal-documents")]
     public Task<ActionResult> LegalDocuments(CancellationToken token) => Run(async () => await service.ActiveDocumentsAsync(token));
     [HttpPost]
-    public Task<ActionResult> Register(RegisterProviderRequest input, CancellationToken token) => Run(async () => await service.RegisterAsync(input, HttpContext, token));
+    public async Task<ActionResult> Register(RegisterProviderRequest input, CancellationToken token)
+    {
+        try
+        {
+            var result = await service.RegisterAsync(input, HttpContext, token);
+            await SignInAsync(result);
+            return Ok(result);
+        }
+        catch (ProviderConfigurationException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }
+    }
+
+    private Task SignInAsync(ProviderRegistrationResponse result)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, result.UserId.ToString()),
+            new(ClaimTypes.Name, result.LoginId),
+        };
+        claims.AddRange(result.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationConstants.Scheme));
+        return HttpContext.SignInAsync(AuthenticationConstants.Scheme, principal, new AuthenticationProperties
+        {
+            IsPersistent = true,
+            AllowRefresh = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+        });
+    }
 
     private async Task<ActionResult> Run(Func<Task<object>> action)
     {

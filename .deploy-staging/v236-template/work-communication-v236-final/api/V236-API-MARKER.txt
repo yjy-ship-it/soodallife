@@ -1,0 +1,3 @@
+﻿Release: V236 work communication
+Full work quote detail: enabled
+Full administrative area: enabled

@@ -1,0 +1,14 @@
+﻿Release: V243 provider workflow and catalog fixes
+Base: V241 cumulative release
+PowerShell encoding: UTF-8 with BOM
+Database changed: true
+API binaries changed: false; V241 cumulative API retained
+Frontend changed: customer, partner, admin
+Catalog correction: emergency HVAC and field repair categories
+Administrative areas: Gyeonggi Suwon district-level choices
+Safety: ZIP hash gate, admin gate, exact AppsRoot gate, SQL/IIS/file backups, App_Data and appsettings preservation
+External notifications: existing configured channels only; no provider key is embedded
+deployment/Apply-AdministrativeDistrictsV243.sql
+deployment/Verify-AdministrativeDistrictsV243.sql
+
+V243-R2: corrected the final API marker verification phrase; database and district contents are unchanged.

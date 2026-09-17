@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.CustomerAccounts;
+using SoodalLife.Api.Features.Subscriptions;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
@@ -49,6 +51,9 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
                 ["PrivacyProtection:DualWriteEnabled"] = "true",
                 ["PrivacyProtection:SearchHashKey"] = _privacyHashKey,
                 ["PrivacyProtection:EncryptedReadEnabled"] = "true",
+                ["SubscriptionPaymentGateway:Enabled"] = "true",
+                ["SubscriptionPaymentGateway:ClientKey"] = "test_ck_subscription",
+                ["SubscriptionPaymentGateway:SecretKey"] = "test_sk_subscription",
             });
         });
         builder.ConfigureServices(services =>
@@ -56,9 +61,14 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
             services.RemoveAll<DbContextOptions<SoodalLifeDbContext>>();
             services.RemoveAll<SoodalLifeDbContext>();
             services.RemoveAll<IIdentityVerificationAdapter>();
-            services.AddDbContext<SoodalLifeDbContext>((provider, options) => options.UseInMemoryDatabase(_databaseName)
-                .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>(), provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataReadInterceptor>()));
+            services.RemoveAll<ISubscriptionPaymentGateway>();
+            services.AddDbContext<SoodalLifeDbContext>((provider, options) => options
+                .UseInMemoryDatabase(_databaseName)
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .AddInterceptors(provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataProtectionInterceptor>(),
+                    provider.GetRequiredService<SoodalLife.Api.Infrastructure.Security.PersonalDataReadInterceptor>()));
             services.AddSingleton<IIdentityVerificationAdapter, TestIdentityVerificationAdapter>();
+            services.AddSingleton<ISubscriptionPaymentGateway,TestSubscriptionPaymentGateway>();
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
         });
     }
@@ -153,7 +163,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         {
             PublicId = TrustPolicyDraftDefaults.PublicId,
             PolicyVersion = TrustPolicyDraftDefaults.Version,
-            PolicyName = "공급자 신뢰도 자동산정 정책 초안",
+            PolicyName = "전문가 신뢰도 자동산정 정책 초안",
             TargetTypeCode = "PROVIDER",
             ScopeTypeCode = "GLOBAL",
             StatusCode = "DRAFT",
@@ -170,7 +180,8 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         var now = DateTime.UtcNow;
         dbContext.AdvertisingPlacements.AddRange(
             new AdvertisingPlacement { Code = "CUSTOMER_HOME", Name = "고객 홈", Description = "고객 역할 홈 화면", RouteHint = "/customer", IsActive = true, CreatedAt = now, UpdatedAt = now },
-            new AdvertisingPlacement { Code = "PROVIDER_HOME", Name = "공급자 홈", Description = "공급자 역할 홈 화면", RouteHint = "/provider", IsActive = true, CreatedAt = now, UpdatedAt = now });
+            new AdvertisingPlacement { Code = "PROVIDER_HOME", Name = "전문가 홈", Description = "전문가 역할 홈 화면", RouteHint = "/provider", IsActive = true, CreatedAt = now, UpdatedAt = now },
+            new AdvertisingPlacement { Code = "CUSTOMER_LIVE_ACTIVITY_FEED", Name = "고객 실시간 서비스 목록", Description = "실시간 서비스 목록 사이 광고", RouteHint = "/customer#live-activity", IsActive = true, CreatedAt = now, UpdatedAt = now });
         dbContext.SaveChanges();
     }
 
@@ -496,7 +507,7 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
         FeeChargeTimingText = "수요자 견적 채택 시",
         FeeRestoreConditionText = "허위요청·시스템오류·본사 승인 사유 시 원장 복원",
         MatchingAreaRuleText = "시군구",
-        NotificationTargetRuleText = "대상 공급자",
+        NotificationTargetRuleText = "대상 전문가",
         ProviderResponseDeadlineMinutes = 30,
         RequestFieldSummaryText = "요청 필수항목",
         RequiredQualificationSummaryText = "필수 자격 확인",
@@ -514,6 +525,16 @@ public sealed class AuthenticationWebApplicationFactory : WebApplicationFactory<
     private static TestCredential NewCredential(string prefix) => new(
         $"test-{prefix}-{Guid.NewGuid():N}",
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+}
+
+internal sealed class TestSubscriptionPaymentGateway:ISubscriptionPaymentGateway
+{
+    public Task<SubscriptionGatewayBillingKeyResult> IssueBillingKeyAsync(string providerCode,string authKey,string customerKey,string idempotencyKey,CancellationToken token)=>Task.FromResult(new SubscriptionGatewayBillingKeyResult($"billing-{authKey}","CARD","****-****-****-1234"));
+    public Task<SubscriptionGatewayPaymentResult> ChargeRecurringAsync(string providerCode,string billingKey,string customerKey,string orderId,string orderName,decimal amount,string currencyCode,string idempotencyKey,CancellationToken token)=>Task.FromResult(new SubscriptionGatewayPaymentResult($"payment-{orderId}",null));
+    public Task<SubscriptionGatewayPaymentStatus> GetPaymentAsync(string providerCode,string paymentKey,CancellationToken token){var orderId=paymentKey.StartsWith("payment-",StringComparison.Ordinal)?paymentKey[8..]:string.Empty;return Task.FromResult(new SubscriptionGatewayPaymentStatus(paymentKey,orderId,"DONE",0,0));}
+    public Task<SubscriptionGatewayPaymentStatus> GetPaymentByOrderIdAsync(string providerCode,string orderId,CancellationToken token)=>Task.FromResult(new SubscriptionGatewayPaymentStatus($"payment-{orderId}",orderId,"DONE",0,0));
+    public Task CancelBillingKeyAsync(string providerCode,string billingKey,string idempotencyKey,CancellationToken token)=>Task.CompletedTask;
+    public Task<SubscriptionGatewayPaymentResult> RefundPaymentAsync(string providerCode,string paymentKey,decimal amount,string reason,string idempotencyKey,CancellationToken token)=>Task.FromResult(new SubscriptionGatewayPaymentResult(paymentKey,$"refund-{Guid.NewGuid():N}"));
 }
 
 internal sealed class TestIdentityVerificationAdapter : IIdentityVerificationAdapter

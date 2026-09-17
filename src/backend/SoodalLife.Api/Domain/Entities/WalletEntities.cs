@@ -24,6 +24,9 @@ public sealed class WalletLedgerEntry
     public long? TransactionId { get; set; }
     public string EntryTypeCode { get; set; } = string.Empty;
     public decimal Amount { get; set; }
+    public decimal SupplyAmount { get; set; }
+    public decimal VatAmount { get; set; }
+    public string TaxTreatmentCode { get; set; } = "DEPOSIT";
     public decimal BalanceAfter { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
@@ -33,6 +36,32 @@ public sealed class WalletLedgerEntry
     public DateTime OccurredAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
+}
+
+public sealed class QuoteFeeReservation
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long QuoteId { get; set; }
+    public long WalletId { get; set; }
+    public long CategoryFeePolicyId { get; set; }
+    public decimal Amount { get; set; }
+    public decimal ExpectedSupplyAmount { get; set; }
+    public decimal ExpectedVatAmount { get; set; }
+    public string CurrencyCode { get; set; } = "KRW";
+    public string StatusCode { get; set; } = "RESERVED";
+    public long ReserveLedgerEntryId { get; set; }
+    public long? CaptureLedgerEntryId { get; set; }
+    public long? ReleaseLedgerEntryId { get; set; }
+    public DateTime ReservedAt { get; set; }
+    public DateTime? CapturedAt { get; set; }
+    public DateTime? ReleasedAt { get; set; }
+    public string? ReleaseReasonCode { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public long? UpdatedByUserId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 }
 
 public sealed class WalletChargeRequest
@@ -67,6 +96,9 @@ public sealed class FeeCharge
     public long WalletId { get; set; }
     public long LedgerEntryId { get; set; }
     public decimal FeeAmount { get; set; }
+    public decimal SupplyAmount { get; set; }
+    public decimal VatAmount { get; set; }
+    public bool IsVatIncluded { get; set; } = true;
     public DateTime ChargedAt { get; set; }
     public string RestoreStatusCode { get; set; } = "NOT_RESTORED";
     public long? RestoreLedgerEntryId { get; set; }

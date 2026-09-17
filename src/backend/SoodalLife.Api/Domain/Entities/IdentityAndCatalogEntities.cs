@@ -173,6 +173,7 @@ public sealed class ProviderProfile
     public long Id { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public long UserId { get; set; }
+    public string ProviderTypeCode { get; set; } = "BUSINESS";
     public string BusinessName { get; set; } = string.Empty;
     public string? BusinessRegistrationNo { get; set; }
     public string? RepresentativeName { get; set; }
@@ -225,6 +226,11 @@ public sealed class ServiceCategory
     public string? ExternalCode { get; set; }
     public string? SourceRecordId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? SearchKeywordsText { get; set; }
+    public string? SearchSlug { get; set; }
+    public string? SeoTitle { get; set; }
+    public string? SeoDescription { get; set; }
+    public bool IsSearchIndexable { get; set; } = true;
     public string StatusCode { get; set; } = "ACTIVE";
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -349,6 +355,7 @@ public sealed class CategoryOperationPolicy
     public string PolicyVersion { get; set; } = string.Empty;
     public string RequestMethodText { get; set; } = string.Empty;
     public string OnsiteRequirementText { get; set; } = string.Empty;
+    public string CoverageTypeCode { get; set; } = "LOCAL_ONLY";
     public bool IsEmergencyAllowed { get; set; }
     public string SubscriptionOptionText { get; set; } = string.Empty;
     public short MaxQuoteCount { get; set; }
@@ -650,6 +657,7 @@ public sealed class ProviderServiceCategory
     public long ProviderProfileId { get; set; }
     public long CategoryId { get; set; }
     public string StatusCode { get; set; } = "ACTIVE";
+    public bool IsNationwide { get; set; }
     public DateTime ActivatedAt { get; set; }
     public DateTime? DeactivatedAt { get; set; }
     public DateTime CreatedAt { get; set; }

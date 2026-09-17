@@ -22,17 +22,22 @@ public sealed record ProviderWalletDashboardResponse(
     IReadOnlyList<ProviderWalletFeeResponse> FeeCharges,
     IReadOnlyList<ProviderWalletRefundResponse> Refunds,
     bool ActualPaymentIntegrated,
+    string PaymentMode,
+    IReadOnlyList<decimal> TopUpProducts,
+    decimal MonthlyPurchaseLimit,
+    decimal MonthlyPurchasedAmount,
     bool ProviderRefundRequestSupported,
     bool WithdrawalRefundRequired,
     string ChargeGuidance,
     string RefundGuidance,
     string RowVersion);
 public sealed record ProviderWalletLedgerResponse(Guid Id, DateTime OccurredAt, string EntryTypeCode, decimal Amount,
-    decimal BalanceAfter, string Reason, string? ReferenceType, Guid? ReferenceId, Guid? TransactionId, string? PaymentMethodCode);
+    decimal SupplyAmount, decimal VatAmount, string TaxTreatmentCode, decimal BalanceAfter, string Reason,
+    string? ReferenceType, Guid? ReferenceId, Guid? TransactionId, string? PaymentMethodCode);
 public sealed record ProviderWalletChargeResponse(Guid Id, decimal RequestedAmount, string PaymentMethodCode,
     string StatusCode, DateTime RequestedAt, DateTime? CompletedAt, string? FailureReason);
 public sealed record ProviderWalletFeeResponse(Guid Id, Guid TransactionId, string ServiceName, decimal FeeAmount,
-    DateTime ChargedAt, string RestoreStatusCode);
+    decimal SupplyAmount, decimal VatAmount, bool IsVatIncluded, DateTime ChargedAt, string RestoreStatusCode);
 public sealed record ProviderWalletRefundResponse(Guid Id, decimal RequestedAmount, string StatusCode,
     string RequestReason, DateTime RequestedAt, DateTime? ReviewedAt, DateTime? CompletedAt, string? FailureReason);
 

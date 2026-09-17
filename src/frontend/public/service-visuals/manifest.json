@@ -1,0 +1,4064 @@
+{
+  "REP-0001": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "전등 교체",
+    "image": "/service-visuals/services/rep-0001.webp"
+  },
+  "REP-0002": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "LED 조명 설치",
+    "image": "/service-visuals/services/rep-0002.webp"
+  },
+  "REP-0003": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "스위치 교체",
+    "image": "/service-visuals/services/rep-0003.webp"
+  },
+  "REP-0004": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "콘센트 교체",
+    "image": "/service-visuals/services/rep-0004.webp"
+  },
+  "REP-0005": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "차단기 교체",
+    "image": "/service-visuals/services/rep-0005.webp"
+  },
+  "REP-0006": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "전기 배선 수리",
+    "image": "/service-visuals/services/rep-0006.webp"
+  },
+  "REP-0007": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "누전 점검",
+    "image": "/service-visuals/services/rep-0007.webp"
+  },
+  "REP-0008": {
+    "major": "집수리",
+    "middle": "전기·조명",
+    "service": "센서등 설치",
+    "image": "/service-visuals/services/rep-0008.webp"
+  },
+  "REP-0009": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "수도꼭지 교체",
+    "image": "/service-visuals/services/rep-0009.webp"
+  },
+  "REP-0010": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "수전 교체",
+    "image": "/service-visuals/services/rep-0010.webp"
+  },
+  "REP-0011": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "배관 누수 수리",
+    "image": "/service-visuals/services/rep-0011.webp"
+  },
+  "REP-0012": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "배관 막힘 제거",
+    "image": "/service-visuals/services/rep-0012.webp"
+  },
+  "REP-0013": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "싱크대 배수 수리",
+    "image": "/service-visuals/services/rep-0013.webp"
+  },
+  "REP-0014": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "세면대 배수 수리",
+    "image": "/service-visuals/services/rep-0014.webp"
+  },
+  "REP-0015": {
+    "major": "집수리",
+    "middle": "수도·배관",
+    "service": "수도배관 교체",
+    "image": "/service-visuals/services/rep-0015.webp"
+  },
+  "REP-0016": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "싱크대 막힘",
+    "image": "/service-visuals/services/rep-0016.webp"
+  },
+  "REP-0017": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "세면대 막힘",
+    "image": "/service-visuals/services/rep-0017.webp"
+  },
+  "REP-0018": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "변기 막힘",
+    "image": "/service-visuals/services/rep-0018.webp"
+  },
+  "REP-0019": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "욕실 배수구 막힘",
+    "image": "/service-visuals/services/rep-0019.webp"
+  },
+  "REP-0020": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "하수구 고압세척",
+    "image": "/service-visuals/services/rep-0020.webp"
+  },
+  "REP-0021": {
+    "major": "집수리",
+    "middle": "하수구·막힘",
+    "service": "악취 제거",
+    "image": "/service-visuals/services/rep-0021.webp"
+  },
+  "REP-0022": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "누수 탐지",
+    "image": "/service-visuals/services/rep-0022.webp"
+  },
+  "REP-0023": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "수도 누수 수리",
+    "image": "/service-visuals/services/rep-0023.webp"
+  },
+  "REP-0024": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "욕실 방수",
+    "image": "/service-visuals/services/rep-0024.webp"
+  },
+  "REP-0025": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "옥상 방수",
+    "image": "/service-visuals/services/rep-0025.webp"
+  },
+  "REP-0026": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "외벽 방수",
+    "image": "/service-visuals/services/rep-0026.webp"
+  },
+  "REP-0027": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "창틀 누수 보수",
+    "image": "/service-visuals/services/rep-0027.webp"
+  },
+  "REP-0028": {
+    "major": "집수리",
+    "middle": "누수·방수",
+    "service": "베란다 방수",
+    "image": "/service-visuals/services/rep-0028.webp"
+  },
+  "REP-0029": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "변기 교체",
+    "image": "/service-visuals/services/rep-0029.webp"
+  },
+  "REP-0030": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "변기 부속 교체",
+    "image": "/service-visuals/services/rep-0030.webp"
+  },
+  "REP-0031": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "세면대 교체",
+    "image": "/service-visuals/services/rep-0031.webp"
+  },
+  "REP-0032": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "샤워기 교체",
+    "image": "/service-visuals/services/rep-0032.webp"
+  },
+  "REP-0033": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "욕실장 설치",
+    "image": "/service-visuals/services/rep-0033.webp"
+  },
+  "REP-0034": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "환풍기 교체",
+    "image": "/service-visuals/services/rep-0034.webp"
+  },
+  "REP-0035": {
+    "major": "집수리",
+    "middle": "욕실 수리",
+    "service": "욕실 액세서리 설치",
+    "image": "/service-visuals/services/rep-0035.webp"
+  },
+  "REP-0036": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "싱크대 수리",
+    "image": "/service-visuals/services/rep-0036.webp"
+  },
+  "REP-0037": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "싱크볼 교체",
+    "image": "/service-visuals/services/rep-0037.webp"
+  },
+  "REP-0038": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "주방 수전 교체",
+    "image": "/service-visuals/services/rep-0038.webp"
+  },
+  "REP-0039": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "후드 교체",
+    "image": "/service-visuals/services/rep-0039.webp"
+  },
+  "REP-0040": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "가스레인지 설치",
+    "image": "/service-visuals/services/rep-0040.webp"
+  },
+  "REP-0041": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "상·하부장 수리",
+    "image": "/service-visuals/services/rep-0041.webp"
+  },
+  "REP-0042": {
+    "major": "집수리",
+    "middle": "주방 수리",
+    "service": "주방 배수 수리",
+    "image": "/service-visuals/services/rep-0042.webp"
+  },
+  "REP-0043": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "방문 수리",
+    "image": "/service-visuals/services/rep-0043.webp"
+  },
+  "REP-0044": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "현관문 수리",
+    "image": "/service-visuals/services/rep-0044.webp"
+  },
+  "REP-0045": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "문틀 보수",
+    "image": "/service-visuals/services/rep-0045.webp"
+  },
+  "REP-0046": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "문고리 교체",
+    "image": "/service-visuals/services/rep-0046.webp"
+  },
+  "REP-0047": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "경첩 교체",
+    "image": "/service-visuals/services/rep-0047.webp"
+  },
+  "REP-0048": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "도어클로저 교체",
+    "image": "/service-visuals/services/rep-0048.webp"
+  },
+  "REP-0049": {
+    "major": "집수리",
+    "middle": "문·문틀",
+    "service": "미닫이문 수리",
+    "image": "/service-visuals/services/rep-0049.webp"
+  },
+  "REP-0050": {
+    "major": "집수리",
+    "middle": "도어록·보안",
+    "service": "디지털 도어록 설치",
+    "image": "/service-visuals/services/rep-0050.webp"
+  },
+  "REP-0051": {
+    "major": "집수리",
+    "middle": "도어록·보안",
+    "service": "도어록 수리",
+    "image": "/service-visuals/services/rep-0051.webp"
+  },
+  "REP-0052": {
+    "major": "집수리",
+    "middle": "도어록·보안",
+    "service": "열쇠 교체",
+    "image": "/service-visuals/services/rep-0052.webp"
+  },
+  "REP-0053": {
+    "major": "집수리",
+    "middle": "도어록·보안",
+    "service": "보조키 설치",
+    "image": "/service-visuals/services/rep-0053.webp"
+  },
+  "REP-0054": {
+    "major": "집수리",
+    "middle": "도어록·보안",
+    "service": "현관 보안장치 설치",
+    "image": "/service-visuals/services/rep-0054.webp"
+  },
+  "REP-0055": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "창문 수리",
+    "image": "/service-visuals/services/rep-0055.webp"
+  },
+  "REP-0056": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "샷시 수리",
+    "image": "/service-visuals/services/rep-0056.webp"
+  },
+  "REP-0057": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "창문 잠금장치 교체",
+    "image": "/service-visuals/services/rep-0057.webp"
+  },
+  "REP-0058": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "창호 롤러 교체",
+    "image": "/service-visuals/services/rep-0058.webp"
+  },
+  "REP-0059": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "유리 교체",
+    "image": "/service-visuals/services/rep-0059.webp"
+  },
+  "REP-0060": {
+    "major": "집수리",
+    "middle": "창호·샷시",
+    "service": "창문 틈새 보수",
+    "image": "/service-visuals/services/rep-0060.webp"
+  },
+  "REP-0061": {
+    "major": "집수리",
+    "middle": "방충망",
+    "service": "일반 방충망 교체",
+    "image": "/service-visuals/services/rep-0061.webp"
+  },
+  "REP-0062": {
+    "major": "집수리",
+    "middle": "방충망",
+    "service": "미세 방충망 설치",
+    "image": "/service-visuals/services/rep-0062.webp"
+  },
+  "REP-0063": {
+    "major": "집수리",
+    "middle": "방충망",
+    "service": "현관 방충망 설치",
+    "image": "/service-visuals/services/rep-0063.webp"
+  },
+  "REP-0064": {
+    "major": "집수리",
+    "middle": "방충망",
+    "service": "롤 방충망 설치",
+    "image": "/service-visuals/services/rep-0064.webp"
+  },
+  "REP-0065": {
+    "major": "집수리",
+    "middle": "방충망",
+    "service": "방충망 부분 보수",
+    "image": "/service-visuals/services/rep-0065.webp"
+  },
+  "REP-0066": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "벽 균열 보수",
+    "image": "/service-visuals/services/rep-0066.webp"
+  },
+  "REP-0067": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "천장 보수",
+    "image": "/service-visuals/services/rep-0067.webp"
+  },
+  "REP-0068": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "석고보드 수리",
+    "image": "/service-visuals/services/rep-0068.webp"
+  },
+  "REP-0069": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "몰딩 교체",
+    "image": "/service-visuals/services/rep-0069.webp"
+  },
+  "REP-0070": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "벽면 타공 보수",
+    "image": "/service-visuals/services/rep-0070.webp"
+  },
+  "REP-0071": {
+    "major": "집수리",
+    "middle": "벽·천장",
+    "service": "결로·곰팡이 보수",
+    "image": "/service-visuals/services/rep-0071.webp"
+  },
+  "REP-0072": {
+    "major": "집수리",
+    "middle": "바닥",
+    "service": "장판 부분 보수",
+    "image": "/service-visuals/services/rep-0072.webp"
+  },
+  "REP-0073": {
+    "major": "집수리",
+    "middle": "바닥",
+    "service": "마루 부분 보수",
+    "image": "/service-visuals/services/rep-0073.webp"
+  },
+  "REP-0074": {
+    "major": "집수리",
+    "middle": "바닥",
+    "service": "타일 부분 교체",
+    "image": "/service-visuals/services/rep-0074.webp"
+  },
+  "REP-0075": {
+    "major": "집수리",
+    "middle": "바닥",
+    "service": "바닥 균열 보수",
+    "image": "/service-visuals/services/rep-0075.webp"
+  },
+  "REP-0076": {
+    "major": "집수리",
+    "middle": "바닥",
+    "service": "데코타일 보수",
+    "image": "/service-visuals/services/rep-0076.webp"
+  },
+  "REP-0077": {
+    "major": "집수리",
+    "middle": "실리콘·코킹",
+    "service": "욕실 실리콘 교체",
+    "image": "/service-visuals/services/rep-0077.webp"
+  },
+  "REP-0078": {
+    "major": "집수리",
+    "middle": "실리콘·코킹",
+    "service": "싱크대 실리콘 교체",
+    "image": "/service-visuals/services/rep-0078.webp"
+  },
+  "REP-0079": {
+    "major": "집수리",
+    "middle": "실리콘·코킹",
+    "service": "창틀 실리콘 보수",
+    "image": "/service-visuals/services/rep-0079.webp"
+  },
+  "REP-0080": {
+    "major": "집수리",
+    "middle": "실리콘·코킹",
+    "service": "외벽 코킹",
+    "image": "/service-visuals/services/rep-0080.webp"
+  },
+  "REP-0081": {
+    "major": "집수리",
+    "middle": "실리콘·코킹",
+    "service": "곰팡이 실리콘 제거",
+    "image": "/service-visuals/services/rep-0081.webp"
+  },
+  "REP-0082": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "서랍 수리",
+    "image": "/service-visuals/services/rep-0082.webp"
+  },
+  "REP-0083": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "장롱 수리",
+    "image": "/service-visuals/services/rep-0083.webp"
+  },
+  "REP-0084": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "식탁·의자 수리",
+    "image": "/service-visuals/services/rep-0084.webp"
+  },
+  "REP-0085": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "붙박이장 수리",
+    "image": "/service-visuals/services/rep-0085.webp"
+  },
+  "REP-0086": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "가구 문짝 수리",
+    "image": "/service-visuals/services/rep-0086.webp"
+  },
+  "REP-0087": {
+    "major": "집수리",
+    "middle": "가구 수리",
+    "service": "가구 경첩 교체",
+    "image": "/service-visuals/services/rep-0087.webp"
+  },
+  "REP-0088": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "커튼 설치",
+    "image": "/service-visuals/services/rep-0088.webp"
+  },
+  "REP-0089": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "블라인드 설치",
+    "image": "/service-visuals/services/rep-0089.webp"
+  },
+  "REP-0090": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "선반 설치",
+    "image": "/service-visuals/services/rep-0090.webp"
+  },
+  "REP-0091": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "액자 설치",
+    "image": "/service-visuals/services/rep-0091.webp"
+  },
+  "REP-0092": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "TV 벽걸이 설치",
+    "image": "/service-visuals/services/rep-0092.webp"
+  },
+  "REP-0093": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "가구 조립",
+    "image": "/service-visuals/services/rep-0093.webp"
+  },
+  "REP-0094": {
+    "major": "집수리",
+    "middle": "설치·조립",
+    "service": "빨래건조대 설치",
+    "image": "/service-visuals/services/rep-0094.webp"
+  },
+  "REP-0095": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "가구 철거",
+    "image": "/service-visuals/services/rep-0095.webp"
+  },
+  "REP-0096": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "벽걸이 철거",
+    "image": "/service-visuals/services/rep-0096.webp"
+  },
+  "REP-0097": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "시설물 철거",
+    "image": "/service-visuals/services/rep-0097.webp"
+  },
+  "REP-0098": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "폐업 철거",
+    "image": "/service-visuals/services/rep-0098.webp"
+  },
+  "REP-0099": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "사무실 원상복구",
+    "image": "/service-visuals/services/rep-0099.webp"
+  },
+  "REP-0100": {
+    "major": "집수리",
+    "middle": "철거·원상복구",
+    "service": "주택 원상복구",
+    "image": "/service-visuals/services/rep-0100.webp"
+  },
+  "REP-0101": {
+    "major": "집수리",
+    "middle": "안전시설",
+    "service": "안전손잡이 설치",
+    "image": "/service-visuals/services/rep-0101.webp"
+  },
+  "REP-0102": {
+    "major": "집수리",
+    "middle": "안전시설",
+    "service": "미끄럼 방지 시공",
+    "image": "/service-visuals/services/rep-0102.webp"
+  },
+  "REP-0103": {
+    "major": "집수리",
+    "middle": "안전시설",
+    "service": "문턱 제거",
+    "image": "/service-visuals/services/rep-0103.webp"
+  },
+  "REP-0104": {
+    "major": "집수리",
+    "middle": "안전시설",
+    "service": "어린이 안전장치 설치",
+    "image": "/service-visuals/services/rep-0104.webp"
+  },
+  "REP-0105": {
+    "major": "집수리",
+    "middle": "안전시설",
+    "service": "고령자 주거안전 개선",
+    "image": "/service-visuals/services/rep-0105.webp"
+  },
+  "REP-0106": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "긴급 누수",
+    "image": "/service-visuals/services/rep-0106.webp"
+  },
+  "REP-0107": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "긴급 배관 막힘",
+    "image": "/service-visuals/services/rep-0107.webp"
+  },
+  "REP-0108": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "정전·누전",
+    "image": "/service-visuals/services/rep-0108.webp"
+  },
+  "REP-0109": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "문 잠김",
+    "image": "/service-visuals/services/rep-0109.webp"
+  },
+  "REP-0110": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "유리 파손",
+    "image": "/service-visuals/services/rep-0110.webp"
+  },
+  "REP-0111": {
+    "major": "집수리",
+    "middle": "긴급출동",
+    "service": "긴급 시설물 보수",
+    "image": "/service-visuals/services/rep-0111.webp"
+  },
+  "INT-0001": {
+    "major": "인테리어",
+    "middle": "도배",
+    "service": "합지 도배",
+    "image": "/service-visuals/services/int-0001.webp"
+  },
+  "INT-0002": {
+    "major": "인테리어",
+    "middle": "도배",
+    "service": "실크벽지 도배",
+    "image": "/service-visuals/services/int-0002.webp"
+  },
+  "INT-0003": {
+    "major": "인테리어",
+    "middle": "도배",
+    "service": "천장 도배",
+    "image": "/service-visuals/services/int-0003.webp"
+  },
+  "INT-0004": {
+    "major": "인테리어",
+    "middle": "도배",
+    "service": "부분 도배",
+    "image": "/service-visuals/services/int-0004.webp"
+  },
+  "INT-0005": {
+    "major": "인테리어",
+    "middle": "도배",
+    "service": "곰팡이 제거 후 도배",
+    "image": "/service-visuals/services/int-0005.webp"
+  },
+  "INT-0006": {
+    "major": "인테리어",
+    "middle": "바닥",
+    "service": "장판 시공",
+    "image": "/service-visuals/services/int-0006.webp"
+  },
+  "INT-0007": {
+    "major": "인테리어",
+    "middle": "바닥",
+    "service": "마루 시공",
+    "image": "/service-visuals/services/int-0007.webp"
+  },
+  "INT-0008": {
+    "major": "인테리어",
+    "middle": "바닥",
+    "service": "데코타일 시공",
+    "image": "/service-visuals/services/int-0008.webp"
+  },
+  "INT-0009": {
+    "major": "인테리어",
+    "middle": "바닥",
+    "service": "카펫 시공",
+    "image": "/service-visuals/services/int-0009.webp"
+  },
+  "INT-0010": {
+    "major": "인테리어",
+    "middle": "바닥",
+    "service": "에폭시 바닥 시공",
+    "image": "/service-visuals/services/int-0010.webp"
+  },
+  "INT-0011": {
+    "major": "인테리어",
+    "middle": "타일",
+    "service": "욕실 타일",
+    "image": "/service-visuals/services/int-0011.webp"
+  },
+  "INT-0012": {
+    "major": "인테리어",
+    "middle": "타일",
+    "service": "주방 타일",
+    "image": "/service-visuals/services/int-0012.webp"
+  },
+  "INT-0013": {
+    "major": "인테리어",
+    "middle": "타일",
+    "service": "현관 타일",
+    "image": "/service-visuals/services/int-0013.webp"
+  },
+  "INT-0014": {
+    "major": "인테리어",
+    "middle": "타일",
+    "service": "베란다 타일",
+    "image": "/service-visuals/services/int-0014.webp"
+  },
+  "INT-0015": {
+    "major": "인테리어",
+    "middle": "타일",
+    "service": "타일 부분 보수",
+    "image": "/service-visuals/services/int-0015.webp"
+  },
+  "INT-0016": {
+    "major": "인테리어",
+    "middle": "인테리어 필름",
+    "service": "문·문틀 필름",
+    "image": "/service-visuals/services/int-0016.webp"
+  },
+  "INT-0017": {
+    "major": "인테리어",
+    "middle": "인테리어 필름",
+    "service": "싱크대 필름",
+    "image": "/service-visuals/services/int-0017.webp"
+  },
+  "INT-0018": {
+    "major": "인테리어",
+    "middle": "인테리어 필름",
+    "service": "붙박이장 필름",
+    "image": "/service-visuals/services/int-0018.webp"
+  },
+  "INT-0019": {
+    "major": "인테리어",
+    "middle": "인테리어 필름",
+    "service": "샷시 필름",
+    "image": "/service-visuals/services/int-0019.webp"
+  },
+  "INT-0020": {
+    "major": "인테리어",
+    "middle": "인테리어 필름",
+    "service": "가구 리폼",
+    "image": "/service-visuals/services/int-0020.webp"
+  },
+  "INT-0021": {
+    "major": "인테리어",
+    "middle": "도장·페인트",
+    "service": "내부 도장",
+    "image": "/service-visuals/services/int-0021.webp"
+  },
+  "INT-0022": {
+    "major": "인테리어",
+    "middle": "도장·페인트",
+    "service": "외부 도장",
+    "image": "/service-visuals/services/int-0022.webp"
+  },
+  "INT-0023": {
+    "major": "인테리어",
+    "middle": "도장·페인트",
+    "service": "방문·문틀 도장",
+    "image": "/service-visuals/services/int-0023.webp"
+  },
+  "INT-0024": {
+    "major": "인테리어",
+    "middle": "도장·페인트",
+    "service": "베란다 도장",
+    "image": "/service-visuals/services/int-0024.webp"
+  },
+  "INT-0025": {
+    "major": "인테리어",
+    "middle": "도장·페인트",
+    "service": "옥상 도장",
+    "image": "/service-visuals/services/int-0025.webp"
+  },
+  "INT-0026": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "가벽 설치",
+    "image": "/service-visuals/services/int-0026.webp"
+  },
+  "INT-0027": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "천장 목공",
+    "image": "/service-visuals/services/int-0027.webp"
+  },
+  "INT-0028": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "몰딩 시공",
+    "image": "/service-visuals/services/int-0028.webp"
+  },
+  "INT-0029": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "아트월 시공",
+    "image": "/service-visuals/services/int-0029.webp"
+  },
+  "INT-0030": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "수납장 제작",
+    "image": "/service-visuals/services/int-0030.webp"
+  },
+  "INT-0031": {
+    "major": "인테리어",
+    "middle": "목공",
+    "service": "맞춤가구 제작",
+    "image": "/service-visuals/services/int-0031.webp"
+  },
+  "INT-0032": {
+    "major": "인테리어",
+    "middle": "주방 인테리어",
+    "service": "싱크대 교체",
+    "image": "/service-visuals/services/int-0032.webp"
+  },
+  "INT-0033": {
+    "major": "인테리어",
+    "middle": "주방 인테리어",
+    "service": "상·하부장 교체",
+    "image": "/service-visuals/services/int-0033.webp"
+  },
+  "INT-0034": {
+    "major": "인테리어",
+    "middle": "주방 인테리어",
+    "service": "주방 구조변경",
+    "image": "/service-visuals/services/int-0034.webp"
+  },
+  "INT-0035": {
+    "major": "인테리어",
+    "middle": "주방 인테리어",
+    "service": "아일랜드 설치",
+    "image": "/service-visuals/services/int-0035.webp"
+  },
+  "INT-0036": {
+    "major": "인테리어",
+    "middle": "주방 인테리어",
+    "service": "주방 전체 리모델링",
+    "image": "/service-visuals/services/int-0036.webp"
+  },
+  "INT-0037": {
+    "major": "인테리어",
+    "middle": "욕실 인테리어",
+    "service": "욕실 전체 리모델링",
+    "image": "/service-visuals/services/int-0037.webp"
+  },
+  "INT-0038": {
+    "major": "인테리어",
+    "middle": "욕실 인테리어",
+    "service": "타일 시공",
+    "image": "/service-visuals/services/int-0038.webp"
+  },
+  "INT-0039": {
+    "major": "인테리어",
+    "middle": "욕실 인테리어",
+    "service": "욕조 교체",
+    "image": "/service-visuals/services/int-0039.webp"
+  },
+  "INT-0040": {
+    "major": "인테리어",
+    "middle": "욕실 인테리어",
+    "service": "샤워부스 설치",
+    "image": "/service-visuals/services/int-0040.webp"
+  },
+  "INT-0041": {
+    "major": "인테리어",
+    "middle": "욕실 인테리어",
+    "service": "욕실장·도기 교체",
+    "image": "/service-visuals/services/int-0041.webp"
+  },
+  "INT-0042": {
+    "major": "인테리어",
+    "middle": "창호·샷시",
+    "service": "아파트 샷시 교체",
+    "image": "/service-visuals/services/int-0042.webp"
+  },
+  "INT-0043": {
+    "major": "인테리어",
+    "middle": "창호·샷시",
+    "service": "단열창 설치",
+    "image": "/service-visuals/services/int-0043.webp"
+  },
+  "INT-0044": {
+    "major": "인테리어",
+    "middle": "창호·샷시",
+    "service": "베란다 창호",
+    "image": "/service-visuals/services/int-0044.webp"
+  },
+  "INT-0045": {
+    "major": "인테리어",
+    "middle": "창호·샷시",
+    "service": "상가 창호",
+    "image": "/service-visuals/services/int-0045.webp"
+  },
+  "INT-0046": {
+    "major": "인테리어",
+    "middle": "창호·샷시",
+    "service": "방음창 설치",
+    "image": "/service-visuals/services/int-0046.webp"
+  },
+  "INT-0047": {
+    "major": "인테리어",
+    "middle": "조명 인테리어",
+    "service": "간접조명",
+    "image": "/service-visuals/services/int-0047.webp"
+  },
+  "INT-0048": {
+    "major": "인테리어",
+    "middle": "조명 인테리어",
+    "service": "매립등",
+    "image": "/service-visuals/services/int-0048.webp"
+  },
+  "INT-0049": {
+    "major": "인테리어",
+    "middle": "조명 인테리어",
+    "service": "레일조명",
+    "image": "/service-visuals/services/int-0049.webp"
+  },
+  "INT-0050": {
+    "major": "인테리어",
+    "middle": "조명 인테리어",
+    "service": "주방조명",
+    "image": "/service-visuals/services/int-0050.webp"
+  },
+  "INT-0051": {
+    "major": "인테리어",
+    "middle": "조명 인테리어",
+    "service": "상업공간 조명설계",
+    "image": "/service-visuals/services/int-0051.webp"
+  },
+  "INT-0052": {
+    "major": "인테리어",
+    "middle": "중문·도어",
+    "service": "현관 중문",
+    "image": "/service-visuals/services/int-0052.webp"
+  },
+  "INT-0053": {
+    "major": "인테리어",
+    "middle": "중문·도어",
+    "service": "슬라이딩도어",
+    "image": "/service-visuals/services/int-0053.webp"
+  },
+  "INT-0054": {
+    "major": "인테리어",
+    "middle": "중문·도어",
+    "service": "방문 교체",
+    "image": "/service-visuals/services/int-0054.webp"
+  },
+  "INT-0055": {
+    "major": "인테리어",
+    "middle": "중문·도어",
+    "service": "폴딩도어",
+    "image": "/service-visuals/services/int-0055.webp"
+  },
+  "INT-0056": {
+    "major": "인테리어",
+    "middle": "중문·도어",
+    "service": "자동문 설치",
+    "image": "/service-visuals/services/int-0056.webp"
+  },
+  "INT-0057": {
+    "major": "인테리어",
+    "middle": "단열·결로",
+    "service": "내벽 단열",
+    "image": "/service-visuals/services/int-0057.webp"
+  },
+  "INT-0058": {
+    "major": "인테리어",
+    "middle": "단열·결로",
+    "service": "외벽 단열",
+    "image": "/service-visuals/services/int-0058.webp"
+  },
+  "INT-0059": {
+    "major": "인테리어",
+    "middle": "단열·결로",
+    "service": "결로 방지",
+    "image": "/service-visuals/services/int-0059.webp"
+  },
+  "INT-0060": {
+    "major": "인테리어",
+    "middle": "단열·결로",
+    "service": "단열필름",
+    "image": "/service-visuals/services/int-0060.webp"
+  },
+  "INT-0061": {
+    "major": "인테리어",
+    "middle": "단열·결로",
+    "service": "단열재 시공",
+    "image": "/service-visuals/services/int-0061.webp"
+  },
+  "INT-0062": {
+    "major": "인테리어",
+    "middle": "주거공간",
+    "service": "아파트 인테리어",
+    "image": "/service-visuals/services/int-0062.webp"
+  },
+  "INT-0063": {
+    "major": "인테리어",
+    "middle": "주거공간",
+    "service": "주택 인테리어",
+    "image": "/service-visuals/services/int-0063.webp"
+  },
+  "INT-0064": {
+    "major": "인테리어",
+    "middle": "주거공간",
+    "service": "원룸 인테리어",
+    "image": "/service-visuals/services/int-0064.webp"
+  },
+  "INT-0065": {
+    "major": "인테리어",
+    "middle": "주거공간",
+    "service": "부분 리모델링",
+    "image": "/service-visuals/services/int-0065.webp"
+  },
+  "INT-0066": {
+    "major": "인테리어",
+    "middle": "주거공간",
+    "service": "전체 리모델링",
+    "image": "/service-visuals/services/int-0066.webp"
+  },
+  "INT-0067": {
+    "major": "인테리어",
+    "middle": "상업공간",
+    "service": "상가 인테리어",
+    "image": "/service-visuals/services/int-0067.webp"
+  },
+  "INT-0068": {
+    "major": "인테리어",
+    "middle": "상업공간",
+    "service": "식당 인테리어",
+    "image": "/service-visuals/services/int-0068.webp"
+  },
+  "INT-0069": {
+    "major": "인테리어",
+    "middle": "상업공간",
+    "service": "카페 인테리어",
+    "image": "/service-visuals/services/int-0069.webp"
+  },
+  "INT-0070": {
+    "major": "인테리어",
+    "middle": "상업공간",
+    "service": "학원 인테리어",
+    "image": "/service-visuals/services/int-0070.webp"
+  },
+  "INT-0071": {
+    "major": "인테리어",
+    "middle": "상업공간",
+    "service": "병원 인테리어",
+    "image": "/service-visuals/services/int-0071.webp"
+  },
+  "INT-0072": {
+    "major": "인테리어",
+    "middle": "사무공간",
+    "service": "사무실 인테리어",
+    "image": "/service-visuals/services/int-0072.webp"
+  },
+  "INT-0073": {
+    "major": "인테리어",
+    "middle": "사무공간",
+    "service": "회의실 공사",
+    "image": "/service-visuals/services/int-0073.webp"
+  },
+  "INT-0074": {
+    "major": "인테리어",
+    "middle": "사무공간",
+    "service": "파티션 설치",
+    "image": "/service-visuals/services/int-0074.webp"
+  },
+  "INT-0075": {
+    "major": "인테리어",
+    "middle": "사무공간",
+    "service": "OA 바닥",
+    "image": "/service-visuals/services/int-0075.webp"
+  },
+  "INT-0076": {
+    "major": "인테리어",
+    "middle": "사무공간",
+    "service": "업무공간 리모델링",
+    "image": "/service-visuals/services/int-0076.webp"
+  },
+  "INT-0077": {
+    "major": "인테리어",
+    "middle": "맞춤형 공사",
+    "service": "장애인 편의시설",
+    "image": "/service-visuals/services/int-0077.webp"
+  },
+  "INT-0078": {
+    "major": "인테리어",
+    "middle": "맞춤형 공사",
+    "service": "고령자 주택개선",
+    "image": "/service-visuals/services/int-0078.webp"
+  },
+  "INT-0079": {
+    "major": "인테리어",
+    "middle": "맞춤형 공사",
+    "service": "반려동물 인테리어",
+    "image": "/service-visuals/services/int-0079.webp"
+  },
+  "INT-0080": {
+    "major": "인테리어",
+    "middle": "맞춤형 공사",
+    "service": "방음공사",
+    "image": "/service-visuals/services/int-0080.webp"
+  },
+  "INT-0081": {
+    "major": "인테리어",
+    "middle": "맞춤형 공사",
+    "service": "홈오피스 구축",
+    "image": "/service-visuals/services/int-0081.webp"
+  },
+  "INT-0082": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "현장 실측",
+    "image": "/service-visuals/services/int-0082.webp"
+  },
+  "INT-0083": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "공간 설계",
+    "image": "/service-visuals/services/int-0083.webp"
+  },
+  "INT-0084": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "3D 시안",
+    "image": "/service-visuals/services/int-0084.webp"
+  },
+  "INT-0085": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "견적 비교",
+    "image": "/service-visuals/services/int-0085.webp"
+  },
+  "INT-0086": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "공사 감리",
+    "image": "/service-visuals/services/int-0086.webp"
+  },
+  "INT-0087": {
+    "major": "인테리어",
+    "middle": "설계·감리",
+    "service": "준공검사",
+    "image": "/service-visuals/services/int-0087.webp"
+  },
+  "CLN-0001": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "입주청소",
+    "image": "/service-visuals/services/cln-0001.webp"
+  },
+  "CLN-0002": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "이사청소",
+    "image": "/service-visuals/services/cln-0002.webp"
+  },
+  "CLN-0003": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "거주청소",
+    "image": "/service-visuals/services/cln-0003.webp"
+  },
+  "CLN-0004": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "원룸청소",
+    "image": "/service-visuals/services/cln-0004.webp"
+  },
+  "CLN-0005": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "부분청소",
+    "image": "/service-visuals/services/cln-0005.webp"
+  },
+  "CLN-0006": {
+    "major": "청소·위생",
+    "middle": "주거 청소",
+    "service": "대청소",
+    "image": "/service-visuals/services/cln-0006.webp"
+  },
+  "CLN-0007": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "사무실청소",
+    "image": "/service-visuals/services/cln-0007.webp"
+  },
+  "CLN-0008": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "상가청소",
+    "image": "/service-visuals/services/cln-0008.webp"
+  },
+  "CLN-0009": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "학원청소",
+    "image": "/service-visuals/services/cln-0009.webp"
+  },
+  "CLN-0010": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "병원청소",
+    "image": "/service-visuals/services/cln-0010.webp"
+  },
+  "CLN-0011": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "식당청소",
+    "image": "/service-visuals/services/cln-0011.webp"
+  },
+  "CLN-0012": {
+    "major": "청소·위생",
+    "middle": "상업공간 청소",
+    "service": "공장청소",
+    "image": "/service-visuals/services/cln-0012.webp"
+  },
+  "CLN-0013": {
+    "major": "청소·위생",
+    "middle": "에어컨 청소",
+    "service": "벽걸이형",
+    "image": "/service-visuals/services/cln-0013.webp"
+  },
+  "CLN-0014": {
+    "major": "청소·위생",
+    "middle": "에어컨 청소",
+    "service": "스탠드형",
+    "image": "/service-visuals/services/cln-0014.webp"
+  },
+  "CLN-0015": {
+    "major": "청소·위생",
+    "middle": "에어컨 청소",
+    "service": "천장형",
+    "image": "/service-visuals/services/cln-0015.webp"
+  },
+  "CLN-0016": {
+    "major": "청소·위생",
+    "middle": "에어컨 청소",
+    "service": "시스템에어컨",
+    "image": "/service-visuals/services/cln-0016.webp"
+  },
+  "CLN-0017": {
+    "major": "청소·위생",
+    "middle": "에어컨 청소",
+    "service": "실외기 청소",
+    "image": "/service-visuals/services/cln-0017.webp"
+  },
+  "CLN-0018": {
+    "major": "청소·위생",
+    "middle": "세탁기 청소",
+    "service": "통돌이 세탁기",
+    "image": "/service-visuals/services/cln-0018.webp"
+  },
+  "CLN-0019": {
+    "major": "청소·위생",
+    "middle": "세탁기 청소",
+    "service": "드럼 세탁기",
+    "image": "/service-visuals/services/cln-0019.webp"
+  },
+  "CLN-0020": {
+    "major": "청소·위생",
+    "middle": "세탁기 청소",
+    "service": "건조기",
+    "image": "/service-visuals/services/cln-0020.webp"
+  },
+  "CLN-0021": {
+    "major": "청소·위생",
+    "middle": "세탁기 청소",
+    "service": "세탁기 배수구 청소",
+    "image": "/service-visuals/services/cln-0021.webp"
+  },
+  "CLN-0022": {
+    "major": "청소·위생",
+    "middle": "주방가전 청소",
+    "service": "냉장고 청소",
+    "image": "/service-visuals/services/cln-0022.webp"
+  },
+  "CLN-0023": {
+    "major": "청소·위생",
+    "middle": "주방가전 청소",
+    "service": "김치냉장고 청소",
+    "image": "/service-visuals/services/cln-0023.webp"
+  },
+  "CLN-0024": {
+    "major": "청소·위생",
+    "middle": "주방가전 청소",
+    "service": "식기세척기 청소",
+    "image": "/service-visuals/services/cln-0024.webp"
+  },
+  "CLN-0025": {
+    "major": "청소·위생",
+    "middle": "주방가전 청소",
+    "service": "오븐·전자레인지 청소",
+    "image": "/service-visuals/services/cln-0025.webp"
+  },
+  "CLN-0026": {
+    "major": "청소·위생",
+    "middle": "주방 청소",
+    "service": "후드 청소",
+    "image": "/service-visuals/services/cln-0026.webp"
+  },
+  "CLN-0027": {
+    "major": "청소·위생",
+    "middle": "주방 청소",
+    "service": "가스레인지 청소",
+    "image": "/service-visuals/services/cln-0027.webp"
+  },
+  "CLN-0028": {
+    "major": "청소·위생",
+    "middle": "주방 청소",
+    "service": "싱크대 청소",
+    "image": "/service-visuals/services/cln-0028.webp"
+  },
+  "CLN-0029": {
+    "major": "청소·위생",
+    "middle": "주방 청소",
+    "service": "기름때 제거",
+    "image": "/service-visuals/services/cln-0029.webp"
+  },
+  "CLN-0030": {
+    "major": "청소·위생",
+    "middle": "주방 청소",
+    "service": "주방 전체청소",
+    "image": "/service-visuals/services/cln-0030.webp"
+  },
+  "CLN-0031": {
+    "major": "청소·위생",
+    "middle": "욕실 청소",
+    "service": "욕실 전체청소",
+    "image": "/service-visuals/services/cln-0031.webp"
+  },
+  "CLN-0032": {
+    "major": "청소·위생",
+    "middle": "욕실 청소",
+    "service": "물때 제거",
+    "image": "/service-visuals/services/cln-0032.webp"
+  },
+  "CLN-0033": {
+    "major": "청소·위생",
+    "middle": "욕실 청소",
+    "service": "곰팡이 제거",
+    "image": "/service-visuals/services/cln-0033.webp"
+  },
+  "CLN-0034": {
+    "major": "청소·위생",
+    "middle": "욕실 청소",
+    "service": "타일·줄눈 청소",
+    "image": "/service-visuals/services/cln-0034.webp"
+  },
+  "CLN-0035": {
+    "major": "청소·위생",
+    "middle": "욕실 청소",
+    "service": "배수구 청소",
+    "image": "/service-visuals/services/cln-0035.webp"
+  },
+  "CLN-0036": {
+    "major": "청소·위생",
+    "middle": "침구·가구 청소",
+    "service": "매트리스 청소",
+    "image": "/service-visuals/services/cln-0036.webp"
+  },
+  "CLN-0037": {
+    "major": "청소·위생",
+    "middle": "침구·가구 청소",
+    "service": "소파 청소",
+    "image": "/service-visuals/services/cln-0037.webp"
+  },
+  "CLN-0038": {
+    "major": "청소·위생",
+    "middle": "침구·가구 청소",
+    "service": "카펫 청소",
+    "image": "/service-visuals/services/cln-0038.webp"
+  },
+  "CLN-0039": {
+    "major": "청소·위생",
+    "middle": "침구·가구 청소",
+    "service": "의자 청소",
+    "image": "/service-visuals/services/cln-0039.webp"
+  },
+  "CLN-0040": {
+    "major": "청소·위생",
+    "middle": "침구·가구 청소",
+    "service": "커튼 청소",
+    "image": "/service-visuals/services/cln-0040.webp"
+  },
+  "CLN-0041": {
+    "major": "청소·위생",
+    "middle": "창문·외벽 청소",
+    "service": "유리창 청소",
+    "image": "/service-visuals/services/cln-0041.webp"
+  },
+  "CLN-0042": {
+    "major": "청소·위생",
+    "middle": "창문·외벽 청소",
+    "service": "창틀 청소",
+    "image": "/service-visuals/services/cln-0042.webp"
+  },
+  "CLN-0043": {
+    "major": "청소·위생",
+    "middle": "창문·외벽 청소",
+    "service": "베란다 청소",
+    "image": "/service-visuals/services/cln-0043.webp"
+  },
+  "CLN-0044": {
+    "major": "청소·위생",
+    "middle": "창문·외벽 청소",
+    "service": "외벽 청소",
+    "image": "/service-visuals/services/cln-0044.webp"
+  },
+  "CLN-0045": {
+    "major": "청소·위생",
+    "middle": "창문·외벽 청소",
+    "service": "간판 청소",
+    "image": "/service-visuals/services/cln-0045.webp"
+  },
+  "CLN-0046": {
+    "major": "청소·위생",
+    "middle": "특수 청소",
+    "service": "화재현장 청소",
+    "image": "/service-visuals/services/cln-0046.webp"
+  },
+  "CLN-0047": {
+    "major": "청소·위생",
+    "middle": "특수 청소",
+    "service": "침수 청소",
+    "image": "/service-visuals/services/cln-0047.webp"
+  },
+  "CLN-0048": {
+    "major": "청소·위생",
+    "middle": "특수 청소",
+    "service": "쓰레기집 청소",
+    "image": "/service-visuals/services/cln-0048.webp"
+  },
+  "CLN-0049": {
+    "major": "청소·위생",
+    "middle": "특수 청소",
+    "service": "고독사 현장 청소",
+    "image": "/service-visuals/services/cln-0049.webp"
+  },
+  "CLN-0050": {
+    "major": "청소·위생",
+    "middle": "특수 청소",
+    "service": "유품정리",
+    "image": "/service-visuals/services/cln-0050.webp"
+  },
+  "CLN-0051": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "해충 방역",
+    "image": "/service-visuals/services/cln-0051.webp"
+  },
+  "CLN-0052": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "바퀴벌레 방제",
+    "image": "/service-visuals/services/cln-0052.webp"
+  },
+  "CLN-0053": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "개미 방제",
+    "image": "/service-visuals/services/cln-0053.webp"
+  },
+  "CLN-0054": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "쥐 방제",
+    "image": "/service-visuals/services/cln-0054.webp"
+  },
+  "CLN-0055": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "바이러스 소독",
+    "image": "/service-visuals/services/cln-0055.webp"
+  },
+  "CLN-0056": {
+    "major": "청소·위생",
+    "middle": "방역·소독",
+    "service": "정기 방역",
+    "image": "/service-visuals/services/cln-0056.webp"
+  },
+  "CLN-0057": {
+    "major": "청소·위생",
+    "middle": "새집 관리",
+    "service": "새집증후군 제거",
+    "image": "/service-visuals/services/cln-0057.webp"
+  },
+  "CLN-0058": {
+    "major": "청소·위생",
+    "middle": "새집 관리",
+    "service": "피톤치드 시공",
+    "image": "/service-visuals/services/cln-0058.webp"
+  },
+  "CLN-0059": {
+    "major": "청소·위생",
+    "middle": "새집 관리",
+    "service": "유해물질 측정",
+    "image": "/service-visuals/services/cln-0059.webp"
+  },
+  "CLN-0060": {
+    "major": "청소·위생",
+    "middle": "새집 관리",
+    "service": "냄새 제거",
+    "image": "/service-visuals/services/cln-0060.webp"
+  },
+  "CLN-0061": {
+    "major": "청소·위생",
+    "middle": "정리·수납",
+    "service": "주방 정리",
+    "image": "/service-visuals/services/cln-0061.webp"
+  },
+  "CLN-0062": {
+    "major": "청소·위생",
+    "middle": "정리·수납",
+    "service": "옷장 정리",
+    "image": "/service-visuals/services/cln-0062.webp"
+  },
+  "CLN-0063": {
+    "major": "청소·위생",
+    "middle": "정리·수납",
+    "service": "창고 정리",
+    "image": "/service-visuals/services/cln-0063.webp"
+  },
+  "CLN-0064": {
+    "major": "청소·위생",
+    "middle": "정리·수납",
+    "service": "이사 전후 정리",
+    "image": "/service-visuals/services/cln-0064.webp"
+  },
+  "CLN-0065": {
+    "major": "청소·위생",
+    "middle": "정리·수납",
+    "service": "정리수납 컨설팅",
+    "image": "/service-visuals/services/cln-0065.webp"
+  },
+  "CLN-0066": {
+    "major": "청소·위생",
+    "middle": "폐기물 정리",
+    "service": "생활폐기물 정리",
+    "image": "/service-visuals/services/cln-0066.webp"
+  },
+  "CLN-0067": {
+    "major": "청소·위생",
+    "middle": "폐기물 정리",
+    "service": "가구 폐기",
+    "image": "/service-visuals/services/cln-0067.webp"
+  },
+  "CLN-0068": {
+    "major": "청소·위생",
+    "middle": "폐기물 정리",
+    "service": "가전 폐기",
+    "image": "/service-visuals/services/cln-0068.webp"
+  },
+  "CLN-0069": {
+    "major": "청소·위생",
+    "middle": "폐기물 정리",
+    "service": "사업장 폐기물 처리 연계",
+    "image": "/service-visuals/services/cln-0069.webp"
+  },
+  "PRD-0001": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "TV",
+    "image": "/service-visuals/services/prd-0001.webp"
+  },
+  "PRD-0002": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "냉장고",
+    "image": "/service-visuals/services/prd-0002.webp"
+  },
+  "PRD-0003": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "김치냉장고",
+    "image": "/service-visuals/services/prd-0003.webp"
+  },
+  "PRD-0004": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "세탁기",
+    "image": "/service-visuals/services/prd-0004.webp"
+  },
+  "PRD-0005": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "건조기",
+    "image": "/service-visuals/services/prd-0005.webp"
+  },
+  "PRD-0006": {
+    "major": "제품수리·설치",
+    "middle": "대형가전",
+    "service": "식기세척기 수리",
+    "image": "/service-visuals/services/prd-0006.webp"
+  },
+  "PRD-0007": {
+    "major": "제품수리·설치",
+    "middle": "냉난방기",
+    "service": "에어컨",
+    "image": "/service-visuals/services/prd-0007.webp"
+  },
+  "PRD-0008": {
+    "major": "제품수리·설치",
+    "middle": "냉난방기",
+    "service": "냉난방기",
+    "image": "/service-visuals/services/prd-0008.webp"
+  },
+  "PRD-0009": {
+    "major": "제품수리·설치",
+    "middle": "냉난방기",
+    "service": "보일러",
+    "image": "/service-visuals/services/prd-0009.webp"
+  },
+  "PRD-0010": {
+    "major": "제품수리·설치",
+    "middle": "냉난방기",
+    "service": "온수기",
+    "image": "/service-visuals/services/prd-0010.webp"
+  },
+  "PRD-0011": {
+    "major": "제품수리·설치",
+    "middle": "냉난방기",
+    "service": "전기히터 수리",
+    "image": "/service-visuals/services/prd-0011.webp"
+  },
+  "PRD-0012": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "전자레인지",
+    "image": "/service-visuals/services/prd-0012.webp"
+  },
+  "PRD-0013": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "오븐",
+    "image": "/service-visuals/services/prd-0013.webp"
+  },
+  "PRD-0014": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "인덕션",
+    "image": "/service-visuals/services/prd-0014.webp"
+  },
+  "PRD-0015": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "가스레인지",
+    "image": "/service-visuals/services/prd-0015.webp"
+  },
+  "PRD-0016": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "정수기",
+    "image": "/service-visuals/services/prd-0016.webp"
+  },
+  "PRD-0017": {
+    "major": "제품수리·설치",
+    "middle": "주방가전",
+    "service": "커피머신 수리",
+    "image": "/service-visuals/services/prd-0017.webp"
+  },
+  "PRD-0018": {
+    "major": "제품수리·설치",
+    "middle": "생활가전",
+    "service": "청소기",
+    "image": "/service-visuals/services/prd-0018.webp"
+  },
+  "PRD-0019": {
+    "major": "제품수리·설치",
+    "middle": "생활가전",
+    "service": "공기청정기",
+    "image": "/service-visuals/services/prd-0019.webp"
+  },
+  "PRD-0020": {
+    "major": "제품수리·설치",
+    "middle": "생활가전",
+    "service": "제습기",
+    "image": "/service-visuals/services/prd-0020.webp"
+  },
+  "PRD-0021": {
+    "major": "제품수리·설치",
+    "middle": "생활가전",
+    "service": "선풍기",
+    "image": "/service-visuals/services/prd-0021.webp"
+  },
+  "PRD-0022": {
+    "major": "제품수리·설치",
+    "middle": "생활가전",
+    "service": "음식물처리기 수리",
+    "image": "/service-visuals/services/prd-0022.webp"
+  },
+  "PRD-0023": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "데스크톱 수리",
+    "image": "/service-visuals/services/prd-0023.webp"
+  },
+  "PRD-0024": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "조립 PC",
+    "image": "/service-visuals/services/prd-0024.webp"
+  },
+  "PRD-0025": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "부품 교체",
+    "image": "/service-visuals/services/prd-0025.webp"
+  },
+  "PRD-0026": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "포맷",
+    "image": "/service-visuals/services/prd-0026.webp"
+  },
+  "PRD-0027": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "윈도우 설치",
+    "image": "/service-visuals/services/prd-0027.webp"
+  },
+  "PRD-0028": {
+    "major": "제품수리·설치",
+    "middle": "컴퓨터",
+    "service": "데이터 복구",
+    "image": "/service-visuals/services/prd-0028.webp"
+  },
+  "PRD-0029": {
+    "major": "제품수리·설치",
+    "middle": "노트북·태블릿",
+    "service": "노트북 수리",
+    "image": "/service-visuals/services/prd-0029.webp"
+  },
+  "PRD-0030": {
+    "major": "제품수리·설치",
+    "middle": "노트북·태블릿",
+    "service": "액정·키보드 교체",
+    "image": "/service-visuals/services/prd-0030.webp"
+  },
+  "PRD-0031": {
+    "major": "제품수리·설치",
+    "middle": "노트북·태블릿",
+    "service": "배터리 교체",
+    "image": "/service-visuals/services/prd-0031.webp"
+  },
+  "PRD-0032": {
+    "major": "제품수리·설치",
+    "middle": "노트북·태블릿",
+    "service": "태블릿 수리",
+    "image": "/service-visuals/services/prd-0032.webp"
+  },
+  "PRD-0033": {
+    "major": "제품수리·설치",
+    "middle": "사무기기",
+    "service": "프린터",
+    "image": "/service-visuals/services/prd-0033.webp"
+  },
+  "PRD-0034": {
+    "major": "제품수리·설치",
+    "middle": "사무기기",
+    "service": "복합기",
+    "image": "/service-visuals/services/prd-0034.webp"
+  },
+  "PRD-0035": {
+    "major": "제품수리·설치",
+    "middle": "사무기기",
+    "service": "스캐너",
+    "image": "/service-visuals/services/prd-0035.webp"
+  },
+  "PRD-0036": {
+    "major": "제품수리·설치",
+    "middle": "사무기기",
+    "service": "빔프로젝터",
+    "image": "/service-visuals/services/prd-0036.webp"
+  },
+  "PRD-0037": {
+    "major": "제품수리·설치",
+    "middle": "사무기기",
+    "service": "문서세단기 수리",
+    "image": "/service-visuals/services/prd-0037.webp"
+  },
+  "PRD-0038": {
+    "major": "제품수리·설치",
+    "middle": "휴대전화",
+    "service": "액정 교체",
+    "image": "/service-visuals/services/prd-0038.webp"
+  },
+  "PRD-0039": {
+    "major": "제품수리·설치",
+    "middle": "휴대전화",
+    "service": "배터리 교체",
+    "image": "/service-visuals/services/prd-0039.webp"
+  },
+  "PRD-0040": {
+    "major": "제품수리·설치",
+    "middle": "휴대전화",
+    "service": "데이터 이전",
+    "image": "/service-visuals/services/prd-0040.webp"
+  },
+  "PRD-0041": {
+    "major": "제품수리·설치",
+    "middle": "휴대전화",
+    "service": "초기화",
+    "image": "/service-visuals/services/prd-0041.webp"
+  },
+  "PRD-0042": {
+    "major": "제품수리·설치",
+    "middle": "휴대전화",
+    "service": "사용법 지원",
+    "image": "/service-visuals/services/prd-0042.webp"
+  },
+  "PRD-0043": {
+    "major": "제품수리·설치",
+    "middle": "인터넷·네트워크",
+    "service": "공유기 설치",
+    "image": "/service-visuals/services/prd-0043.webp"
+  },
+  "PRD-0044": {
+    "major": "제품수리·설치",
+    "middle": "인터넷·네트워크",
+    "service": "와이파이 점검",
+    "image": "/service-visuals/services/prd-0044.webp"
+  },
+  "PRD-0045": {
+    "major": "제품수리·설치",
+    "middle": "인터넷·네트워크",
+    "service": "유선망 설치",
+    "image": "/service-visuals/services/prd-0045.webp"
+  },
+  "PRD-0046": {
+    "major": "제품수리·설치",
+    "middle": "인터넷·네트워크",
+    "service": "랜선 정리",
+    "image": "/service-visuals/services/prd-0046.webp"
+  },
+  "PRD-0047": {
+    "major": "제품수리·설치",
+    "middle": "인터넷·네트워크",
+    "service": "네트워크 장애처리",
+    "image": "/service-visuals/services/prd-0047.webp"
+  },
+  "PRD-0048": {
+    "major": "제품수리·설치",
+    "middle": "영상·보안기기",
+    "service": "CCTV 설치",
+    "image": "/service-visuals/services/prd-0048.webp"
+  },
+  "PRD-0049": {
+    "major": "제품수리·설치",
+    "middle": "영상·보안기기",
+    "service": "홈캠 설치",
+    "image": "/service-visuals/services/prd-0049.webp"
+  },
+  "PRD-0050": {
+    "major": "제품수리·설치",
+    "middle": "영상·보안기기",
+    "service": "인터폰 교체",
+    "image": "/service-visuals/services/prd-0050.webp"
+  },
+  "PRD-0051": {
+    "major": "제품수리·설치",
+    "middle": "영상·보안기기",
+    "service": "비디오폰 설치",
+    "image": "/service-visuals/services/prd-0051.webp"
+  },
+  "PRD-0052": {
+    "major": "제품수리·설치",
+    "middle": "영상·보안기기",
+    "service": "출입통제장치 설치",
+    "image": "/service-visuals/services/prd-0052.webp"
+  },
+  "PRD-0053": {
+    "major": "제품수리·설치",
+    "middle": "가전 설치·이전",
+    "service": "TV 설치",
+    "image": "/service-visuals/services/prd-0053.webp"
+  },
+  "PRD-0054": {
+    "major": "제품수리·설치",
+    "middle": "가전 설치·이전",
+    "service": "에어컨 이전",
+    "image": "/service-visuals/services/prd-0054.webp"
+  },
+  "PRD-0055": {
+    "major": "제품수리·설치",
+    "middle": "가전 설치·이전",
+    "service": "세탁기 설치",
+    "image": "/service-visuals/services/prd-0055.webp"
+  },
+  "PRD-0056": {
+    "major": "제품수리·설치",
+    "middle": "가전 설치·이전",
+    "service": "냉장고 이전",
+    "image": "/service-visuals/services/prd-0056.webp"
+  },
+  "PRD-0057": {
+    "major": "제품수리·설치",
+    "middle": "가전 설치·이전",
+    "service": "식기세척기 설치",
+    "image": "/service-visuals/services/prd-0057.webp"
+  },
+  "PRD-0058": {
+    "major": "제품수리·설치",
+    "middle": "스마트홈",
+    "service": "스마트조명",
+    "image": "/service-visuals/services/prd-0058.webp"
+  },
+  "PRD-0059": {
+    "major": "제품수리·설치",
+    "middle": "스마트홈",
+    "service": "스마트플러그",
+    "image": "/service-visuals/services/prd-0059.webp"
+  },
+  "PRD-0060": {
+    "major": "제품수리·설치",
+    "middle": "스마트홈",
+    "service": "IoT 센서",
+    "image": "/service-visuals/services/prd-0060.webp"
+  },
+  "PRD-0061": {
+    "major": "제품수리·설치",
+    "middle": "스마트홈",
+    "service": "AI 스피커",
+    "image": "/service-visuals/services/prd-0061.webp"
+  },
+  "PRD-0062": {
+    "major": "제품수리·설치",
+    "middle": "스마트홈",
+    "service": "홈오토메이션 설치",
+    "image": "/service-visuals/services/prd-0062.webp"
+  },
+  "LIF-0001": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "장보기",
+    "image": "/service-visuals/services/lif-0001.webp"
+  },
+  "LIF-0002": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "약 구매",
+    "image": "/service-visuals/services/lif-0002.webp"
+  },
+  "LIF-0003": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "생활용품 구매",
+    "image": "/service-visuals/services/lif-0003.webp"
+  },
+  "LIF-0004": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "선물 구매",
+    "image": "/service-visuals/services/lif-0004.webp"
+  },
+  "LIF-0005": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "긴급 물품 구매",
+    "image": "/service-visuals/services/lif-0005.webp"
+  },
+  "LIF-0006": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "물품 전달",
+    "image": "/service-visuals/services/lif-0006.webp"
+  },
+  "LIF-0007": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "서류 전달",
+    "image": "/service-visuals/services/lif-0007.webp"
+  },
+  "LIF-0008": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "택배 수령",
+    "image": "/service-visuals/services/lif-0008.webp"
+  },
+  "LIF-0009": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "세탁물 수령",
+    "image": "/service-visuals/services/lif-0009.webp"
+  },
+  "LIF-0010": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "분실물 전달",
+    "image": "/service-visuals/services/lif-0010.webp"
+  },
+  "LIF-0011": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "줄서기",
+    "image": "/service-visuals/services/lif-0011.webp"
+  },
+  "LIF-0012": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "현장접수",
+    "image": "/service-visuals/services/lif-0012.webp"
+  },
+  "LIF-0013": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "티켓 수령",
+    "image": "/service-visuals/services/lif-0013.webp"
+  },
+  "LIF-0014": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "식당 예약 지원",
+    "image": "/service-visuals/services/lif-0014.webp"
+  },
+  "LIF-0015": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "관공서 서류 발급 보조",
+    "image": "/service-visuals/services/lif-0015.webp"
+  },
+  "LIF-0016": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "우편 발송",
+    "image": "/service-visuals/services/lif-0016.webp"
+  },
+  "LIF-0017": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "분리수거",
+    "image": "/service-visuals/services/lif-0017.webp"
+  },
+  "LIF-0018": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "쓰레기 배출",
+    "image": "/service-visuals/services/lif-0018.webp"
+  },
+  "LIF-0019": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "우편물 확인",
+    "image": "/service-visuals/services/lif-0019.webp"
+  },
+  "LIF-0020": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "환기",
+    "image": "/service-visuals/services/lif-0020.webp"
+  },
+  "LIF-0021": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "화분 물주기",
+    "image": "/service-visuals/services/lif-0021.webp"
+  },
+  "LIF-0022": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "간단한 집 상태 확인",
+    "image": "/service-visuals/services/lif-0022.webp"
+  },
+  "LIF-0023": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "시간제 심부름",
+    "image": "/service-visuals/services/lif-0023.webp"
+  },
+  "LIF-0024": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "긴급 심부름",
+    "image": "/service-visuals/services/lif-0024.webp"
+  },
+  "LIF-0025": {
+    "major": "생활서비스",
+    "middle": "심부름·생활지원",
+    "service": "맞춤형 생활지원",
+    "image": "/service-visuals/services/lif-0025.webp"
+  },
+  "LIF-0026": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "진료 동행",
+    "image": "/service-visuals/services/lif-0026.webp"
+  },
+  "LIF-0027": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "검사 동행",
+    "image": "/service-visuals/services/lif-0027.webp"
+  },
+  "LIF-0028": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "입·퇴원 동행",
+    "image": "/service-visuals/services/lif-0028.webp"
+  },
+  "LIF-0029": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "약 수령",
+    "image": "/service-visuals/services/lif-0029.webp"
+  },
+  "LIF-0030": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "보호자 역할 지원",
+    "image": "/service-visuals/services/lif-0030.webp"
+  },
+  "LIF-0031": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "은행 동행",
+    "image": "/service-visuals/services/lif-0031.webp"
+  },
+  "LIF-0032": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "관공서 동행",
+    "image": "/service-visuals/services/lif-0032.webp"
+  },
+  "LIF-0033": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "쇼핑 동행",
+    "image": "/service-visuals/services/lif-0033.webp"
+  },
+  "LIF-0034": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "산책 동행",
+    "image": "/service-visuals/services/lif-0034.webp"
+  },
+  "LIF-0035": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "행사 동행",
+    "image": "/service-visuals/services/lif-0035.webp"
+  },
+  "LIF-0036": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "말벗",
+    "image": "/service-visuals/services/lif-0036.webp"
+  },
+  "LIF-0037": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "식사 확인",
+    "image": "/service-visuals/services/lif-0037.webp"
+  },
+  "LIF-0038": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "안부 확인",
+    "image": "/service-visuals/services/lif-0038.webp"
+  },
+  "LIF-0039": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "외출 보조",
+    "image": "/service-visuals/services/lif-0039.webp"
+  },
+  "LIF-0040": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "일상생활 보조",
+    "image": "/service-visuals/services/lif-0040.webp"
+  },
+  "LIF-0041": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "등·하원 보조",
+    "image": "/service-visuals/services/lif-0041.webp"
+  },
+  "LIF-0042": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "놀이 돌봄",
+    "image": "/service-visuals/services/lif-0042.webp"
+  },
+  "LIF-0043": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "단시간 돌봄",
+    "image": "/service-visuals/services/lif-0043.webp"
+  },
+  "LIF-0044": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "숙제 보조",
+    "image": "/service-visuals/services/lif-0044.webp"
+  },
+  "LIF-0045": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "비의료 생활보조",
+    "image": "/service-visuals/services/lif-0045.webp"
+  },
+  "LIF-0046": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "식사·이동 보조",
+    "image": "/service-visuals/services/lif-0046.webp"
+  },
+  "LIF-0047": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "보호자 휴식 지원",
+    "image": "/service-visuals/services/lif-0047.webp"
+  },
+  "LIF-0048": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "장애인 외출 동행",
+    "image": "/service-visuals/services/lif-0048.webp"
+  },
+  "LIF-0049": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "장애인 이동 보조",
+    "image": "/service-visuals/services/lif-0049.webp"
+  },
+  "LIF-0050": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "장애인 일상활동 보조",
+    "image": "/service-visuals/services/lif-0050.webp"
+  },
+  "LIF-0051": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "병원 간병",
+    "image": "/service-visuals/services/lif-0051.webp"
+  },
+  "LIF-0052": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "가정 간병",
+    "image": "/service-visuals/services/lif-0052.webp"
+  },
+  "LIF-0053": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "단기 간병",
+    "image": "/service-visuals/services/lif-0053.webp"
+  },
+  "LIF-0054": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "야간 간병",
+    "image": "/service-visuals/services/lif-0054.webp"
+  },
+  "LIF-0055": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "결혼식 동행",
+    "image": "/service-visuals/services/lif-0055.webp"
+  },
+  "LIF-0056": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "장례식 동행",
+    "image": "/service-visuals/services/lif-0056.webp"
+  },
+  "LIF-0057": {
+    "major": "생활서비스",
+    "middle": "동행·돌봄",
+    "service": "각종 행사 참석 보조",
+    "image": "/service-visuals/services/lif-0057.webp"
+  },
+  "LIF-0058": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "반려견 산책",
+    "image": "/service-visuals/services/lif-0058.webp"
+  },
+  "LIF-0059": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "정기 산책",
+    "image": "/service-visuals/services/lif-0059.webp"
+  },
+  "LIF-0060": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "다견 산책",
+    "image": "/service-visuals/services/lif-0060.webp"
+  },
+  "LIF-0061": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "급식·급수",
+    "image": "/service-visuals/services/lif-0061.webp"
+  },
+  "LIF-0062": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "배변 정리",
+    "image": "/service-visuals/services/lif-0062.webp"
+  },
+  "LIF-0063": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "놀이",
+    "image": "/service-visuals/services/lif-0063.webp"
+  },
+  "LIF-0064": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "투약 보조",
+    "image": "/service-visuals/services/lif-0064.webp"
+  },
+  "LIF-0065": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "상태 확인",
+    "image": "/service-visuals/services/lif-0065.webp"
+  },
+  "LIF-0066": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "데이케어",
+    "image": "/service-visuals/services/lif-0066.webp"
+  },
+  "LIF-0067": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "단기 위탁",
+    "image": "/service-visuals/services/lif-0067.webp"
+  },
+  "LIF-0068": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "장기 위탁",
+    "image": "/service-visuals/services/lif-0068.webp"
+  },
+  "LIF-0069": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "야간 돌봄",
+    "image": "/service-visuals/services/lif-0069.webp"
+  },
+  "LIF-0070": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "동물병원 동행",
+    "image": "/service-visuals/services/lif-0070.webp"
+  },
+  "LIF-0071": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "미용실 이동",
+    "image": "/service-visuals/services/lif-0071.webp"
+  },
+  "LIF-0072": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "펫택시",
+    "image": "/service-visuals/services/lif-0072.webp"
+  },
+  "LIF-0073": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "목욕",
+    "image": "/service-visuals/services/lif-0073.webp"
+  },
+  "LIF-0074": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "미용",
+    "image": "/service-visuals/services/lif-0074.webp"
+  },
+  "LIF-0075": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "발톱 관리",
+    "image": "/service-visuals/services/lif-0075.webp"
+  },
+  "LIF-0076": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "귀 청소",
+    "image": "/service-visuals/services/lif-0076.webp"
+  },
+  "LIF-0077": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "항문낭 관리",
+    "image": "/service-visuals/services/lif-0077.webp"
+  },
+  "LIF-0078": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "기본훈련",
+    "image": "/service-visuals/services/lif-0078.webp"
+  },
+  "LIF-0079": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "배변훈련",
+    "image": "/service-visuals/services/lif-0079.webp"
+  },
+  "LIF-0080": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "짖음 교정",
+    "image": "/service-visuals/services/lif-0080.webp"
+  },
+  "LIF-0081": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "분리불안 상담",
+    "image": "/service-visuals/services/lif-0081.webp"
+  },
+  "LIF-0082": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "반려동물 장례업체 연계",
+    "image": "/service-visuals/services/lif-0082.webp"
+  },
+  "LIF-0083": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "이동 지원",
+    "image": "/service-visuals/services/lif-0083.webp"
+  },
+  "LIF-0084": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "추모용품",
+    "image": "/service-visuals/services/lif-0084.webp"
+  },
+  "LIF-0085": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "사료·용품 배송",
+    "image": "/service-visuals/services/lif-0085.webp"
+  },
+  "LIF-0086": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "펫용품 설치",
+    "image": "/service-visuals/services/lif-0086.webp"
+  },
+  "LIF-0087": {
+    "major": "생활서비스",
+    "middle": "펫서비스",
+    "service": "정기용품 구독",
+    "image": "/service-visuals/services/lif-0087.webp"
+  },
+  "LIF-0088": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "국어",
+    "image": "/service-visuals/services/lif-0088.webp"
+  },
+  "LIF-0089": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "영어",
+    "image": "/service-visuals/services/lif-0089.webp"
+  },
+  "LIF-0090": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "수학",
+    "image": "/service-visuals/services/lif-0090.webp"
+  },
+  "LIF-0091": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "과학",
+    "image": "/service-visuals/services/lif-0091.webp"
+  },
+  "LIF-0092": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "사회",
+    "image": "/service-visuals/services/lif-0092.webp"
+  },
+  "LIF-0093": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "내신·수능지도",
+    "image": "/service-visuals/services/lif-0093.webp"
+  },
+  "LIF-0094": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "영어회화",
+    "image": "/service-visuals/services/lif-0094.webp"
+  },
+  "LIF-0095": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "중국어",
+    "image": "/service-visuals/services/lif-0095.webp"
+  },
+  "LIF-0096": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "日本語",
+    "image": "/service-visuals/services/lif-0096.webp"
+  },
+  "LIF-0097": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "기타 외국어",
+    "image": "/service-visuals/services/lif-0097.webp"
+  },
+  "LIF-0098": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "피아노",
+    "image": "/service-visuals/services/lif-0098.webp"
+  },
+  "LIF-0099": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "기타",
+    "image": "/service-visuals/services/lif-0099.webp"
+  },
+  "LIF-0100": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "바이올린",
+    "image": "/service-visuals/services/lif-0100.webp"
+  },
+  "LIF-0101": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "보컬",
+    "image": "/service-visuals/services/lif-0101.webp"
+  },
+  "LIF-0102": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "드럼",
+    "image": "/service-visuals/services/lif-0102.webp"
+  },
+  "LIF-0103": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "국악",
+    "image": "/service-visuals/services/lif-0103.webp"
+  },
+  "LIF-0104": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "드로잉",
+    "image": "/service-visuals/services/lif-0104.webp"
+  },
+  "LIF-0105": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "회화",
+    "image": "/service-visuals/services/lif-0105.webp"
+  },
+  "LIF-0106": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "공예",
+    "image": "/service-visuals/services/lif-0106.webp"
+  },
+  "LIF-0107": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "디자인",
+    "image": "/service-visuals/services/lif-0107.webp"
+  },
+  "LIF-0108": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "입시미술",
+    "image": "/service-visuals/services/lif-0108.webp"
+  },
+  "LIF-0109": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "컴퓨터 기초",
+    "image": "/service-visuals/services/lif-0109.webp"
+  },
+  "LIF-0110": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "문서작성",
+    "image": "/service-visuals/services/lif-0110.webp"
+  },
+  "LIF-0111": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "코딩",
+    "image": "/service-visuals/services/lif-0111.webp"
+  },
+  "LIF-0112": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "홈페이지 제작",
+    "image": "/service-visuals/services/lif-0112.webp"
+  },
+  "LIF-0113": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "앱 개발 교육",
+    "image": "/service-visuals/services/lif-0113.webp"
+  },
+  "LIF-0114": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "생성형 AI",
+    "image": "/service-visuals/services/lif-0114.webp"
+  },
+  "LIF-0115": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "ChatGPT 활용",
+    "image": "/service-visuals/services/lif-0115.webp"
+  },
+  "LIF-0116": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "업무자동화",
+    "image": "/service-visuals/services/lif-0116.webp"
+  },
+  "LIF-0117": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "AI 콘텐츠 제작",
+    "image": "/service-visuals/services/lif-0117.webp"
+  },
+  "LIF-0118": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "요리",
+    "image": "/service-visuals/services/lif-0118.webp"
+  },
+  "LIF-0119": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "제과제빵",
+    "image": "/service-visuals/services/lif-0119.webp"
+  },
+  "LIF-0120": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "사진",
+    "image": "/service-visuals/services/lif-0120.webp"
+  },
+  "LIF-0121": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "꽃꽂이",
+    "image": "/service-visuals/services/lif-0121.webp"
+  },
+  "LIF-0122": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "캘리그래피",
+    "image": "/service-visuals/services/lif-0122.webp"
+  },
+  "LIF-0123": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "헬스",
+    "image": "/service-visuals/services/lif-0123.webp"
+  },
+  "LIF-0124": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "요가",
+    "image": "/service-visuals/services/lif-0124.webp"
+  },
+  "LIF-0125": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "필라테스",
+    "image": "/service-visuals/services/lif-0125.webp"
+  },
+  "LIF-0126": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "골프",
+    "image": "/service-visuals/services/lif-0126.webp"
+  },
+  "LIF-0127": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "테니스",
+    "image": "/service-visuals/services/lif-0127.webp"
+  },
+  "LIF-0128": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "수영",
+    "image": "/service-visuals/services/lif-0128.webp"
+  },
+  "LIF-0129": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "자격증 교육",
+    "image": "/service-visuals/services/lif-0129.webp"
+  },
+  "LIF-0130": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "면접 준비",
+    "image": "/service-visuals/services/lif-0130.webp"
+  },
+  "LIF-0131": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "자기소개서",
+    "image": "/service-visuals/services/lif-0131.webp"
+  },
+  "LIF-0132": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "직무교육",
+    "image": "/service-visuals/services/lif-0132.webp"
+  },
+  "LIF-0133": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "스마트폰 사용",
+    "image": "/service-visuals/services/lif-0133.webp"
+  },
+  "LIF-0134": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "키오스크 사용",
+    "image": "/service-visuals/services/lif-0134.webp"
+  },
+  "LIF-0135": {
+    "major": "생활서비스",
+    "middle": "교육·레슨",
+    "service": "금융·보안 교육",
+    "image": "/service-visuals/services/lif-0135.webp"
+  },
+  "LIF-0136": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "1톤 용달",
+    "image": "/service-visuals/services/lif-0136.webp"
+  },
+  "LIF-0137": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "다마스·라보",
+    "image": "/service-visuals/services/lif-0137.webp"
+  },
+  "LIF-0138": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "단거리 운송",
+    "image": "/service-visuals/services/lif-0138.webp"
+  },
+  "LIF-0139": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "지방 운송",
+    "image": "/service-visuals/services/lif-0139.webp"
+  },
+  "LIF-0140": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "원룸이사",
+    "image": "/service-visuals/services/lif-0140.webp"
+  },
+  "LIF-0141": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "학생이사",
+    "image": "/service-visuals/services/lif-0141.webp"
+  },
+  "LIF-0142": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "자취방이사",
+    "image": "/service-visuals/services/lif-0142.webp"
+  },
+  "LIF-0143": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "소형 사무실이사",
+    "image": "/service-visuals/services/lif-0143.webp"
+  },
+  "LIF-0144": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "가정 포장이사",
+    "image": "/service-visuals/services/lif-0144.webp"
+  },
+  "LIF-0145": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "반포장이사",
+    "image": "/service-visuals/services/lif-0145.webp"
+  },
+  "LIF-0146": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "사무실 포장이사",
+    "image": "/service-visuals/services/lif-0146.webp"
+  },
+  "LIF-0147": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "침대 운반",
+    "image": "/service-visuals/services/lif-0147.webp"
+  },
+  "LIF-0148": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "소파 운반",
+    "image": "/service-visuals/services/lif-0148.webp"
+  },
+  "LIF-0149": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "냉장고 운반",
+    "image": "/service-visuals/services/lif-0149.webp"
+  },
+  "LIF-0150": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "세탁기 운반",
+    "image": "/service-visuals/services/lif-0150.webp"
+  },
+  "LIF-0151": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "피아노 운반",
+    "image": "/service-visuals/services/lif-0151.webp"
+  },
+  "LIF-0152": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "일반화물",
+    "image": "/service-visuals/services/lif-0152.webp"
+  },
+  "LIF-0153": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "기업화물",
+    "image": "/service-visuals/services/lif-0153.webp"
+  },
+  "LIF-0154": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "정기배송",
+    "image": "/service-visuals/services/lif-0154.webp"
+  },
+  "LIF-0155": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "긴급배송",
+    "image": "/service-visuals/services/lif-0155.webp"
+  },
+  "LIF-0156": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "단기보관",
+    "image": "/service-visuals/services/lif-0156.webp"
+  },
+  "LIF-0157": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "장기보관",
+    "image": "/service-visuals/services/lif-0157.webp"
+  },
+  "LIF-0158": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "이삿짐 보관",
+    "image": "/service-visuals/services/lif-0158.webp"
+  },
+  "LIF-0159": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "가구 보관",
+    "image": "/service-visuals/services/lif-0159.webp"
+  },
+  "LIF-0160": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "이사폐기물",
+    "image": "/service-visuals/services/lif-0160.webp"
+  },
+  "LIF-0161": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "가구폐기",
+    "image": "/service-visuals/services/lif-0161.webp"
+  },
+  "LIF-0162": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "가전수거",
+    "image": "/service-visuals/services/lif-0162.webp"
+  },
+  "LIF-0163": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "빈집 정리",
+    "image": "/service-visuals/services/lif-0163.webp"
+  },
+  "LIF-0164": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "에어컨 이전",
+    "image": "/service-visuals/services/lif-0164.webp"
+  },
+  "LIF-0165": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "입주청소",
+    "image": "/service-visuals/services/lif-0165.webp"
+  },
+  "LIF-0166": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "정리수납",
+    "image": "/service-visuals/services/lif-0166.webp"
+  },
+  "LIF-0167": {
+    "major": "생활서비스",
+    "middle": "운송·이사",
+    "service": "가구조립",
+    "image": "/service-visuals/services/lif-0167.webp"
+  },
+  "LIF-0168": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "외부세차",
+    "image": "/service-visuals/services/lif-0168.webp"
+  },
+  "LIF-0169": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "내부세차",
+    "image": "/service-visuals/services/lif-0169.webp"
+  },
+  "LIF-0170": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "스팀세차",
+    "image": "/service-visuals/services/lif-0170.webp"
+  },
+  "LIF-0171": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "광택",
+    "image": "/service-visuals/services/lif-0171.webp"
+  },
+  "LIF-0172": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "유리막 코팅",
+    "image": "/service-visuals/services/lif-0172.webp"
+  },
+  "LIF-0173": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "배터리 교체",
+    "image": "/service-visuals/services/lif-0173.webp"
+  },
+  "LIF-0174": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "타이어 교체",
+    "image": "/service-visuals/services/lif-0174.webp"
+  },
+  "LIF-0175": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "엔진오일 교환",
+    "image": "/service-visuals/services/lif-0175.webp"
+  },
+  "LIF-0176": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "와이퍼 교체",
+    "image": "/service-visuals/services/lif-0176.webp"
+  },
+  "LIF-0177": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "배터리 방전",
+    "image": "/service-visuals/services/lif-0177.webp"
+  },
+  "LIF-0178": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "타이어 펑크",
+    "image": "/service-visuals/services/lif-0178.webp"
+  },
+  "LIF-0179": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "비상급유",
+    "image": "/service-visuals/services/lif-0179.webp"
+  },
+  "LIF-0180": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "잠금 해제",
+    "image": "/service-visuals/services/lif-0180.webp"
+  },
+  "LIF-0181": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "견인",
+    "image": "/service-visuals/services/lif-0181.webp"
+  },
+  "LIF-0182": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "블랙박스 설치",
+    "image": "/service-visuals/services/lif-0182.webp"
+  },
+  "LIF-0183": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "하이패스 설치",
+    "image": "/service-visuals/services/lif-0183.webp"
+  },
+  "LIF-0184": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "내비게이션 설치",
+    "image": "/service-visuals/services/lif-0184.webp"
+  },
+  "LIF-0185": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "후방카메라 설치",
+    "image": "/service-visuals/services/lif-0185.webp"
+  },
+  "LIF-0186": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "보조배터리 설치",
+    "image": "/service-visuals/services/lif-0186.webp"
+  },
+  "LIF-0187": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "구매 전 점검",
+    "image": "/service-visuals/services/lif-0187.webp"
+  },
+  "LIF-0188": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "정기점검",
+    "image": "/service-visuals/services/lif-0188.webp"
+  },
+  "LIF-0189": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "검사대행",
+    "image": "/service-visuals/services/lif-0189.webp"
+  },
+  "LIF-0190": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "사고차 점검",
+    "image": "/service-visuals/services/lif-0190.webp"
+  },
+  "LIF-0191": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "차량 탁송",
+    "image": "/service-visuals/services/lif-0191.webp"
+  },
+  "LIF-0192": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "정비소 입·출고",
+    "image": "/service-visuals/services/lif-0192.webp"
+  },
+  "LIF-0193": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "공항 차량 전달",
+    "image": "/service-visuals/services/lif-0193.webp"
+  },
+  "LIF-0194": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "정기세차",
+    "image": "/service-visuals/services/lif-0194.webp"
+  },
+  "LIF-0195": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "소모품 관리",
+    "image": "/service-visuals/services/lif-0195.webp"
+  },
+  "LIF-0196": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "법인차량 관리",
+    "image": "/service-visuals/services/lif-0196.webp"
+  },
+  "LIF-0197": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "장기 미운행 차량 점검",
+    "image": "/service-visuals/services/lif-0197.webp"
+  },
+  "LIF-0198": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "단기렌트 연계",
+    "image": "/service-visuals/services/lif-0198.webp"
+  },
+  "LIF-0199": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "장기렌트 연계",
+    "image": "/service-visuals/services/lif-0199.webp"
+  },
+  "LIF-0200": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "사고대차 연계",
+    "image": "/service-visuals/services/lif-0200.webp"
+  },
+  "LIF-0201": {
+    "major": "생활서비스",
+    "middle": "자동차",
+    "service": "보험 연계",
+    "image": "/service-visuals/services/lif-0201.webp"
+  },
+  "LIF-0202": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "행사 진행",
+    "image": "/service-visuals/services/lif-0202.webp"
+  },
+  "LIF-0203": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "현장 스태프",
+    "image": "/service-visuals/services/lif-0203.webp"
+  },
+  "LIF-0204": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "안내요원",
+    "image": "/service-visuals/services/lif-0204.webp"
+  },
+  "LIF-0205": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "장비 설치",
+    "image": "/service-visuals/services/lif-0205.webp"
+  },
+  "LIF-0206": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "웨딩플래너",
+    "image": "/service-visuals/services/lif-0206.webp"
+  },
+  "LIF-0207": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "사진·영상",
+    "image": "/service-visuals/services/lif-0207.webp"
+  },
+  "LIF-0208": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "메이크업",
+    "image": "/service-visuals/services/lif-0208.webp"
+  },
+  "LIF-0209": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "예복",
+    "image": "/service-visuals/services/lif-0209.webp"
+  },
+  "LIF-0210": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "사회·축가",
+    "image": "/service-visuals/services/lif-0210.webp"
+  },
+  "LIF-0211": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "돌잔치",
+    "image": "/service-visuals/services/lif-0211.webp"
+  },
+  "LIF-0212": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "생일",
+    "image": "/service-visuals/services/lif-0212.webp"
+  },
+  "LIF-0213": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "회갑·칠순",
+    "image": "/service-visuals/services/lif-0213.webp"
+  },
+  "LIF-0214": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "가족모임",
+    "image": "/service-visuals/services/lif-0214.webp"
+  },
+  "LIF-0215": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "장례절차 안내",
+    "image": "/service-visuals/services/lif-0215.webp"
+  },
+  "LIF-0216": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "장례용품",
+    "image": "/service-visuals/services/lif-0216.webp"
+  },
+  "LIF-0217": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "조문객 지원",
+    "image": "/service-visuals/services/lif-0217.webp"
+  },
+  "LIF-0218": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "유품정리",
+    "image": "/service-visuals/services/lif-0218.webp"
+  },
+  "LIF-0219": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "프로필 촬영",
+    "image": "/service-visuals/services/lif-0219.webp"
+  },
+  "LIF-0220": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "가족사진",
+    "image": "/service-visuals/services/lif-0220.webp"
+  },
+  "LIF-0221": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "제품촬영",
+    "image": "/service-visuals/services/lif-0221.webp"
+  },
+  "LIF-0222": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "행사촬영",
+    "image": "/service-visuals/services/lif-0222.webp"
+  },
+  "LIF-0223": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "영상촬영",
+    "image": "/service-visuals/services/lif-0223.webp"
+  },
+  "LIF-0224": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "꽃장식",
+    "image": "/service-visuals/services/lif-0224.webp"
+  },
+  "LIF-0225": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "풍선장식",
+    "image": "/service-visuals/services/lif-0225.webp"
+  },
+  "LIF-0226": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "테이블장식",
+    "image": "/service-visuals/services/lif-0226.webp"
+  },
+  "LIF-0227": {
+    "major": "생활서비스",
+    "middle": "행사·웨딩",
+    "service": "의자·천막·음향 대여",
+    "image": "/service-visuals/services/lif-0227.webp"
+  },
+  "LIF-0228": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "헤어커트",
+    "image": "/service-visuals/services/lif-0228.webp"
+  },
+  "LIF-0229": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "염색",
+    "image": "/service-visuals/services/lif-0229.webp"
+  },
+  "LIF-0230": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "드라이",
+    "image": "/service-visuals/services/lif-0230.webp"
+  },
+  "LIF-0231": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "메이크업",
+    "image": "/service-visuals/services/lif-0231.webp"
+  },
+  "LIF-0232": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "네일",
+    "image": "/service-visuals/services/lif-0232.webp"
+  },
+  "LIF-0233": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "페디큐어",
+    "image": "/service-visuals/services/lif-0233.webp"
+  },
+  "LIF-0234": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "피부관리",
+    "image": "/service-visuals/services/lif-0234.webp"
+  },
+  "LIF-0235": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "왁싱",
+    "image": "/service-visuals/services/lif-0235.webp"
+  },
+  "LIF-0236": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "방문 PT",
+    "image": "/service-visuals/services/lif-0236.webp"
+  },
+  "LIF-0237": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "요가",
+    "image": "/service-visuals/services/lif-0237.webp"
+  },
+  "LIF-0238": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "스트레칭",
+    "image": "/service-visuals/services/lif-0238.webp"
+  },
+  "LIF-0239": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "체형관리",
+    "image": "/service-visuals/services/lif-0239.webp"
+  },
+  "LIF-0240": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "스포츠마사지",
+    "image": "/service-visuals/services/lif-0240.webp"
+  },
+  "LIF-0241": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "아로마마사지",
+    "image": "/service-visuals/services/lif-0241.webp"
+  },
+  "LIF-0242": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "발마사지",
+    "image": "/service-visuals/services/lif-0242.webp"
+  },
+  "LIF-0243": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "식단관리",
+    "image": "/service-visuals/services/lif-0243.webp"
+  },
+  "LIF-0244": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "운동관리",
+    "image": "/service-visuals/services/lif-0244.webp"
+  },
+  "LIF-0245": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "건강습관 코칭",
+    "image": "/service-visuals/services/lif-0245.webp"
+  },
+  "LIF-0246": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "심리상담",
+    "image": "/service-visuals/services/lif-0246.webp"
+  },
+  "LIF-0247": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "영양상담",
+    "image": "/service-visuals/services/lif-0247.webp"
+  },
+  "LIF-0248": {
+    "major": "생활서비스",
+    "middle": "뷰티·건강관리",
+    "service": "수면상담",
+    "image": "/service-visuals/services/lif-0248.webp"
+  },
+  "LIF-0249": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "홈페이지 제작",
+    "image": "/service-visuals/services/lif-0249.webp"
+  },
+  "LIF-0250": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "쇼핑몰 제작",
+    "image": "/service-visuals/services/lif-0250.webp"
+  },
+  "LIF-0251": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "유지보수",
+    "image": "/service-visuals/services/lif-0251.webp"
+  },
+  "LIF-0252": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "호스팅 관리",
+    "image": "/service-visuals/services/lif-0252.webp"
+  },
+  "LIF-0253": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "모바일 앱",
+    "image": "/service-visuals/services/lif-0253.webp"
+  },
+  "LIF-0254": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "웹앱",
+    "image": "/service-visuals/services/lif-0254.webp"
+  },
+  "LIF-0255": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "업무시스템",
+    "image": "/service-visuals/services/lif-0255.webp"
+  },
+  "LIF-0256": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "MES·ERP·CRM 개발",
+    "image": "/service-visuals/services/lif-0256.webp"
+  },
+  "LIF-0257": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "로고",
+    "image": "/service-visuals/services/lif-0257.webp"
+  },
+  "LIF-0258": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "명함",
+    "image": "/service-visuals/services/lif-0258.webp"
+  },
+  "LIF-0259": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "전단지",
+    "image": "/service-visuals/services/lif-0259.webp"
+  },
+  "LIF-0260": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "상세페이지",
+    "image": "/service-visuals/services/lif-0260.webp"
+  },
+  "LIF-0261": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "포장디자인",
+    "image": "/service-visuals/services/lif-0261.webp"
+  },
+  "LIF-0262": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "UI·UX",
+    "image": "/service-visuals/services/lif-0262.webp"
+  },
+  "LIF-0263": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "블로그 원고",
+    "image": "/service-visuals/services/lif-0263.webp"
+  },
+  "LIF-0264": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "홍보영상",
+    "image": "/service-visuals/services/lif-0264.webp"
+  },
+  "LIF-0265": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "사진촬영",
+    "image": "/service-visuals/services/lif-0265.webp"
+  },
+  "LIF-0266": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "숏폼",
+    "image": "/service-visuals/services/lif-0266.webp"
+  },
+  "LIF-0267": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "카드뉴스",
+    "image": "/service-visuals/services/lif-0267.webp"
+  },
+  "LIF-0268": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "문서 번역",
+    "image": "/service-visuals/services/lif-0268.webp"
+  },
+  "LIF-0269": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "비즈니스 통역",
+    "image": "/service-visuals/services/lif-0269.webp"
+  },
+  "LIF-0270": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "영상 자막",
+    "image": "/service-visuals/services/lif-0270.webp"
+  },
+  "LIF-0271": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "기술번역",
+    "image": "/service-visuals/services/lif-0271.webp"
+  },
+  "LIF-0272": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "검색광고",
+    "image": "/service-visuals/services/lif-0272.webp"
+  },
+  "LIF-0273": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "SNS 마케팅",
+    "image": "/service-visuals/services/lif-0273.webp"
+  },
+  "LIF-0274": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "블로그 마케팅",
+    "image": "/service-visuals/services/lif-0274.webp"
+  },
+  "LIF-0275": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "브랜드 컨설팅",
+    "image": "/service-visuals/services/lif-0275.webp"
+  },
+  "LIF-0276": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "세무신고",
+    "image": "/service-visuals/services/lif-0276.webp"
+  },
+  "LIF-0277": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "기장",
+    "image": "/service-visuals/services/lif-0277.webp"
+  },
+  "LIF-0278": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "급여관리",
+    "image": "/service-visuals/services/lif-0278.webp"
+  },
+  "LIF-0279": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "법인설립",
+    "image": "/service-visuals/services/lif-0279.webp"
+  },
+  "LIF-0280": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "세무상담",
+    "image": "/service-visuals/services/lif-0280.webp"
+  },
+  "LIF-0281": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "법률상담",
+    "image": "/service-visuals/services/lif-0281.webp"
+  },
+  "LIF-0282": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "계약서 검토",
+    "image": "/service-visuals/services/lif-0282.webp"
+  },
+  "LIF-0283": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "노무상담",
+    "image": "/service-visuals/services/lif-0283.webp"
+  },
+  "LIF-0284": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "취업규칙",
+    "image": "/service-visuals/services/lif-0284.webp"
+  },
+  "LIF-0285": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "분쟁지원",
+    "image": "/service-visuals/services/lif-0285.webp"
+  },
+  "LIF-0286": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "인허가",
+    "image": "/service-visuals/services/lif-0286.webp"
+  },
+  "LIF-0287": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "사업자등록",
+    "image": "/service-visuals/services/lif-0287.webp"
+  },
+  "LIF-0288": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "기업인증",
+    "image": "/service-visuals/services/lif-0288.webp"
+  },
+  "LIF-0289": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "정부지원사업",
+    "image": "/service-visuals/services/lif-0289.webp"
+  },
+  "LIF-0290": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "특허·상표",
+    "image": "/service-visuals/services/lif-0290.webp"
+  },
+  "LIF-0291": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "문서작성",
+    "image": "/service-visuals/services/lif-0291.webp"
+  },
+  "LIF-0292": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "데이터 입력",
+    "image": "/service-visuals/services/lif-0292.webp"
+  },
+  "LIF-0293": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "PPT 제작",
+    "image": "/service-visuals/services/lif-0293.webp"
+  },
+  "LIF-0294": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "엑셀 작업",
+    "image": "/service-visuals/services/lif-0294.webp"
+  },
+  "LIF-0295": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "비서업무",
+    "image": "/service-visuals/services/lif-0295.webp"
+  },
+  "LIF-0296": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "채용대행",
+    "image": "/service-visuals/services/lif-0296.webp"
+  },
+  "LIF-0297": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "단기인력",
+    "image": "/service-visuals/services/lif-0297.webp"
+  },
+  "LIF-0298": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "행사인력",
+    "image": "/service-visuals/services/lif-0298.webp"
+  },
+  "LIF-0299": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "전문인력 매칭",
+    "image": "/service-visuals/services/lif-0299.webp"
+  },
+  "LIF-0300": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "사무기기 관리",
+    "image": "/service-visuals/services/lif-0300.webp"
+  },
+  "LIF-0301": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "네트워크 관리",
+    "image": "/service-visuals/services/lif-0301.webp"
+  },
+  "LIF-0302": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "시설 유지보수",
+    "image": "/service-visuals/services/lif-0302.webp"
+  },
+  "LIF-0303": {
+    "major": "생활서비스",
+    "middle": "비즈니스",
+    "service": "정기청소",
+    "image": "/service-visuals/services/lif-0303.webp"
+  },
+  "SUB-0001": {
+    "major": "정기구독",
+    "middle": "집관리 구독",
+    "service": "전기 정기점검",
+    "image": "/service-visuals/services/sub-0001.webp"
+  },
+  "SUB-0002": {
+    "major": "정기구독",
+    "middle": "집관리 구독",
+    "service": "수도·배관 정기점검",
+    "image": "/service-visuals/services/sub-0002.webp"
+  },
+  "SUB-0003": {
+    "major": "정기구독",
+    "middle": "집관리 구독",
+    "service": "소모품 교체",
+    "image": "/service-visuals/services/sub-0003.webp"
+  },
+  "SUB-0004": {
+    "major": "정기구독",
+    "middle": "집관리 구독",
+    "service": "계절별 주택점검",
+    "image": "/service-visuals/services/sub-0004.webp"
+  },
+  "SUB-0005": {
+    "major": "정기구독",
+    "middle": "청소 구독",
+    "service": "주 1회 가정청소",
+    "image": "/service-visuals/services/sub-0005.webp"
+  },
+  "SUB-0006": {
+    "major": "정기구독",
+    "middle": "청소 구독",
+    "service": "격주 가정청소",
+    "image": "/service-visuals/services/sub-0006.webp"
+  },
+  "SUB-0007": {
+    "major": "정기구독",
+    "middle": "청소 구독",
+    "service": "월 1회 가정청소",
+    "image": "/service-visuals/services/sub-0007.webp"
+  },
+  "SUB-0008": {
+    "major": "정기구독",
+    "middle": "청소 구독",
+    "service": "사무실 정기청소",
+    "image": "/service-visuals/services/sub-0008.webp"
+  },
+  "SUB-0009": {
+    "major": "정기구독",
+    "middle": "가전관리 구독",
+    "service": "에어컨 정기관리",
+    "image": "/service-visuals/services/sub-0009.webp"
+  },
+  "SUB-0010": {
+    "major": "정기구독",
+    "middle": "가전관리 구독",
+    "service": "세탁기 정기관리",
+    "image": "/service-visuals/services/sub-0010.webp"
+  },
+  "SUB-0011": {
+    "major": "정기구독",
+    "middle": "가전관리 구독",
+    "service": "냉장고 정기관리",
+    "image": "/service-visuals/services/sub-0011.webp"
+  },
+  "SUB-0012": {
+    "major": "정기구독",
+    "middle": "가전관리 구독",
+    "service": "정수기 정기관리",
+    "image": "/service-visuals/services/sub-0012.webp"
+  },
+  "SUB-0013": {
+    "major": "정기구독",
+    "middle": "방역 구독",
+    "service": "해충방제",
+    "image": "/service-visuals/services/sub-0013.webp"
+  },
+  "SUB-0014": {
+    "major": "정기구독",
+    "middle": "방역 구독",
+    "service": "정기소독",
+    "image": "/service-visuals/services/sub-0014.webp"
+  },
+  "SUB-0015": {
+    "major": "정기구독",
+    "middle": "방역 구독",
+    "service": "사업장 위생관리",
+    "image": "/service-visuals/services/sub-0015.webp"
+  },
+  "SUB-0016": {
+    "major": "정기구독",
+    "middle": "부모님 케어",
+    "service": "안부전화",
+    "image": "/service-visuals/services/sub-0016.webp"
+  },
+  "SUB-0017": {
+    "major": "정기구독",
+    "middle": "부모님 케어",
+    "service": "방문확인",
+    "image": "/service-visuals/services/sub-0017.webp"
+  },
+  "SUB-0018": {
+    "major": "정기구독",
+    "middle": "부모님 케어",
+    "service": "병원 동행",
+    "image": "/service-visuals/services/sub-0018.webp"
+  },
+  "SUB-0019": {
+    "major": "정기구독",
+    "middle": "부모님 케어",
+    "service": "생활불편 확인",
+    "image": "/service-visuals/services/sub-0019.webp"
+  },
+  "SUB-0020": {
+    "major": "정기구독",
+    "middle": "아이 돌봄 구독",
+    "service": "정기 등·하원",
+    "image": "/service-visuals/services/sub-0020.webp"
+  },
+  "SUB-0021": {
+    "major": "정기구독",
+    "middle": "아이 돌봄 구독",
+    "service": "정기 돌봄",
+    "image": "/service-visuals/services/sub-0021.webp"
+  },
+  "SUB-0022": {
+    "major": "정기구독",
+    "middle": "아이 돌봄 구독",
+    "service": "학습 보조",
+    "image": "/service-visuals/services/sub-0022.webp"
+  },
+  "SUB-0023": {
+    "major": "정기구독",
+    "middle": "펫케어 구독",
+    "service": "정기 산책",
+    "image": "/service-visuals/services/sub-0023.webp"
+  },
+  "SUB-0024": {
+    "major": "정기구독",
+    "middle": "펫케어 구독",
+    "service": "방문 돌봄",
+    "image": "/service-visuals/services/sub-0024.webp"
+  },
+  "SUB-0025": {
+    "major": "정기구독",
+    "middle": "펫케어 구독",
+    "service": "목욕·미용",
+    "image": "/service-visuals/services/sub-0025.webp"
+  },
+  "SUB-0026": {
+    "major": "정기구독",
+    "middle": "펫케어 구독",
+    "service": "용품 배송",
+    "image": "/service-visuals/services/sub-0026.webp"
+  },
+  "SUB-0027": {
+    "major": "정기구독",
+    "middle": "생활 심부름 구독",
+    "service": "장보기",
+    "image": "/service-visuals/services/sub-0027.webp"
+  },
+  "SUB-0028": {
+    "major": "정기구독",
+    "middle": "생활 심부름 구독",
+    "service": "약 수령",
+    "image": "/service-visuals/services/sub-0028.webp"
+  },
+  "SUB-0029": {
+    "major": "정기구독",
+    "middle": "생활 심부름 구독",
+    "service": "쓰레기 배출",
+    "image": "/service-visuals/services/sub-0029.webp"
+  },
+  "SUB-0030": {
+    "major": "정기구독",
+    "middle": "생활 심부름 구독",
+    "service": "정기 배송",
+    "image": "/service-visuals/services/sub-0030.webp"
+  },
+  "SUB-0031": {
+    "major": "정기구독",
+    "middle": "차량관리 구독",
+    "service": "정기세차",
+    "image": "/service-visuals/services/sub-0031.webp"
+  },
+  "SUB-0032": {
+    "major": "정기구독",
+    "middle": "차량관리 구독",
+    "service": "소모품 점검",
+    "image": "/service-visuals/services/sub-0032.webp"
+  },
+  "SUB-0033": {
+    "major": "정기구독",
+    "middle": "차량관리 구독",
+    "service": "검사일·보험일 알림",
+    "image": "/service-visuals/services/sub-0033.webp"
+  },
+  "SUB-0034": {
+    "major": "정기구독",
+    "middle": "사업장 관리",
+    "service": "정기청소",
+    "image": "/service-visuals/services/sub-0034.webp"
+  },
+  "SUB-0035": {
+    "major": "정기구독",
+    "middle": "사업장 관리",
+    "service": "방역",
+    "image": "/service-visuals/services/sub-0035.webp"
+  },
+  "SUB-0036": {
+    "major": "정기구독",
+    "middle": "사업장 관리",
+    "service": "시설점검",
+    "image": "/service-visuals/services/sub-0036.webp"
+  },
+  "SUB-0037": {
+    "major": "정기구독",
+    "middle": "사업장 관리",
+    "service": "소모품 공급",
+    "image": "/service-visuals/services/sub-0037.webp"
+  },
+  "SUB-0038": {
+    "major": "정기구독",
+    "middle": "빈집·장기부재 관리",
+    "service": "환기",
+    "image": "/service-visuals/services/sub-0038.webp"
+  },
+  "SUB-0039": {
+    "major": "정기구독",
+    "middle": "빈집·장기부재 관리",
+    "service": "우편물 확인",
+    "image": "/service-visuals/services/sub-0039.webp"
+  },
+  "SUB-0040": {
+    "major": "정기구독",
+    "middle": "빈집·장기부재 관리",
+    "service": "누수·시설 확인",
+    "image": "/service-visuals/services/sub-0040.webp"
+  },
+  "SUB-0041": {
+    "major": "정기구독",
+    "middle": "빈집·장기부재 관리",
+    "service": "사진 보고",
+    "image": "/service-visuals/services/sub-0041.webp"
+  },
+  "SUB-0042": {
+    "major": "정기구독",
+    "middle": "계절관리",
+    "service": "에어컨 사전점검",
+    "image": "/service-visuals/services/sub-0042.webp"
+  },
+  "SUB-0043": {
+    "major": "정기구독",
+    "middle": "계절관리",
+    "service": "보일러 점검",
+    "image": "/service-visuals/services/sub-0043.webp"
+  },
+  "SUB-0044": {
+    "major": "정기구독",
+    "middle": "계절관리",
+    "service": "방충망 관리",
+    "image": "/service-visuals/services/sub-0044.webp"
+  },
+  "SUB-0045": {
+    "major": "정기구독",
+    "middle": "계절관리",
+    "service": "동파 예방",
+    "image": "/service-visuals/services/sub-0045.webp"
+  }
+}

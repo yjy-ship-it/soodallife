@@ -25,7 +25,7 @@ public sealed class AdminProviderRequirementsController(AdminProviderRequirement
     {
         var result = await service.GetCurrentAsync(serviceId, cancellationToken);
         return result is null
-            ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_PROVIDER_REQUIREMENT_NOT_FOUND", "현재 적용 중인 공급자 요건이 없습니다."))
+            ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_PROVIDER_REQUIREMENT_NOT_FOUND", "현재 적용 중인 전문가 요건이 없습니다."))
             : Ok(result);
     }
 
@@ -34,7 +34,7 @@ public sealed class AdminProviderRequirementsController(AdminProviderRequirement
     {
         var result = await service.GetPolicyAsync(serviceId, policyId, cancellationToken);
         return result is null
-            ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_PROVIDER_REQUIREMENT_NOT_FOUND", "공급자 요건 이력을 찾을 수 없습니다."))
+            ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_PROVIDER_REQUIREMENT_NOT_FOUND", "전문가 요건 이력을 찾을 수 없습니다."))
             : Ok(result);
     }
 
@@ -49,6 +49,24 @@ public sealed class AdminProviderRequirementsController(AdminProviderRequirement
     [HttpPut("{policyId:guid}/assignments/{assignmentId:guid}/evidence-types")]
     public Task<ActionResult<AdminProviderRequirementResponse>> ReplaceEvidence(Guid serviceId, Guid policyId, Guid assignmentId, ReplaceAdminCategoryProviderRequirementEvidenceRequest request, CancellationToken cancellationToken) =>
         Execute(() => service.ReplaceEvidenceAsync(serviceId, policyId, assignmentId, request, ActorId(), cancellationToken));
+
+    [HttpPut("{policyId:guid}/operation-policy")]
+    public Task<ActionResult<AdminProviderRequirementResponse>> UpdateOperationPolicy(Guid serviceId, Guid policyId, SaveAdminOperationPolicyRequest request, CancellationToken cancellationToken) =>
+        Execute(() => service.UpdateOperationPolicyAsync(serviceId, policyId, request, ActorId(), cancellationToken));
+
+    [HttpPut("~/api/v1/admin/service-categories/middles/{middleId:guid}/operation-policy")]
+    public async Task<ActionResult<IReadOnlyList<AdminProviderRequirementResponse>>> UpdateMiddleOperationPolicies(Guid middleId, SaveAdminMiddleOperationPolicyRequest request, CancellationToken cancellationToken)
+    {
+        try { return Ok(await service.UpdateMiddleOperationPoliciesAsync(middleId, request, ActorId(), cancellationToken)); }
+        catch (AdminServiceCategoryException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }
+    }
+
+    [HttpPut("~/api/v1/admin/service-categories/middles/{middleId:guid}/provider-requirements/apply")]
+    public async Task<ActionResult<IReadOnlyList<AdminProviderRequirementResponse>>> ApplyMiddleProviderRequirements(Guid middleId, ApplyAdminMiddleProviderRequirementsRequest request, CancellationToken cancellationToken)
+    {
+        try { return Ok(await service.ApplyMiddleProviderRequirementsAsync(middleId, request, ActorId(), cancellationToken)); }
+        catch (AdminServiceCategoryException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }
+    }
 
     private Guid ActorId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private async Task<ActionResult<AdminProviderRequirementResponse>> Execute(Func<Task<AdminProviderRequirementResponse>> action, int status = StatusCodes.Status200OK)

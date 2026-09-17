@@ -25,3 +25,13 @@ export function searchAdminCustomers(filters: { search: string; status: string; 
 
 export const getAdminCustomer = (customerId: string) => request<AdminCustomerDetail>(`/api/v1/admin/customers/${customerId}`)
 
+export async function setAdminCustomerRequestAbuseExclusion(customerId: string, requestId: string, excluded: boolean, reason: string) {
+  const response = await fetch(`/api/v1/admin/customers/${customerId}/requests/${requestId}/abuse-exclusion`, {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ excluded, reason }),
+  })
+  if (!response.ok) {
+    let message = '요청 제한 예외를 변경하지 못했습니다.'
+    try { const error = await response.json() as ApiError; if (error.message) message = error.message } catch { /* 공통 안내 사용 */ }
+    throw new Error(message)
+  }
+}

@@ -6,8 +6,8 @@ from docx.shared import Pt
 
 
 ROOT = Path(r"D:\ALL_project\Soodal_Life_Project")
-SOURCE = ROOT / "docs" / "output" / "수달라이프_고객공급자_통합계정_및_휴대폰본인인증_정책_v1.0.docx"
-OUTPUT = ROOT / "docs" / "output" / "수달라이프_고객공급자_통합계정_및_휴대폰본인인증_정책_v1.1.docx"
+SOURCE = ROOT / "docs" / "output" / "수달라이프_고객전문가_통합계정_및_휴대폰본인인증_정책_v1.0.docx"
+OUTPUT = ROOT / "docs" / "output" / "수달라이프_고객전문가_통합계정_및_휴대폰본인인증_정책_v1.1.docx"
 
 
 def set_run_font(run, size: float, bold: bool = False) -> None:
@@ -44,7 +44,7 @@ lead = document.add_paragraph()
 lead.paragraph_format.space_after = Pt(8)
 set_run_font(
     lead.add_run(
-        "고객·공급자 통합계정의 비밀번호 규칙은 회원가입, 비밀번호 변경 및 비밀번호 재설정에 동일하게 적용한다."
+        "고객·전문가 통합계정의 비밀번호 규칙은 회원가입, 비밀번호 변경 및 비밀번호 재설정에 동일하게 적용한다."
     ),
     10.5,
 )

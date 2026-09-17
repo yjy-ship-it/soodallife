@@ -9,6 +9,7 @@ public static class ChatResourceTypes
     public const string Subscription = "SUBSCRIPTION";
     public const string Interior = "INTERIOR";
     public const string AfterService = "AFTER_SERVICE";
+    public const string ProviderConsultation = "PROVIDER_CONSULTATION";
 }
 
 public sealed record ChatResourceAuthorization(
@@ -33,6 +34,7 @@ public sealed class ChatResourceAuthorizationResolver(SoodalLifeDbContext db) : 
             ChatResourceTypes.Subscription when roomTypeCode == "DIRECT" => await Subscription(resourceId, token),
             ChatResourceTypes.Interior when roomTypeCode is "PRIMARY_CONTRACTOR" or "SITE_SURVEY" => await Interior(resourceId, roomTypeCode, token),
             ChatResourceTypes.AfterService when roomTypeCode == "DIRECT" => await AfterService(resourceId, token),
+            ChatResourceTypes.ProviderConsultation when roomTypeCode == "DIRECT" => await ProviderConsultation(resourceId, token),
             _ => null,
         };
     }
@@ -110,6 +112,25 @@ public sealed class ChatResourceAuthorizationResolver(SoodalLifeDbContext db) : 
         }
         return new(ChatResourceTypes.AfterService, row.item.PublicId, "DIRECT", row.CustomerUserId, providerUserId,
             row.item.Subject, Number("AS", row.item.PublicId), row.item.ReceivedAt, providerStart, true);
+    }
+
+    private async Task<ChatResourceAuthorization?> ProviderConsultation(Guid id, CancellationToken token)
+    {
+        var room = await db.ChatRooms.AsNoTracking().SingleOrDefaultAsync(x => x.ResourceTypeCode == ChatResourceTypes.ProviderConsultation &&
+            x.ResourcePublicId == id && x.RoomTypeCode == "DIRECT", token);
+        if (room is null) return null;
+        var customer = await (from participant in db.ChatParticipants.AsNoTracking()
+                              join profile in db.CustomerProfiles.AsNoTracking() on participant.UserId equals profile.UserId
+                              where participant.ChatRoomId == room.Id && participant.StatusCode == "ACTIVE"
+                              select new { profile.UserId, profile.DisplayName }).FirstOrDefaultAsync(token);
+        var provider = await (from participant in db.ChatParticipants.AsNoTracking()
+                              join profile in db.ProviderProfiles.AsNoTracking() on participant.UserId equals profile.UserId
+                              where participant.ChatRoomId == room.Id && participant.StatusCode == "ACTIVE"
+                              select new { profile.UserId, profile.BusinessName, profile.ApprovalStatusCode, profile.ActivityStatusCode }).FirstOrDefaultAsync(token);
+        if (customer is null || provider is null) return null;
+        return new(ChatResourceTypes.ProviderConsultation, id, "DIRECT", customer.UserId, provider.UserId,
+            $"{provider.BusinessName} 상담", Number("CS", id), room.CreatedAt, room.CreatedAt,
+            provider.ApprovalStatusCode == "APPROVED" && provider.ActivityStatusCode == "ACTIVE");
     }
 
     private static string Number(string prefix, Guid id) => $"{prefix}-{id.ToString("N")[..10].ToUpperInvariant()}";

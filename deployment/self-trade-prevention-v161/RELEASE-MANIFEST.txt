@@ -1,0 +1,20 @@
+SOODAL LIFE V161 SELF-TRADE PREVENTION RELEASE MANIFEST
+
+Built: 2026-08-30 (Asia/Seoul)
+Database schema changed: No
+Database data cleanup: Yes, only active same-account candidate/dispatch/draft/site-visit/emergency records
+API changed: Yes
+Frontend changed: No
+Production appsettings preserved: Yes
+API App_Data preserved: Yes
+
+Security invariant
+- Customer and provider roles may coexist on one user account.
+- The same user account cannot match, view/respond as a provider, submit a quote, propose a site visit, submit an emergency response, or be selected for its own request.
+- Direct API calls fail with SELF_REQUEST_NOT_ALLOWED.
+
+SHA-256
+DBCDA6121A4BBAA651148B1BDDF59F0982135786629A82B0A1C2E2FBCFF998EC  api\SoodalLife.Api.dll
+4C7B05F66F81B37DEB7FEDDCCC93074AFB99EE13963534C0D62692461350EA61  deployment\Apply-SelfTradePreventionV161.sql
+BAB4678BDC7D723F4F59D892D459F897BBDC566E269198F97631B878F607D7A6  deployment\Verify-SelfTradePreventionV161.sql
+3DA24B82716A99AA5ADA499C21AE367C8797D772487A6D658AAAB80D1E9FD892  Publish-Production.ps1

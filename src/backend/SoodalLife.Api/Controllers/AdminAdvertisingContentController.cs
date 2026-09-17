@@ -39,9 +39,17 @@ public sealed class AdminAdvertisingContentController(AdvertisingContentService 
     public async Task<ActionResult<AdminAdvertisingCampaignDetail>> ReviewCampaign(Guid campaignId, AdvertisingReviewRequest request, CancellationToken token) =>
         await Execute(() => service.ReviewCampaignAsync(campaignId, request, ActorId(), token));
 
+    [HttpPost("campaigns/{campaignId:guid}/submit")]
+    public async Task<ActionResult<AdminAdvertisingCampaignDetail>> SubmitCampaign(Guid campaignId, AdvertisingOperationRequest request, CancellationToken token) =>
+        await Execute(() => service.SubmitCampaignAsync(campaignId, request, ActorId(), token));
+
     [HttpPost("campaigns/{campaignId:guid}/pause")]
     public async Task<ActionResult<AdminAdvertisingCampaignDetail>> PauseCampaign(Guid campaignId, AdvertisingPauseRequest request, CancellationToken token) =>
         await Execute(() => service.PauseCampaignAsync(campaignId, request, ActorId(), token));
+
+    [HttpPost("campaigns/{campaignId:guid}/resume")]
+    public async Task<ActionResult<AdminAdvertisingCampaignDetail>> ResumeCampaign(Guid campaignId, AdvertisingOperationRequest request, CancellationToken token) =>
+        await Execute(() => service.ResumeCampaignAsync(campaignId, request, ActorId(), token));
 
     [HttpPost("campaigns/{campaignId:guid}/creatives")]
     public async Task<ActionResult<AdvertisingCreativeResponse>> CreateCreative(Guid campaignId, SaveAdvertisingCreativeRequest request, CancellationToken token) =>
@@ -68,6 +76,10 @@ public sealed class AdminAdvertisingContentController(AdvertisingContentService 
     public async Task<ActionResult<AdminManagedContentDetail>> CreateContent(SaveManagedContentRequest request, CancellationToken token) =>
         await Execute(() => service.CreateContentAsync(request, ActorId(), token));
 
+    [HttpPost("contents/initialize-defaults")]
+    public async Task<ActionResult<ManagedContentDefaultInitializationResponse>> InitializeContentDefaults(CancellationToken token) =>
+        await Execute(() => service.InitializeDefaultContentsAsync(ActorId(), token));
+
     [HttpPut("contents/{contentId:guid}")]
     public async Task<ActionResult<AdminManagedContentDetail>> UpdateContent(Guid contentId, SaveManagedContentRequest request, CancellationToken token) =>
         await Execute(() => service.UpdateContentAsync(contentId, request, ActorId(), token));
@@ -75,6 +87,18 @@ public sealed class AdminAdvertisingContentController(AdvertisingContentService 
     [HttpPost("contents/{contentId:guid}/review")]
     public async Task<ActionResult<AdminManagedContentDetail>> ReviewContent(Guid contentId, AdvertisingReviewRequest request, CancellationToken token) =>
         await Execute(() => service.ReviewContentAsync(contentId, request, ActorId(), token));
+
+    [HttpPost("contents/{contentId:guid}/submit")]
+    public async Task<ActionResult<AdminManagedContentDetail>> SubmitContent(Guid contentId, AdvertisingOperationRequest request, CancellationToken token) =>
+        await Execute(() => service.SubmitContentAsync(contentId, request, ActorId(), token));
+
+    [HttpPost("contents/{contentId:guid}/pause")]
+    public async Task<ActionResult<AdminManagedContentDetail>> PauseContent(Guid contentId, AdvertisingPauseRequest request, CancellationToken token) =>
+        await Execute(() => service.PauseContentAsync(contentId, request, ActorId(), token));
+
+    [HttpPost("contents/{contentId:guid}/resume")]
+    public async Task<ActionResult<AdminManagedContentDetail>> ResumeContent(Guid contentId, AdvertisingOperationRequest request, CancellationToken token) =>
+        await Execute(() => service.ResumeContentAsync(contentId, request, ActorId(), token));
 
     private Guid ActorId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

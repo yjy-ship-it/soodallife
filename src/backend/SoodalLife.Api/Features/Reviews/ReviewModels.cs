@@ -1,6 +1,7 @@
 namespace SoodalLife.Api.Features.Reviews;
 
 public sealed record CreateReviewRequest(string BodyText, IReadOnlyList<CreateReviewRatingRequest> Ratings, IReadOnlyList<Guid> FileIds, string IdempotencyKey);
+public sealed record UpdateReviewRequest(string BodyText, IReadOnlyList<CreateReviewRatingRequest> Ratings, IReadOnlyList<Guid> FileIds, string IdempotencyKey);
 public sealed record CreateReviewRatingRequest(Guid RatingItemId, decimal RatingValue);
 public sealed record CreateProviderReplyRequest(string BodyText, string IdempotencyKey);
 public sealed record ReviewResponse(Guid Id, Guid TransactionId, string TransactionNumber, Guid ProviderId, string ProviderName,

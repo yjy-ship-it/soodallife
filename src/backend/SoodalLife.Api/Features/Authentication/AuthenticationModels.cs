@@ -19,7 +19,9 @@ public static class AuthenticationConstants
 
 public sealed record LoginRequest(
     [param: Required, StringLength(320, MinimumLength = 1)] string LoginOrEmail,
-    [param: Required, StringLength(1024, MinimumLength = 1)] string Password);
+    [param: Required, StringLength(1024, MinimumLength = 1)] string Password,
+    [param: StringLength(6, MinimumLength = 6)] string? MfaCode = null,
+    bool RememberMe = false);
 
 public sealed record AuthenticatedUserResponse(
     Guid PublicId,

@@ -20,12 +20,12 @@ public sealed class AdminSystemController(AdminSystemService service) : Controll
         Execute(() => service.GetSystemStatusAsync(token));
 
     [HttpPost("system/outbox/{id:guid}/retry")]
-    public async Task<ActionResult> RetryOutbox(Guid id, CancellationToken token)
+    public async Task<ActionResult> RetryOutbox(Guid id, AdminOutboxRetryRequest request, CancellationToken token)
     {
         try
         {
             if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actor)) return Unauthorized();
-            await service.RequestOutboxRetryAsync(id, actor, token);
+            await service.RequestOutboxRetryAsync(id, actor, Request.Headers["X-Admin-Reauth-Token"].FirstOrDefault(), request.Reason, token);
             return NoContent();
         }
         catch (AdminSystemException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); }

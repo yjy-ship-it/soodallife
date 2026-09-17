@@ -49,12 +49,14 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ProviderServiceRequirementVerification> ProviderServiceRequirementVerifications => Set<ProviderServiceRequirementVerification>();
     public DbSet<ProviderWallet> ProviderWallets => Set<ProviderWallet>();
     public DbSet<WalletLedgerEntry> WalletLedgerEntries => Set<WalletLedgerEntry>();
+    public DbSet<QuoteFeeReservation> QuoteFeeReservations => Set<QuoteFeeReservation>();
     public DbSet<WalletChargeRequest> WalletChargeRequests => Set<WalletChargeRequest>();
     public DbSet<FeeCharge> FeeCharges => Set<FeeCharge>();
     public DbSet<FeeRestore> FeeRestores => Set<FeeRestore>();
     public DbSet<WalletRefundRequest> WalletRefundRequests => Set<WalletRefundRequest>();
     public DbSet<ProviderExitRequest> ProviderExitRequests => Set<ProviderExitRequest>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<PublicActivityEvent> PublicActivityEvents => Set<PublicActivityEvent>();
     public DbSet<RequestAnswer> RequestAnswers => Set<RequestAnswer>();
     public DbSet<RequestAnswerFile> RequestAnswerFiles => Set<RequestAnswerFile>();
     public DbSet<ServiceRequestFile> ServiceRequestFiles => Set<ServiceRequestFile>();
@@ -66,16 +68,23 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ProviderEmergencyException> ProviderEmergencyExceptions => Set<ProviderEmergencyException>();
     public DbSet<EmergencyResponse> EmergencyResponses => Set<EmergencyResponse>();
     public DbSet<EmergencyProgressEvent> EmergencyProgressEvents => Set<EmergencyProgressEvent>();
+    public DbSet<EmergencyDispatchAgreement> EmergencyDispatchAgreements => Set<EmergencyDispatchAgreement>();
+    public DbSet<SiteVisitProposal> SiteVisitProposals => Set<SiteVisitProposal>();
+    public DbSet<SiteVisitEvent> SiteVisitEvents => Set<SiteVisitEvent>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<NotificationRecipient> NotificationRecipients => Set<NotificationRecipient>();
     public DbSet<NotificationDeliveryAttempt> NotificationDeliveryAttempts => Set<NotificationDeliveryAttempt>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<NotificationPreferenceEvent> NotificationPreferenceEvents => Set<NotificationPreferenceEvent>();
+    public DbSet<NotificationChannelSetting> NotificationChannelSettings => Set<NotificationChannelSetting>();
     public DbSet<NotificationEvent> NotificationEvents => Set<NotificationEvent>();
+    public DbSet<NotificationBroadcast> NotificationBroadcasts => Set<NotificationBroadcast>();
     public DbSet<Quote> Quotes => Set<Quote>();
     public DbSet<QuoteRevision> QuoteRevisions => Set<QuoteRevision>();
     public DbSet<QuoteItem> QuoteItems => Set<QuoteItem>();
+    public DbSet<ProviderQuoteTemplate> ProviderQuoteTemplates => Set<ProviderQuoteTemplate>();
     public DbSet<TransactionRecord> Transactions => Set<TransactionRecord>();
     public DbSet<TransactionAppointment> TransactionAppointments => Set<TransactionAppointment>();
     public DbSet<TransactionAppointmentChangeRequest> TransactionAppointmentChangeRequests => Set<TransactionAppointmentChangeRequest>();
@@ -100,6 +109,12 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<ScheduledJobLease> ScheduledJobLeases => Set<ScheduledJobLease>();
     public DbSet<ScheduledJobRun> ScheduledJobRuns => Set<ScheduledJobRun>();
+    public DbSet<AdminSecurityProfile> AdminSecurityProfiles => Set<AdminSecurityProfile>();
+    public DbSet<AdminReauthenticationSession> AdminReauthenticationSessions => Set<AdminReauthenticationSession>();
+    public DbSet<OutboxRetryRequest> OutboxRetryRequests => Set<OutboxRetryRequest>();
+    public DbSet<DataRetentionPolicy> DataRetentionPolicies => Set<DataRetentionPolicy>();
+    public DbSet<DataRetentionExecution> DataRetentionExecutions => Set<DataRetentionExecution>();
+    public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
     public DbSet<AdvertisingPlacement> AdvertisingPlacements => Set<AdvertisingPlacement>();
     public DbSet<AdvertisingCampaign> AdvertisingCampaigns => Set<AdvertisingCampaign>();
     public DbSet<AdvertisingCampaignPlacement> AdvertisingCampaignPlacements => Set<AdvertisingCampaignPlacement>();
@@ -107,6 +122,15 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<AdvertisingCampaignArea> AdvertisingCampaignAreas => Set<AdvertisingCampaignArea>();
     public DbSet<AdvertisingCreative> AdvertisingCreatives => Set<AdvertisingCreative>();
     public DbSet<AdvertisingEvent> AdvertisingEvents => Set<AdvertisingEvent>();
+    public DbSet<ProviderAdvertisingRatePolicy> ProviderAdvertisingRatePolicies => Set<ProviderAdvertisingRatePolicy>();
+    public DbSet<ProviderAdvertisingApplication> ProviderAdvertisingApplications => Set<ProviderAdvertisingApplication>();
+    public DbSet<ProviderAdvertisingRenewalHistory> ProviderAdvertisingRenewalHistories => Set<ProviderAdvertisingRenewalHistory>();
+    public DbSet<ProviderProposalCampaign> ProviderProposalCampaigns => Set<ProviderProposalCampaign>();
+    public DbSet<ProviderProposalArea> ProviderProposalAreas => Set<ProviderProposalArea>();
+    public DbSet<ProviderProposalApplication> ProviderProposalApplications => Set<ProviderProposalApplication>();
+    public DbSet<CustomerProposalCategoryInterest> CustomerProposalCategoryInterests => Set<CustomerProposalCategoryInterest>();
+    public DbSet<CustomerProposalAreaInterest> CustomerProposalAreaInterests => Set<CustomerProposalAreaInterest>();
+    public DbSet<CustomerProposalSignal> CustomerProposalSignals => Set<CustomerProposalSignal>();
     public DbSet<ManagedContent> ManagedContents => Set<ManagedContent>();
     public DbSet<ManagedContentVersion> ManagedContentVersions => Set<ManagedContentVersion>();
     public DbSet<ManagedContentCategory> ManagedContentCategories => Set<ManagedContentCategory>();
@@ -121,6 +145,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ReviewRating> ReviewRatings => Set<ReviewRating>();
     public DbSet<ReviewFile> ReviewFiles => Set<ReviewFile>();
     public DbSet<ReviewProviderReply> ReviewProviderReplies => Set<ReviewProviderReply>();
+    public DbSet<ReviewComment> ReviewComments => Set<ReviewComment>();
     public DbSet<ReportType> ReportTypes => Set<ReportType>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ReportEvidence> ReportEvidence => Set<ReportEvidence>();
@@ -158,6 +183,7 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<InteriorDesignVersion> InteriorDesignVersions => Set<InteriorDesignVersion>();
     public DbSet<InteriorDesignFile> InteriorDesignFiles => Set<InteriorDesignFile>();
     public DbSet<InteriorContract> InteriorContracts => Set<InteriorContract>();
+    public DbSet<InteriorContractDocument> InteriorContractDocuments => Set<InteriorContractDocument>();
     public DbSet<InteriorContractVersion> InteriorContractVersions => Set<InteriorContractVersion>();
     public DbSet<InteriorPaymentPlan> InteriorPaymentPlans => Set<InteriorPaymentPlan>();
     public DbSet<InteriorPaymentConfirmation> InteriorPaymentConfirmations => Set<InteriorPaymentConfirmation>();
@@ -178,6 +204,12 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatMessageRead> ChatMessageReads => Set<ChatMessageRead>();
     public DbSet<ChatAttachment> ChatAttachments => Set<ChatAttachment>();
+    public DbSet<HelpPost> HelpPosts => Set<HelpPost>();
+    public DbSet<HelpRoomEntry> HelpRoomEntries => Set<HelpRoomEntry>();
+    public DbSet<HelpPostFile> HelpPostFiles => Set<HelpPostFile>();
+    public DbSet<HelpPostResolution> HelpPostResolutions => Set<HelpPostResolution>();
+    public DbSet<UserSuggestion> UserSuggestions => Set<UserSuggestion>();
+    public DbSet<UserSuggestionEvent> UserSuggestionEvents => Set<UserSuggestionEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -266,6 +298,8 @@ public sealed class SoodalLifeDbContext(DbContextOptions<SoodalLifeDbContext> op
             throw new InvalidOperationException("알림 이벤트는 수정하거나 삭제할 수 없습니다. 정정이 필요하면 새 이벤트를 추가해 주세요.");
         if (ChangeTracker.Entries<NotificationDeliveryAttempt>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("알림 발송 시도 이력은 수정하거나 삭제할 수 없습니다. 재시도는 새 이력으로 기록해 주세요.");
+        if (ChangeTracker.Entries<NotificationPreferenceEvent>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("알림 수신동의 이력은 수정하거나 삭제할 수 없습니다. 변경은 새 이력으로 기록해 주세요.");
     }
 
     private void EnsureEmergencyProgressEventsAreAppendOnly()

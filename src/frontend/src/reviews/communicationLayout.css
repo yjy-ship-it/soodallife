@@ -1,0 +1,4 @@
+.communicationPage{box-sizing:border-box;width:min(1180px,calc(100% - 40px));margin-right:auto;margin-left:auto}
+.chatCommunicationTabs{box-sizing:border-box;width:min(900px,calc(100% - 40px));margin-right:auto;margin-left:auto}
+.communicationPage>.workHeading,.communicationPage>.reviewConversationList,.communicationPage>.reviewConversationError{width:100%;margin-right:0;margin-left:0}
+@media(max-width:700px){.communicationPage,.chatCommunicationTabs{width:calc(100% - 32px)}}

@@ -21,6 +21,7 @@ public sealed class AdvertisingContentApiTests(AuthenticationWebApplicationFacto
         var placements = await client.GetFromJsonAsync<List<AdvertisingPlacementResponse>>($"{AdminRoot}/placements");
         Assert.Contains(placements!, item => item.Code == "CUSTOMER_HOME" && item.RouteHint == "/customer");
         Assert.Contains(placements!, item => item.Code == "PROVIDER_HOME" && item.RouteHint == "/provider");
+        Assert.Contains(placements!, item => item.Code == "CUSTOMER_LIVE_ACTIVITY_FEED" && item.RouteHint == "/customer#live-activity");
     }
 
     [Theory]
@@ -61,12 +62,40 @@ public sealed class AdvertisingContentApiTests(AuthenticationWebApplicationFacto
     }
 
     [Fact]
+    public async Task Campaign_SubmitPauseAndResume_WorkflowIsExplicitAndSafe()
+    {
+        using var client=Client();await Login(client,RoleCodes.Admin);var campaign=await CreateCampaign(client,$"검토 흐름 {Guid.NewGuid():N}","ALL","CUSTOMER_HOME");
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync($"{AdminRoot}/campaigns/{campaign.Id}/submit",new{Reason="검토 요청"})).StatusCode);
+        await AddCreative(client,campaign.Id,"검토용 활성 소재");var submit=await client.PostAsJsonAsync($"{AdminRoot}/campaigns/{campaign.Id}/submit",new{Reason="소재 확인 완료"});submit.EnsureSuccessStatusCode();campaign=(await submit.Content.ReadFromJsonAsync<AdminAdvertisingCampaignDetail>())!;Assert.Equal("PENDING",campaign.ReviewStatusCode);
+        campaign=await ReviewCampaign(client,campaign.Id,"APPROVE",null);Assert.Equal("ACTIVE",campaign.StatusCode);
+        var pause=await client.PostAsJsonAsync($"{AdminRoot}/campaigns/{campaign.Id}/pause",new{Reason="소재 교체 전 임시 중지"});pause.EnsureSuccessStatusCode();campaign=(await pause.Content.ReadFromJsonAsync<AdminAdvertisingCampaignDetail>())!;Assert.Equal("PAUSED",campaign.StatusCode);
+        var resume=await client.PostAsJsonAsync($"{AdminRoot}/campaigns/{campaign.Id}/resume",new{Reason="운영 재개"});resume.EnsureSuccessStatusCode();campaign=(await resume.Content.ReadFromJsonAsync<AdminAdvertisingCampaignDetail>())!;Assert.Equal("ACTIVE",campaign.StatusCode);Assert.Contains(campaign.History,x=>x.ActionCode=="ADVERTISING_CAMPAIGN_SUBMITTED");Assert.Contains(campaign.History,x=>x.ActionCode=="ADVERTISING_CAMPAIGN_RESUMED");
+    }
+
+    [Fact]
+    public async Task Content_SubmitPauseAndResume_WorkflowIsRecorded()
+    {
+        using var client=Client();await Login(client,RoleCodes.Admin);var create=await client.PostAsJsonAsync($"{AdminRoot}/contents",ContentInput("NOTICE","ALL",$"운영 흐름 {Guid.NewGuid():N}","운영 흐름 검증 내용"));create.EnsureSuccessStatusCode();var content=(await create.Content.ReadFromJsonAsync<AdminManagedContentDetail>())!;
+        var submit=await client.PostAsJsonAsync($"{AdminRoot}/contents/{content.Id}/submit",new{Reason="내용 확인 완료"});submit.EnsureSuccessStatusCode();content=(await submit.Content.ReadFromJsonAsync<AdminManagedContentDetail>())!;Assert.Equal("PENDING",content.ReviewStatusCode);
+        var approve=await client.PostAsJsonAsync($"{AdminRoot}/contents/{content.Id}/review",new{ActionCode="APPROVE",Reason=(string?)null});approve.EnsureSuccessStatusCode();content=(await approve.Content.ReadFromJsonAsync<AdminManagedContentDetail>())!;
+        var pause=await client.PostAsJsonAsync($"{AdminRoot}/contents/{content.Id}/pause",new{Reason="내용 점검"});pause.EnsureSuccessStatusCode();content=(await pause.Content.ReadFromJsonAsync<AdminManagedContentDetail>())!;Assert.Equal("PAUSED",content.StatusCode);
+        var resume=await client.PostAsJsonAsync($"{AdminRoot}/contents/{content.Id}/resume",new{Reason="점검 완료"});resume.EnsureSuccessStatusCode();content=(await resume.Content.ReadFromJsonAsync<AdminManagedContentDetail>())!;Assert.Equal("ACTIVE",content.StatusCode);Assert.Contains(content.History,x=>x.ActionCode=="MANAGED_CONTENT_RESUMED");
+    }
+
+    [Fact]
+    public async Task InvalidCampaignTarget_DoesNotLeavePartialDraft()
+    {
+        var name=$"원자성 검증 {Guid.NewGuid():N}";using var client=Client();await Login(client,RoleCodes.Admin);var response=await client.PostAsJsonAsync($"{AdminRoot}/campaigns",CampaignInput(name,"ALL","CUSTOMER_HOME","NONE",null,null,Guid.NewGuid()));Assert.Equal(HttpStatusCode.BadRequest,response.StatusCode);
+        using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();Assert.False(await db.AdvertisingCampaigns.AnyAsync(x=>x.CampaignName==name));
+    }
+
+    [Fact]
     public async Task Campaign_CategoryAndAreaTargets_AndScheduleAreAppliedWithoutAffectingOtherCampaign()
     {
         using var client = Client(); await Login(client, RoleCodes.Admin);
         var targeted = await CreateCampaign(client, "지역 서비스 이용 안내", "ALL", "CUSTOMER_HOME", factory.Catalog.ServiceId, factory.Catalog.AreaId);
         await AddCreative(client, targeted.Id, "해당 지역 서비스 안내"); await ReviewCampaign(client, targeted.Id, "APPROVE", null);
-        var other = await CreateCampaign(client, "별도 공급자 안내", "PROVIDER", "PROVIDER_HOME"); await AddCreative(client, other.Id, "공급자 운영 안내"); await ReviewCampaign(client, other.Id, "APPROVE", null);
+        var other = await CreateCampaign(client, "별도 전문가 안내", "PROVIDER", "PROVIDER_HOME"); await AddCreative(client, other.Id, "전문가 운영 안내"); await ReviewCampaign(client, other.Id, "APPROVE", null);
 
         var matched = await client.GetFromJsonAsync<List<PublicAdvertisingCreative>>($"/api/v1/public/advertising?audience=CUSTOMER&placement=CUSTOMER_HOME&categoryId={factory.Catalog.ServiceId}&areaId={factory.Catalog.AreaId}");
         Assert.Contains(matched!, item => item.CampaignId == targeted.Id);
@@ -146,6 +175,41 @@ public sealed class AdvertisingContentApiTests(AuthenticationWebApplicationFacto
         var faqPublic=await client.GetFromJsonAsync<List<PublicManagedContent>>("/api/v1/public/contents?type=FAQ&audience=CUSTOMER"); Assert.Contains(faqPublic!,item=>item.Id==faq.Id&&item.QuestionText=="요청을 수정할 수 있나요?");
         var safetyPublic=await client.GetFromJsonAsync<List<PublicManagedContent>>("/api/v1/public/contents?type=SAFETY_GUIDE&audience=CUSTOMER"); Assert.DoesNotContain(safetyPublic!,item=>item.Id==safety.Id);
         Assert.Equal("EXPIRED",(await client.GetFromJsonAsync<AdminManagedContentDetail>($"{AdminRoot}/contents/{safety.Id}"))!.PublicationStatus);
+    }
+
+    [Fact]
+    public async Task DefaultSafetyServiceAndPriceContents_AreRegisteredOnceAndPublished()
+    {
+        using var client = Client(); await Login(client, RoleCodes.Admin);
+        var firstResponse = await client.PostAsync($"{AdminRoot}/contents/initialize-defaults", null);
+        firstResponse.EnsureSuccessStatusCode();
+        var first = (await firstResponse.Content.ReadFromJsonAsync<ManagedContentDefaultInitializationResponse>())!;
+        Assert.Equal(15, first.TotalCount); Assert.True(first.CreatedCount >= 0);
+
+        var secondResponse = await client.PostAsync($"{AdminRoot}/contents/initialize-defaults", null);
+        secondResponse.EnsureSuccessStatusCode();
+        var second = (await secondResponse.Content.ReadFromJsonAsync<ManagedContentDefaultInitializationResponse>())!;
+        Assert.Equal(0, second.CreatedCount); Assert.Equal(0, second.RepairedCount); Assert.Equal(15, second.ExistingCount);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var content = await db.ManagedContents.SingleAsync(item => item.PublicId == Guid.Parse("d9700001-0000-4000-8000-000000000001"));
+            var version = await db.ManagedContentVersions.SingleAsync(item => item.ContentId == content.Id && item.VersionNo == content.CurrentVersionNo);
+            version.Title = "?? ?? ??"; version.BodyText = "?? ??"; await db.SaveChangesAsync();
+        }
+        var repairResponse = await client.PostAsync($"{AdminRoot}/contents/initialize-defaults", null);
+        repairResponse.EnsureSuccessStatusCode();
+        var repaired = (await repairResponse.Content.ReadFromJsonAsync<ManagedContentDefaultInitializationResponse>())!;
+        Assert.Equal(1, repaired.RepairedCount); Assert.Equal(14, repaired.ExistingCount);
+
+        foreach (var type in new[] { "SAFETY_GUIDE", "CATEGORY_GUIDE", "PRICE_REFERENCE" })
+        {
+            var managed = await client.GetFromJsonAsync<AdminManagedContentListResponse>($"{AdminRoot}/contents?type={type}&page=1&pageSize=100");
+            Assert.True(managed!.Items.Count(item => item.StatusCode == "ACTIVE" && item.ReviewStatusCode == "APPROVED") >= 5);
+            var published = await client.GetFromJsonAsync<List<PublicManagedContent>>($"/api/v1/public/contents?type={type}&audience=CUSTOMER");
+            Assert.True(published!.Count >= 5);
+        }
     }
 
     [Fact]

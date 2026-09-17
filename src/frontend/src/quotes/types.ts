@@ -4,6 +4,27 @@ export interface QuoteItemInput {
   quantity: number
   unitText: string | null
   unitPriceAmount: number
+  itemCategoryCode?: string | null
+}
+
+export interface ProviderQuoteTemplate {
+  id: string
+  name: string
+  summary: string
+  terms: string | null
+  estimatedDurationText: string | null
+  vatMode: 'INCLUDED' | 'EXCLUDED'
+  items: QuoteItemInput[]
+  updatedAt: string
+}
+
+export interface SaveQuoteTemplateInput {
+  name: string
+  summary: string
+  terms: string | null
+  estimatedDurationText: string | null
+  vatMode: 'INCLUDED' | 'EXCLUDED'
+  items: QuoteItemInput[]
 }
 
 export interface SaveQuoteRevisionInput {
@@ -16,6 +37,7 @@ export interface SaveQuoteRevisionInput {
   revisionReason: string | null
   idempotencyKey: string
   items: QuoteItemInput[]
+  vatMode?: 'INCLUDED' | 'EXCLUDED'
 }
 
 export interface QuoteItem extends QuoteItemInput {
@@ -55,10 +77,24 @@ export interface QuoteDetail {
   transactionId: string | null
 }
 
+export interface QuoteSubmissionReadiness {
+  requestId: string
+  providerId: string
+  feePolicyId: string
+  feePolicyVersion: string
+  expectedAcceptanceFee: number
+  currencyCode: string
+  availableWalletBalance: number
+  walletStatus: string
+  canSubmit: boolean
+  unavailableReason: string | null
+}
+
 export interface QuoteListItem {
   id: string
   requestId: string
   requestTitle: string
+  domain: 'GENERAL' | 'INTERIOR' | 'EMERGENCY'
   categoryPath: string
   providerName: string
   status: string
@@ -77,6 +113,11 @@ export interface CustomerQuoteComparison {
 }
 export interface CustomerQuoteDetail extends QuoteDetail { providerId: string; comparison: CustomerQuoteComparison }
 export interface ProviderReview { id: string; bodyText: string; submittedAt: string; ratings: RatingAverage[] }
+export interface PublicReviewRating { itemId:string; itemCode:string; itemName:string; ratingValue:number; minValue:number; maxValue:number; displayOrder:number }
+export interface PublicReviewFile { fileId:string; fileName:string; contentType:string; displayOrder:number; downloadUrl:string|null; publicationMode:string|null }
+export interface PublicReviewReply { id:string; providerName:string; bodyText:string; submittedAt:string }
+export interface PublicProviderReview { id:string; providerId:string; providerName:string; customerDisplayName:string; bodyText:string; overallRating:number|null; verificationStatusCode:string; visibilityStatusCode:string; submittedAt:string; ratings:PublicReviewRating[]; files:PublicReviewFile[]; providerReply:PublicReviewReply|null }
+export interface PublicProviderReviewList { totalCount:number; page:number; pageSize:number; items:PublicProviderReview[] }
 export interface CustomerProviderProfile { id: string; businessName: string; introductionHtml: string | null; publicPhone: string | null; publicEmail: string | null; publicAddress: string | null; publicBlogUrl: string | null; publicWebsiteUrl: string | null; publicLogoUrl: string | null; publicPhotoUrls: string[]; approvalStatus: string; activityStatus: string; serviceApprovalStatus: string; activeServices: string[]; trustScore: number | null; trustGrade: string | null; trustEvaluationStatus: string; trustDisplay: string; completedServiceCount: number; publicReviewCount: number; ratingItemAverages: RatingAverage[]; requirementsConfigured: boolean; requiredEvidenceCount: number; approvedEvidenceCount: number; requiredEvidenceSatisfied: boolean; recentReviews: ProviderReview[] }
 
 export interface AcceptQuoteResult {

@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react'
 import * as authenticationApi from './api'
 import { AuthenticationContext } from './AuthenticationContext'
 import type { AuthenticationStatus } from './AuthenticationContext'
-import type { AuthenticatedUser } from './types'
+import type { AuthenticatedUser, RoleCode } from './types'
 
 export function AuthenticationProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthenticationStatus>('loading')
@@ -29,8 +29,16 @@ export function AuthenticationProvider({ children }: PropsWithChildren) {
     }
   }, [])
 
-  const login = useCallback(async (loginOrEmail: string, password: string) => {
-    const authenticatedUser = await authenticationApi.login(loginOrEmail, password)
+  const login = useCallback(async (loginOrEmail: string, password: string, requiredRole?: RoleCode, mfaCode?: string, rememberMe = false) => {
+    const authenticatedUser = await authenticationApi.login(loginOrEmail, password, mfaCode, rememberMe)
+    if (requiredRole && !authenticatedUser.roles.includes(requiredRole)) {
+      await authenticationApi.logout()
+      throw new authenticationApi.AuthenticationApiError(
+        requiredRole === 'ADMIN' ? '관리자 권한이 없는 계정입니다. 본사 관리자 아이디로 로그인해 주세요.' : '이 화면을 이용할 권한이 없는 계정입니다.',
+        403,
+        'REQUIRED_ROLE_MISSING',
+      )
+    }
     setUser(authenticatedUser)
     setStatus('authenticated')
     return authenticatedUser

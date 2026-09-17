@@ -1,0 +1,22 @@
+SOODAL LIFE V163 - Help Room and Suggestion Box
+Release: help-room-suggestion-v163
+Database: AddHelpRoomAndSuggestionBoxV163
+
+API
+- member-visible help room with masked authors and optional SIGUNGU only
+- approved-provider/category advice authorization
+- dangerous DIY blocking and customer-confirmed quote draft conversion
+- private photo storage with fail-closed cross-member publication
+- private suggestion intake with 5/day, 60-second and 30-day duplicate controls
+- administrator status, reply, assignee and release-version workflow
+
+FRONTEND
+- customer/provider help room feed, detail, staged answer and resolution flow
+- customer help post creation and photo upload
+- member-private suggestion box
+- admin suggestion management page
+
+SAFETY
+- App_Data and production appsettings are preserved
+- database and IIS/file backups run before deployment
+- deployment stops on SQL, copy, health, readiness or route verification failure

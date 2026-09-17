@@ -10,6 +10,7 @@ using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Quotes;
 using SoodalLife.Api.Features.ServiceRequests;
 using SoodalLife.Api.Features.Work;
+using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
@@ -35,15 +36,21 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         var draft = await SaveDraft(provider, transactionId, draftKey, "Initial completed work", 121m, null);
         Assert.Equal("DRAFT", draft.Status);
         Assert.Equal(draft.Id, (await SaveDraft(provider, transactionId, draftKey, "Initial completed work", 121m, null)).Id);
+        var updatedDraft = await SaveDraft(provider, transactionId, $"draft-{Guid.NewGuid():N}", "Updated completed work", 122m, null);
+        Assert.Equal(draft.Id, updatedDraft.Id); Assert.Equal(1, updatedDraft.RevisionNo); Assert.Equal("Updated completed work", updatedDraft.WorkSummary);
         Assert.Equal(HttpStatusCode.Conflict, (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).StatusCode);
+        var removedBefore = await Upload(provider, transactionId, "BEFORE", "before-old.png");
+        Assert.Equal(HttpStatusCode.OK, (await provider.DeleteAsync($"/api/v1/transactions/{transactionId}/completion-evidence/{removedBefore.FileId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await provider.GetAsync(removedBefore.DownloadUrl)).StatusCode);
         var before = await Upload(provider, transactionId, "BEFORE", "before.png");
         Assert.Equal("BEFORE", before.RoleCode);
+        Assert.Equal(HttpStatusCode.OK, (await provider.GetAsync(before.DownloadUrl)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).StatusCode);
         var after = await Upload(provider, transactionId, "AFTER", "after.png");
         var submitted = await (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).Content.ReadFromJsonAsync<WorkCompletionRevisionResponse>();
         Assert.Equal("SUBMITTED", submitted!.Status); Assert.True(submitted.Policy.IsSatisfied); Assert.Equal(2, submitted.Evidence.Count);
         Assert.Equal(submitted.Id, (await (await provider.PostAsync($"/api/v1/transactions/{transactionId}/completions/submit", null)).Content.ReadFromJsonAsync<WorkCompletionRevisionResponse>())!.Id);
-        Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync(before.DownloadUrl)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await customer.GetAsync(before.DownloadUrl)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync(before.DownloadUrl)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherCustomer.GetAsync(before.DownloadUrl)).StatusCode);
 
@@ -70,7 +77,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         Assert.Single(await db.CustomerConfirmations.Where(item => item.TransactionId == transaction.Id && item.ResultCode == "COMPLETED").ToListAsync());
         Assert.Equal(2, await db.WorkCompletionRevisions.CountAsync(item => db.WorkCompletions.Any(c => c.Id == item.WorkCompletionId && c.TransactionId == transaction.Id)));
         var files = await db.Files.Where(item => item.PurposeCode == "COMPLETION_EVIDENCE").ToListAsync();
-        Assert.Equal(2, files.Count);
+        Assert.Equal(3, files.Count); Assert.Single(files, file => file.StatusCode == "DELETED");
         Assert.All(files, file => Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(file.StorageKey)), file.StorageKeyHash));
     }
 
@@ -172,13 +179,13 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
     }
 
     [Fact]
-    public async Task Cancellation_AfterWorkStart_RequiresAdminReview_AndCannotBeFinalizedByParty()
+    public async Task Cancellation_AfterWorkStart_IsFinalizedByCounterpartyWithoutAdminIntervention()
     {
         using var provider = Client(); using var customer = Client(); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(customer, factory.Credentials[RoleCodes.Customer]);
         var transactionId = await ArrangeTransaction(provider, customer); await ConfirmAppointment(customer, provider, transactionId); Assert.Equal(HttpStatusCode.OK, (await provider.PostAsync($"/api/v1/transactions/{transactionId}/start", null)).StatusCode);
-        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests", new { reason = "Work must stop", idempotencyKey = $"cancel-{Guid.NewGuid():N}" }); var row = (await response.Content.ReadFromJsonAsync<TransactionCancellationResponse>())!; Assert.Equal("ADMIN_REVIEW_REQUIRED", row.Status);
-        var decision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests/{row.Id}/decision", new { decision = "APPROVE", note = (string?)null, idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = row.RowVersion }); Assert.Equal(HttpStatusCode.Conflict, decision.StatusCode);
-        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal("IN_PROGRESS", (await db.Transactions.SingleAsync(x => x.PublicId == transactionId)).StatusCode);
+        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests", new { reason = "Work must stop", idempotencyKey = $"cancel-{Guid.NewGuid():N}" }); var row = (await response.Content.ReadFromJsonAsync<TransactionCancellationResponse>())!; Assert.Equal("REQUESTED", row.Status);
+        var decision = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/cancellation-requests/{row.Id}/decision", new { decision = "APPROVE", note = "당사자 간 취소 합의", idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = row.RowVersion }); Assert.Equal(HttpStatusCode.OK, decision.StatusCode);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); Assert.Equal("CANCELLED", (await db.Transactions.SingleAsync(x => x.PublicId == transactionId)).StatusCode);
     }
 
     [Fact]
@@ -227,20 +234,28 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
 
     private async Task ConfirmAppointment(HttpClient customer, HttpClient provider, Guid transactionId)
     {
-        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = DateTime.UtcNow.AddDays(2), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = 60, memo = (string?)null, idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
+        var response = await customer.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment-proposals", new { scheduledStartAt = TestScheduleSlots.Future(), scheduledEndAt = (DateTime?)null, estimatedDurationMinutes = 60, memo = (string?)null, idempotencyKey = $"proposal-{Guid.NewGuid():N}" });
         var appointment = (await response.Content.ReadFromJsonAsync<TransactionAppointmentResponse>())!;
         var approved = await provider.PostAsJsonAsync($"/api/v1/transactions/{transactionId}/appointment/decision", new { decision = "APPROVE", reason = (string?)null, idempotencyKey = $"decision-{Guid.NewGuid():N}", rowVersion = appointment.RowVersion }); Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
     }
 
     private async Task<Guid> ArrangeTransaction(HttpClient provider, HttpClient customer)
     {
+        using (var cleanupScope = factory.Services.CreateScope())
+        {
+            var cleanupDb = cleanupScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var customerId = await (from user in cleanupDb.Users join profile in cleanupDb.CustomerProfiles on user.Id equals profile.UserId
+                                    where user.LoginId == factory.Credentials[RoleCodes.Customer].LoginId select profile.Id).SingleAsync();
+            foreach (var existing in await cleanupDb.ServiceRequests.Where(item => item.CustomerProfileId == customerId).ToListAsync()) existing.AbuseCountExcluded = true;
+            await cleanupDb.SaveChangesAsync();
+        }
         await provider.PutAsJsonAsync("/api/v1/providers/me/service-categories", new { categoryIds = new[] { factory.Catalog.ServiceId } });
         await provider.PutAsJsonAsync("/api/v1/providers/me/service-areas", new { services = new[] { new { serviceCategoryId = factory.Catalog.ServiceId, administrativeAreaIds = new[] { factory.Catalog.AreaId } } } });
         var requestResponse = await customer.PostAsJsonAsync("/api/v1/requests", new
         {
             categoryId = factory.Catalog.ServiceId, administrativeAreaId = factory.Catalog.AreaId, title = "Work flow request",
             description = "Completion integration request", detailAddress = "Private", isUrgent = false, idempotencyKey = $"work-{Guid.NewGuid():N}",
-            answers = new object[] { new { fieldId = factory.Catalog.FieldIds[0], value = "Detailed work flow answer with enough length." }, new { fieldId = factory.Catalog.FieldIds[1], value = DateTimeOffset.UtcNow.AddDays(2).ToString("O") }, new { fieldId = factory.Catalog.FieldIds[2], value = "주거" } },
+            answers = new object[] { new { fieldId = factory.Catalog.FieldIds[0], value = "Detailed work flow answer with enough length." }, new { fieldId = factory.Catalog.FieldIds[1], value = TestScheduleSlots.Future().ToString("O") }, new { fieldId = factory.Catalog.FieldIds[2], value = "주거" } },
         });
         var request = (await requestResponse.Content.ReadFromJsonAsync<ServiceRequestCreatedResponse>())!;
         await customer.PostAsync($"/api/v1/requests/{request.Id}/publish", null);
@@ -256,7 +271,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
 
     private static async Task<CompletionEvidenceResponse> Upload(HttpClient client, Guid id, string role, string name)
     {
-        using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        using var form = new MultipartFormDataContent(); using var content = new ByteArrayContent(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
         content.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(new StringContent(role), "roleCode"); form.Add(new StringContent("test evidence"), "description"); form.Add(content, "file", name);
         var response = await client.PostAsync($"/api/v1/transactions/{id}/completion-evidence", form); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<CompletionEvidenceResponse>())!;
@@ -274,7 +289,7 @@ public sealed class WorkFlowApiTests(AuthenticationWebApplicationFactory factory
         using var form = new MultipartFormDataContent(); form.Add(new StringContent(amount.ToString(System.Globalization.CultureInfo.InvariantCulture)), "amount");
         form.Add(new StringContent("BANK_TRANSFER"), "paymentMethod"); form.Add(new StringContent(DateTime.UtcNow.ToString("O")), "paidAt");
         form.Add(new StringContent("direct payment fact"), "note"); form.Add(new StringContent(key), "idempotencyKey"); form.Add(new StringContent(rowVersion), "transactionRowVersion");
-        if (withFile) { var content = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]); content.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(content, "evidence", "payment.png"); }
+        if (withFile) { var content = new ByteArrayContent(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")); content.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(content, "evidence", "payment.png"); }
         return await client.PostAsync($"/api/v1/transactions/{id}/direct-payment", form);
     }
 

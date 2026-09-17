@@ -96,7 +96,7 @@ public sealed class CustomerWithdrawalClosureApiTests(AuthenticationWebApplicati
         var customerRole = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Customer); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = customerRole.Id, GrantedAt = now });
         if (providerRole) { var role = await db.Roles.SingleAsync(x => x.Code == RoleCodes.Provider); db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id, GrantedAt = now }); }
         var profile = new CustomerProfile { UserId = user.Id, DisplayName = "탈퇴 검증 고객", CreatedAt = now, UpdatedAt = now }; db.CustomerProfiles.Add(profile); await db.SaveChangesAsync();
-        if (providerRole) { db.ProviderProfiles.Add(new ProviderProfile { UserId = user.Id, BusinessName = "복수역할 공급자", ApprovalStatusCode = "APPROVED", ActivityStatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now }); await db.SaveChangesAsync(); }
+        if (providerRole) { db.ProviderProfiles.Add(new ProviderProfile { UserId = user.Id, BusinessName = "복수역할 전문가", ApprovalStatusCode = "APPROVED", ActivityStatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now }); await db.SaveChangesAsync(); }
         return new(user.Id, profile.Id, credential);
     }
 

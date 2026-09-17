@@ -1,0 +1,26 @@
+﻿Release: V243 provider workflow and catalog fixes
+Base: V241 cumulative release
+PowerShell encoding: UTF-8 with BOM
+Database changed: true
+API binaries changed: false; V241 cumulative API retained
+Frontend changed: customer, partner, admin
+Catalog correction: emergency HVAC and field repair categories
+Administrative areas: Gyeonggi Suwon district-level choices
+Safety: ZIP hash gate, admin gate, exact AppsRoot gate, SQL/IIS/file backups, App_Data and appsettings preservation
+External notifications: existing configured channels only; no provider key is embedded
+deployment/Apply-AdministrativeDistrictsV243.sql
+deployment/Verify-AdministrativeDistrictsV243.sql
+
+V243-R2: corrected the final API marker verification phrase; database and district contents are unchanged.
+
+V244: 13 parent city choices are deactivated while all 39 city-district choices remain active. Historical foreign-key references are preserved.
+deployment/Apply-RetireParentCitiesV244.sql
+deployment/Verify-RetireParentCitiesV244.sql
+
+V244-R2: physically deletes the 13 parent city rows only when no foreign-key reference exists. All 39 district choices are verified after deletion.
+
+V244-R3: preserves customer address rows, clears only their obsolete city FK, then deletes 13 city rows. Other FK references remain protected; 39 district choices are verified.
+
+V244-R4: preserves saved address rows, deletes only target service requests without dependent history, deletes 13 parent cities, and verifies 39 districts. Any dependent request history or other FK reference stops the transaction.
+
+V244-R5: cleans request form answers, attachment links, automated matching rows and public activity only when no quote, transaction, site visit, interior or emergency history exists. Preserves standalone records by unlinking them, deletes 13 cities and verifies 39 districts.

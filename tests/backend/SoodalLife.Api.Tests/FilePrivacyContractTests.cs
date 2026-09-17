@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
@@ -209,6 +210,7 @@ public sealed class FilePrivacyContractTests
     private static SoodalLifeDbContext Context() => new(
         new DbContextOptionsBuilder<SoodalLifeDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options);
 
     private static CrossDomainFilePublicationResolver Resolver(SoodalLifeDbContext db) =>

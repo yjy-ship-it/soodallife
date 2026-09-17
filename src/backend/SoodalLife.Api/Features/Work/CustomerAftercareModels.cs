@@ -27,7 +27,8 @@ public sealed record CustomerAfterServiceResponse(
     bool? IsWithinWarranty, string WarrantyDisplay, DateTime? DueAt, DateTime? ProviderConfirmedAt,
     string? ProviderResponse, bool? VisitRequired, DateTime? StartedAt, DateTime? CompletedAt,
     string? ResolutionSummary, string? UnresolvedReason, bool? RecurrenceOccurred, Guid? DisputeId,
-    IReadOnlyList<AfterServiceTimelineItem> Timeline, IReadOnlyList<AfterServiceEvidenceResponse> Evidence);
+    IReadOnlyList<AfterServiceTimelineItem> Timeline, IReadOnlyList<AfterServiceEvidenceResponse> Evidence,
+    string? SourceTitle, string? SourceServiceName, string? SourceProviderName);
 
 public sealed record ConvertAfterServiceToDisputeInput(string Subject, string Reason, string RequestedResolution, string IdempotencyKey);
 

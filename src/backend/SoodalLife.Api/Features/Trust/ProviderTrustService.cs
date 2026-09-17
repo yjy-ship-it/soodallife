@@ -2,16 +2,17 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Features.Authentication;
+using SoodalLife.Api.Features.Admin;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Trust;
 
-public sealed class ProviderTrustService(SoodalLifeDbContext db)
+public sealed class ProviderTrustService(SoodalLifeDbContext db,TrustCalculationService calculation,ILogger<ProviderTrustService> logger)
 {
     public async Task<ProviderTrustDashboardResponse> GetAsync(ClaimsPrincipal principal, CancellationToken token)
     {
         if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
-            throw Error("PROVIDER_IDENTITY_INVALID", "공급자 로그인 정보를 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
+            throw Error("PROVIDER_IDENTITY_INVALID", "전문가 로그인 정보를 확인할 수 없습니다.", StatusCodes.Status401Unauthorized);
 
         var provider = await (from user in db.Users.AsNoTracking()
                               join roleLink in db.UserRoles.AsNoTracking() on user.Id equals roleLink.UserId
@@ -20,7 +21,20 @@ public sealed class ProviderTrustService(SoodalLifeDbContext db)
                               where user.PublicId == userId && user.StatusCode == "ACTIVE" && role.Code == RoleCodes.Provider &&
                                     role.IsActive && roleLink.RevokedAt == null
                               select profile).SingleOrDefaultAsync(token)
-            ?? throw Error("PROVIDER_TRUST_NOT_FOUND", "공급자 정보를 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+            ?? throw Error("PROVIDER_TRUST_NOT_FOUND", "전문가 정보를 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+
+        try
+        {
+            await calculation.CalculateActiveAsync(provider.PublicId,"PROVIDER_DASHBOARD_BACKFILL",provider.PublicId,$"trust-provider-backfill:{provider.PublicId:N}:{DateTime.UtcNow:yyyyMMdd}",null,token);
+        }
+        catch(TrustCalculationException exception) when(exception.BusinessCode=="ACTIVE_TRUST_POLICY_NOT_FOUND")
+        {
+            logger.LogInformation("Provider trust dashboard opened before an active trust policy was available for {ProviderId}.",provider.PublicId);
+        }
+        catch(Exception exception)
+        {
+            logger.LogError(exception,"Provider trust backfill calculation failed for {ProviderId}.",provider.PublicId);
+        }
 
         var current = await db.ProviderTrustScoreCurrent.AsNoTracking().SingleOrDefaultAsync(x => x.ProviderProfileId == provider.Id, token);
         var score = current?.Score ?? provider.TrustScore;
@@ -37,12 +51,34 @@ public sealed class ProviderTrustService(SoodalLifeDbContext db)
                             select new { Item = item, PolicyVersion = eventPolicy == null ? null : eventPolicy.PolicyVersion })
             .Take(100).ToListAsync(token);
 
-        return new(provider.PublicId, score, GradeCode(score), GradeLabel(score), evaluationStatus, StatusNotice(evaluationStatus, policy?.PolicyVersion),
-            policy?.PolicyVersion, current?.CalculatedAt, Grades, ReadComponents(policy?.RulesJson),
+        var latestCalculation=await db.ProviderTrustCalculationResults.AsNoTracking().Where(x=>x.ProviderProfileId==provider.Id&&x.CalculationModeCode=="ACTUAL").OrderByDescending(x=>x.CalculatedAt).ThenByDescending(x=>x.Id).FirstOrDefaultAsync(token);
+        var transactionComponent=latestCalculation is null?null:await db.ProviderTrustScoreComponents.AsNoTracking().SingleOrDefaultAsync(x=>x.CalculationResultId==latestCalculation.Id&&x.ComponentCode=="TRANSACTION",token);
+        var performance=ReadTransactionPerformance(transactionComponent?.RawValueJson,transactionComponent?.WeightedScore,transactionComponent?.Weight??30,transactionComponent?.IsCalculable??false,transactionComponent?.UnavailableReason);
+
+        var statusNotice=latestCalculation?.ResultStatusCode=="INSUFFICIENT_DATA"
+            ? latestCalculation.InsufficiencyReason??"신뢰도 산정에 필요한 거래 자료를 확인하고 있습니다."
+            : StatusNotice(evaluationStatus, policy?.PolicyVersion);
+        return new(provider.PublicId, score, GradeCode(score), GradeLabel(score), evaluationStatus, statusNotice,
+            policy?.PolicyVersion, current?.CalculatedAt??latestCalculation?.CalculatedAt, Grades, ReadComponents(policy?.RulesJson),
+            performance,
             events.Select(x => new ProviderTrustEventResponse(x.Item.PublicId, x.Item.OccurredAt, x.Item.EventTypeCode,
                 EventLabel(x.Item.EventTypeCode), x.Item.ScoreBefore, x.Item.ScoreDelta, x.Item.ScoreAfter,
                 x.Item.GradeBefore is null ? null : GradeLabel(x.Item.GradeBefore), x.Item.GradeAfter is null ? null : GradeLabel(x.Item.GradeAfter),
                 EventReason(x.Item.EventTypeCode, x.Item.ReasonText), x.PolicyVersion)).ToArray());
+    }
+
+    private static ProviderTransactionPerformanceResponse ReadTransactionPerformance(string? json,decimal? earned,decimal maximum,bool calculable,string? reason)
+    {
+        if(string.IsNullOrWhiteSpace(json))return new(0,0,0,0,0,0,0,0,earned,maximum,false,"아직 거래 이행을 계산한 기록이 없습니다.");
+        try
+        {
+            using var document=JsonDocument.Parse(json);var root=document.RootElement;
+            int Number(string name,string legacy="")=>root.TryGetProperty(name,out var value)&&value.TryGetInt32(out var number)?number:!string.IsNullOrEmpty(legacy)&&root.TryGetProperty(legacy,out value)&&value.TryGetInt32(out number)?number:0;
+            var completed=Number("Completed","completed");var evidence=Number("Evidence","completionEvidence");
+            var notice=calculable?"현재 완료·취소·증빙 자료가 거래 이행 점수에 반영되었습니다.":reason??"거래 이행 산정에 필요한 자료를 확인하고 있습니다.";
+            return new(completed,Number("ProviderFaultCancellations"),Number("NeutralCancellations"),evidence,Number("GeneralServiceCompleted"),Number("EmergencyCompleted"),Number("CareVisitCompleted"),Number("InteriorCompleted"),earned,maximum,calculable,notice);
+        }
+        catch(JsonException){return new(0,0,0,0,0,0,0,0,earned,maximum,false,"거래 이행 산정자료를 확인하고 있습니다.");}
     }
 
     private static readonly ProviderTrustGradeResponse[] Grades =
@@ -83,7 +119,7 @@ public sealed class ProviderTrustService(SoodalLifeDbContext db)
     private static string EventLabel(string code) => code switch { "AUTOMATIC_CALCULATION" => "정기 신뢰도 산정", "MANUAL_ADJUSTMENT" => "관리자 조정", "RESTORE" => "점수 복원", _ => "신뢰도 변경" };
     private static string EventReason(string code, string? reason) => !string.IsNullOrWhiteSpace(reason) && !reason.Contains("ACTIVE Trust", StringComparison.OrdinalIgnoreCase)
         ? reason : code == "AUTOMATIC_CALCULATION" ? "거래·고객평가·증빙 등 현재 정책 항목을 반영해 자동 산정되었습니다." : "신뢰도 점수가 변경되었습니다.";
-    private static string ComponentName(string code) => code switch { "EVIDENCE" => "인증·증빙", "TRANSACTION" => "거래 이행", "REVIEW" => "고객 평가", "AFTER_SERVICE" => "A/S 처리", "DISPUTE" => "분쟁 처리", "SANCTION" => "운영 정책 준수", _ => code };
-    private static string ComponentDescription(string code) => code switch { "EVIDENCE" => "필수 서류의 승인·유효 상태", "TRANSACTION" => "거래 완료와 완료 증빙 이력", "REVIEW" => "검증된 거래의 공개 고객 평가", "AFTER_SERVICE" => "A/S 해결과 재발 여부", "DISPUTE" => "구조화된 분쟁 판정 결과", "SANCTION" => "확정된 제재와 정책 준수 상태", _ => "현재 본사 정책에 포함된 평가 항목" };
+    private static string ComponentName(string code) => code switch { "EVIDENCE" => "인증·증빙", "TRANSACTION" => "거래 이행", "REVIEW" => "고객 평가", "AFTER_SERVICE" => "사후관리 처리", "DISPUTE" => "분쟁 처리", "SANCTION" => "운영 정책 준수", _ => "평가 항목 확인 중" };
+    private static string ComponentDescription(string code) => code switch { "EVIDENCE" => "필수 서류의 승인·유효 상태", "TRANSACTION" => "거래 완료와 완료 증빙 이력", "REVIEW" => "검증된 거래의 공개 고객 평가", "AFTER_SERVICE" => "사후관리 해결과 재발 여부", "DISPUTE" => "구조화된 분쟁 판정 결과", "SANCTION" => "확정된 제재와 정책 준수 상태", _ => "현재 본사 정책에 포함된 평가 항목" };
     private static ProviderTrustException Error(string code, string message, int status) => new(code, message, status);
 }

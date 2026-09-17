@@ -27,7 +27,7 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
         Assert.True(list.SupportsStructuredRequirements);
         Assert.True(list.SupportsEvidenceValidityRules);
         Assert.True(list.CanEdit);
-        Assert.Empty(current.StructuredRequirements);
+        Assert.Single(current.StructuredRequirements);
 
         var currentResponse = await client.GetFromJsonAsync<AdminProviderRequirementResponse>($"{BasePath(factory.Catalog.ServiceId)}/current");
         Assert.Equal(current.Id, currentResponse!.Id);
@@ -37,7 +37,7 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
         Assert.Equal(current.QualificationAndLicenseRequirement, detail.QualificationAndLicenseRequirement);
         Assert.Equal(current.InsuranceRequirement, detail.InsuranceRequirement);
         Assert.Equal(current.SafetyGradeCode, detail.SafetyGradeCode);
-        Assert.Empty(detail.StructuredRequirements);
+        Assert.Single(detail.StructuredRequirements);
     }
 
     [Theory]
@@ -66,6 +66,46 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
     }
 
     [Fact]
+    public async Task Admin_CanUpdateOneServiceAndSelectedMiddleServicesOperationPolicy()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Admin]);
+        var first = await client.GetFromJsonAsync<AdminProviderRequirementResponse>($"{BasePath(factory.Catalog.ServiceId)}/current");
+        var second = await client.GetFromJsonAsync<AdminProviderRequirementResponse>($"{BasePath(factory.Catalog.OtherServiceId)}/current");
+        Assert.NotNull(first); Assert.NotNull(second); Guid middlePublicId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var parentId = await db.ServiceCategories.Where(value => value.PublicId == factory.Catalog.ServiceId).Select(value => value.ParentId).SingleAsync();
+            middlePublicId = await db.ServiceCategories.Where(value => value.Id == parentId).Select(value => value.PublicId).SingleAsync();
+        }
+        try
+        {
+            var individualResponse = await client.PutAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{first!.Id}/operation-policy", new { QualificationAndLicenseRequirement = "전문 자격증 확인", InsuranceRequirement = "배상책임보험 필수", SafetyGradeCode = "HIGH", first.RowVersion });
+            Assert.Equal(HttpStatusCode.OK, individualResponse.StatusCode);
+            var individual = await individualResponse.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>();
+            Assert.Equal("전문 자격증 확인", individual!.QualificationAndLicenseRequirement); Assert.Equal("HIGH", individual.SafetyGradeCode);
+            var stale = await client.PutAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{first.Id}/operation-policy", new { QualificationAndLicenseRequirement = "다른 값", InsuranceRequirement = "필수", SafetyGradeCode = "NORMAL", RowVersion = "AQ==" });
+            Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+            var bulkResponse = await client.PutAsJsonAsync($"/api/v1/admin/service-categories/middles/{middlePublicId}/operation-policy", new { QualificationAndLicenseRequirement = "중분류 공통 자격 확인", InsuranceRequirement = "공통 보험 필수", SafetyGradeCode = "MEDIUM", Services = new[] { new { ServiceId = factory.Catalog.ServiceId, PolicyId = individual.Id, individual.RowVersion }, new { ServiceId = factory.Catalog.OtherServiceId, PolicyId = second!.Id, second.RowVersion } } });
+            Assert.Equal(HttpStatusCode.OK, bulkResponse.StatusCode);
+            var bulk = (await bulkResponse.Content.ReadFromJsonAsync<IReadOnlyList<AdminProviderRequirementResponse>>())!;
+            Assert.Equal(2, bulk.Count); Assert.All(bulk, value => { Assert.Equal("중분류 공통 자격 확인", value.QualificationAndLicenseRequirement); Assert.Equal("공통 보험 필수", value.InsuranceRequirement); Assert.Equal("MEDIUM", value.SafetyGradeCode); });
+            using var verifyScope = factory.Services.CreateScope(); var verifyDb = verifyScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            Assert.True(await verifyDb.AuditLogs.AnyAsync(value => value.ActionCode == "CATEGORY_OPERATION_POLICY_UPDATED"));
+            Assert.True(await verifyDb.AuditLogs.AnyAsync(value => value.ActionCode == "CATEGORY_OPERATION_POLICY_BULK_UPDATED"));
+        }
+        finally
+        {
+            using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var serviceIds = new[] { factory.Catalog.ServiceId, factory.Catalog.OtherServiceId };
+            var rows = await (from category in db.ServiceCategories join policy in db.CategoryOperationPolicies on category.Id equals policy.CategoryId where serviceIds.Contains(category.PublicId) select new { category.PublicId, Policy = policy }).ToListAsync();
+            foreach (var row in rows) { var original = row.PublicId == factory.Catalog.ServiceId ? first! : second!; row.Policy.RequiredQualificationSummaryText = original.QualificationAndLicenseRequirement; row.Policy.InsuranceRequirementText = original.InsuranceRequirement; row.Policy.SafetyGradeCode = original.SafetyGradeCode; }
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
     public async Task Admin_CanManageMasterAssignmentEvidenceAndAudit_WithoutAffectingAnotherService()
     {
         using var client = CreateClient();
@@ -73,7 +113,7 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
         var standards = await client.GetFromJsonAsync<AdminProviderRequirementStandardsResponse>(StandardsPath);
         Assert.NotNull(standards);
         Assert.Equal(5, standards.RequirementTypes.Count);
-        Assert.Empty(standards.RequirementDefinitions);
+        Assert.Contains(standards.RequirementDefinitions, value => value.RequirementCode == "TEST_REQUIRED_QUALIFICATION");
         Assert.Empty(standards.DocumentTypes);
         AdminProviderRequirementDefinitionResponse? definition = null;
         AdminProviderDocumentTypeResponse? documentType = null;
@@ -101,7 +141,7 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
             var create = await client.PostAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{current!.Id}/assignments", AssignmentInput(definition!.Id, true, true, false, 3, true));
             Assert.Equal(HttpStatusCode.Created, create.StatusCode);
             var createdPolicy = await create.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>();
-            assignment = Assert.Single(createdPolicy!.StructuredRequirements);
+            assignment = Assert.Single(createdPolicy!.StructuredRequirements, value => value.RequirementDefinitionId == definition.Id);
             Assert.True(assignment.IsRequired);
             Assert.True(assignment.VerificationRequired);
             Assert.False(assignment.ExpiryCheckRequired);
@@ -109,7 +149,7 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
 
             var update = await client.PutAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{current.Id}/assignments/{assignment.Id}", AssignmentInput(definition.Id, false, false, true, 7, true));
             var updated = await update.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>();
-            var updatedAssignment = Assert.Single(updated!.StructuredRequirements);
+            var updatedAssignment = Assert.Single(updated!.StructuredRequirements, value => value.Id == assignment.Id);
             Assert.False(updatedAssignment.IsRequired);
             Assert.False(updatedAssignment.VerificationRequired);
             Assert.True(updatedAssignment.ExpiryCheckRequired);
@@ -117,12 +157,12 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
 
             var evidence = await client.PutAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{current.Id}/assignments/{assignment.Id}/evidence-types", new { EvidenceTypes = new[] { new { DocumentTypeId = documentType!.Id, IsRequired = true, DisplayOrder = 2 } } });
             var withEvidence = await evidence.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>();
-            var linked = Assert.Single(Assert.Single(withEvidence!.StructuredRequirements).EvidenceTypes);
+            var linked = Assert.Single(Assert.Single(withEvidence!.StructuredRequirements, value => value.Id == assignment.Id).EvidenceTypes);
             Assert.Equal("사업자등록증", linked.Name);
             Assert.Equal(2, linked.DisplayOrder);
 
             var deactivate = await client.PutAsJsonAsync($"{BasePath(factory.Catalog.ServiceId)}/{current.Id}/assignments/{assignment.Id}", AssignmentInput(definition.Id, false, false, true, 7, false));
-            Assert.False(Assert.Single((await deactivate.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>())!.StructuredRequirements).IsActive);
+            Assert.False(Assert.Single((await deactivate.Content.ReadFromJsonAsync<AdminProviderRequirementResponse>())!.StructuredRequirements, value => value.Id == assignment.Id).IsActive);
             var other = await client.GetFromJsonAsync<AdminProviderRequirementListResponse>(BasePath(factory.Catalog.OtherServiceId));
             Assert.All(other!.Policies, policy => Assert.Empty(policy.StructuredRequirements));
             var versioned = await client.GetFromJsonAsync<AdminProviderRequirementListResponse>(BasePath(factory.Catalog.ServiceId));
@@ -139,6 +179,75 @@ public sealed class AdminProviderRequirementApiTests(AuthenticationWebApplicatio
         finally
         {
             await RemoveStructuredTestDataAsync(definition?.Id, documentType?.Id, assignment?.Id, futurePolicyId);
+        }
+    }
+
+    [Fact]
+    public async Task Admin_CanApplyOneServiceRequirementsToItsMiddleCategory()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Admin]);
+        var source = await client.GetFromJsonAsync<AdminProviderRequirementResponse>($"{BasePath(factory.Catalog.ServiceId)}/current");
+        var target = await client.GetFromJsonAsync<AdminProviderRequirementResponse>($"{BasePath(factory.Catalog.OtherServiceId)}/current");
+        Assert.NotNull(source); Assert.NotNull(target); Assert.Single(source.StructuredRequirements); Assert.Empty(target.StructuredRequirements);
+        Guid middlePublicId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var parentId = await db.ServiceCategories.Where(value => value.PublicId == factory.Catalog.ServiceId).Select(value => value.ParentId).SingleAsync();
+            middlePublicId = await db.ServiceCategories.Where(value => value.Id == parentId).Select(value => value.PublicId).SingleAsync();
+        }
+        try
+        {
+            var response = await client.PutAsJsonAsync($"/api/v1/admin/service-categories/middles/{middlePublicId}/provider-requirements/apply", new
+            {
+                SourceServiceId = factory.Catalog.ServiceId, SourcePolicyId = source!.Id,
+                Services = new[] { new { ServiceId = factory.Catalog.ServiceId, PolicyId = source.Id, source.RowVersion }, new { ServiceId = factory.Catalog.OtherServiceId, PolicyId = target!.Id, target.RowVersion } }
+            });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var policies = await response.Content.ReadFromJsonAsync<IReadOnlyList<AdminProviderRequirementResponse>>();
+            Assert.NotNull(policies); Assert.Equal(2, policies.Count);
+            var copied = Assert.Single(policies.Single(value => value.Id == target.Id).StructuredRequirements);
+            Assert.Equal(source.StructuredRequirements.Single().RequirementCode, copied.RequirementCode);
+            using var verifyScope = factory.Services.CreateScope(); var verifyDb = verifyScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            Assert.True(await verifyDb.AuditLogs.AnyAsync(value => value.ActionCode == "MIDDLE_PROVIDER_REQUIREMENTS_APPLIED"));
+        }
+        finally
+        {
+            using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var targetPolicyId = await (from category in db.ServiceCategories join policy in db.CategoryOperationPolicies on category.Id equals policy.CategoryId where category.PublicId == factory.Catalog.OtherServiceId select policy.Id).SingleAsync();
+            var copied = await db.CategoryProviderRequirementAssignments.Where(value => value.CategoryOperationPolicyId == targetPolicyId).ToListAsync();
+            var copiedIds = copied.Select(value => value.Id).ToArray();
+            db.CategoryProviderRequirementEvidenceTypes.RemoveRange(db.CategoryProviderRequirementEvidenceTypes.Where(value => copiedIds.Contains(value.RequirementAssignmentId)));
+            db.CategoryProviderRequirementAssignments.RemoveRange(copied); await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Admin_CanApplyApprovedRequirementDefaults_Idempotently()
+    {
+        using var client = CreateClient(); await LoginAsync(client, factory.Credentials[RoleCodes.Admin]);
+        var definitionCodes = new[] { "BUSINESS_REGISTRATION_VERIFICATION", "IDENTITY_AND_REPRESENTATIVE_VERIFICATION", "PROFESSIONAL_LICENSE_VERIFICATION", "LIABILITY_INSURANCE_VERIFICATION", "SAFETY_EDUCATION_VERIFICATION", "EVIDENCE_EXPIRY_VERIFICATION" };
+        var documentCodes = new[] { "BUSINESS_REGISTRATION_CERTIFICATE", "IDENTITY_VERIFICATION_DOCUMENT", "PROFESSIONAL_LICENSE_CERTIFICATE", "LIABILITY_INSURANCE_CERTIFICATE", "SAFETY_EDUCATION_CERTIFICATE", "CAREER_CERTIFICATE", "TAX_PAYMENT_CERTIFICATE", "BANK_ACCOUNT_COPY" };
+        try
+        {
+            var firstResponse = await client.PostAsync($"{StandardsPath}/defaults/apply", null);
+            Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+            var first = await firstResponse.Content.ReadFromJsonAsync<AdminProviderRequirementDefaultsResponse>();
+            Assert.Equal(6, first!.CreatedRequirementDefinitionCount); Assert.Equal(8, first.CreatedDocumentTypeCount);
+            var second = await (await client.PostAsync($"{StandardsPath}/defaults/apply", null)).Content.ReadFromJsonAsync<AdminProviderRequirementDefaultsResponse>();
+            Assert.Equal(0, second!.CreatedRequirementTypeCount); Assert.Equal(0, second.CreatedRequirementDefinitionCount); Assert.Equal(0, second.CreatedDocumentTypeCount);
+            var standards = await client.GetFromJsonAsync<AdminProviderRequirementStandardsResponse>(StandardsPath);
+            Assert.All(definitionCodes, code => Assert.Contains(standards!.RequirementDefinitions, x => x.RequirementCode == code));
+            Assert.All(documentCodes, code => Assert.Contains(standards!.DocumentTypes, x => x.Code == code));
+            using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            Assert.True(await db.AuditLogs.AnyAsync(x => x.ActionCode == "PROVIDER_REQUIREMENT_DEFAULTS_APPLIED"));
+        }
+        finally
+        {
+            using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            db.ProviderRequirementDefinitions.RemoveRange(db.ProviderRequirementDefinitions.Where(x => definitionCodes.Contains(x.RequirementCode)));
+            db.ProviderDocumentTypes.RemoveRange(db.ProviderDocumentTypes.Where(x => documentCodes.Contains(x.Code)));
+            await db.SaveChangesAsync();
         }
     }
 

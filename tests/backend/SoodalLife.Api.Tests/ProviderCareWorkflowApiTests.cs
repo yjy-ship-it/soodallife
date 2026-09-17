@@ -46,11 +46,55 @@ public sealed class ProviderCareWorkflowApiTests(AuthenticationWebApplicationFac
         Assert.Equal(HttpStatusCode.OK, selected.StatusCode); var contract = (await selected.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!;
 
         var contractDetail = await provider.GetFromJsonAsync<ProviderCareContractDetail>($"/api/v1/providers/me/care/contracts/{contract.Id}");
-        Assert.True(contractDetail!.ContactAvailable); Assert.Contains("상세주소", contractDetail.DetailAddress);
+        Assert.False(contractDetail!.ContactAvailable); Assert.Null(contractDetail.CustomerPhone); Assert.Null(contractDetail.DetailAddress);
         Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/v1/providers/me/care/contracts/{contract.Id}")).StatusCode);
         var contractJson = await (await provider.GetAsync($"/api/v1/providers/me/care/contracts/{contract.Id}")).Content.ReadAsStringAsync();
         Assert.DoesNotContain("wallet", contractJson, StringComparison.OrdinalIgnoreCase); Assert.DoesNotContain("netAmount", contractJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("storageKey", contractJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ProviderCare_MatchingRequestRemainsVisibleWhileServiceApprovalNeedsAction()
+    {
+        await EnableSubscription();
+        using var customer = Client(); using var provider = Client();
+        await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        var request = await CreateRequest(customer);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var providerId = await db.ProviderProfiles.Where(x => x.UserId == db.Users
+            .Where(user => user.NormalizedLoginId == factory.Credentials[RoleCodes.Provider].LoginId.ToUpperInvariant())
+            .Select(user => user.Id).Single()).Select(x => x.Id).SingleAsync();
+        var approval = await (from service in db.ProviderServiceCategories
+                              join item in db.ProviderServiceApprovals on service.Id equals item.ProviderServiceCategoryId
+                              where service.ProviderProfileId == providerId && service.CategoryId == db.ServiceCategories
+                                  .Where(category => category.PublicId == factory.Catalog.ServiceId).Select(category => category.Id).Single()
+                              select item).SingleAsync();
+        var originalStatus = approval.ApprovalStatusCode;
+        try
+        {
+            approval.ApprovalStatusCode = "PENDING";
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+
+            var visible = (await provider.GetFromJsonAsync<List<ProviderCareRequestItem>>("/api/v1/providers/me/care/requests/open"))!
+                .Single(item => item.Id == request.Id);
+            Assert.False(visible.CanApply);
+            Assert.Equal("SERVICE_NOT_APPROVED", visible.EligibilityReasonCode);
+            Assert.Equal("이 서비스의 승인이 완료되면 제안할 수 있습니다.", visible.EligibilityReason);
+            Assert.Equal(HttpStatusCode.Forbidden, (await provider.PostAsJsonAsync(
+                $"/api/v1/providers/me/care/requests/{request.Id}/applications",
+                new { proposedScopeText = "정기 방문", proposedMonthlyAmount = 120000m, proposedVisitAmount = 30000m,
+                    availableScheduleText = "평일 오전", idempotencyKey = $"blocked-{Guid.NewGuid():N}" })).StatusCode);
+        }
+        finally
+        {
+            approval = await db.ProviderServiceApprovals.SingleAsync(x => x.Id == approval.Id);
+            approval.ApprovalStatusCode = originalStatus;
+            await db.SaveChangesAsync();
+        }
     }
 
     [Fact]
@@ -72,7 +116,7 @@ public sealed class ProviderCareWorkflowApiTests(AuthenticationWebApplicationFac
         var ids = new List<Guid>();
         for (var i = 0; i < 2; i++)
         {
-            using var form = new MultipartFormDataContent(); using var bytes = new ByteArrayContent([0xff, 0xd8, 0xff, 0x00]); bytes.Headers.ContentType = new("image/jpeg"); form.Add(bytes, "file", $"evidence-{i}.jpg");
+            using var form = new MultipartFormDataContent(); using var bytes = new ByteArrayContent(TestFileSamples.ValidJpeg()); bytes.Headers.ContentType = new("image/jpeg"); form.Add(bytes, "file", $"evidence-{i}.jpg");
             var upload = await flow.Provider.PostAsync($"/api/v1/providers/me/care/visits/{visit.Id}/files", form); Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
             ids.Add((await upload.Content.ReadFromJsonAsync<ProviderCareUploadResponse>())!.FileId);
         }
@@ -96,7 +140,7 @@ public sealed class ProviderCareWorkflowApiTests(AuthenticationWebApplicationFac
         await EnableSubscription(); var customer = Client(); var provider = Client(); await Login(customer, factory.Credentials[RoleCodes.Customer]); await Login(provider, factory.Credentials[RoleCodes.Provider]);
         var request = await CreateRequest(customer); var application = await Apply(provider, request.Id);
         var response = await customer.PostAsJsonAsync($"/api/v1/subscriptions/requests/{request.Id}/selection", new { applicationId = application.Id, idempotencyKey = $"select-{Guid.NewGuid():N}" }); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return new(customer, provider, (await response.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!);
+        var pending=(await response.Content.ReadFromJsonAsync<SubscriptionContractResponse>())!;using var admin=Client();await Login(admin,factory.Credentials[RoleCodes.Admin]);var payment=(await admin.GetFromJsonAsync<List<SubscriptionPaymentResponse>>("/api/v1/admin/subscription-accounting/payments"))!.First(x=>x.ContractId==pending.Id&&x.StatusCode=="REQUESTED");var confirmed=await admin.PostAsJsonAsync($"/api/v1/admin/subscription-accounting/payments/{payment.Id}/development-confirmation",new{idempotencyKey=$"confirm-provider-care-{Guid.NewGuid():N}",externalPaymentReference="TEST",rowVersion=payment.RowVersion});Assert.Equal(HttpStatusCode.OK,confirmed.StatusCode);var active=(await admin.GetFromJsonAsync<List<SubscriptionContractResponse>>("/api/v1/admin/subscriptions/contracts"))!.Single(x=>x.Id==pending.Id);return new(customer, provider, active);
     }
     private async Task<SubscriptionRequestResponse> CreateRequest(HttpClient customer)
     {

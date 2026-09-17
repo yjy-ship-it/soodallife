@@ -1,0 +1,13 @@
+﻿Release: V241 mobile care proposal fixes
+Database changed: true
+Cumulative V240 quote templates: included
+Distance decline: database constraint fixed
+Desired budget: thousands separator and won suffix
+Request attachments: image-only copy
+Care recurrence: weekday count saved and schedule previewed
+Proposal application: list button and my-application path
+Provider mobile header: monthly schedule shortcut
+Mobile exit: Soodal confirmation dialog
+PowerShell encoding: UTF-8 with BOM
+App_Data preserved: true
+App settings preserved: true

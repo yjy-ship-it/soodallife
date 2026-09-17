@@ -1,0 +1,21 @@
+SOODAL LIFE RELEASE MANIFEST
+Version: V155
+Release: customer-request-abuse-protection-v155
+Date: 2026-08-28
+
+Applications
+- api: ASP.NET Core production publish
+- frontend/customer: customer responsive web/PWA
+- frontend/partner: provider responsive web/PWA
+- frontend/admin: admin responsive web/PWA
+
+Database
+- deployment/Apply-CustomerRequestAbuseProtectionV155.sql
+- deployment/Verify-CustomerRequestAbuseProtectionV155.sql
+- EF migration: 20260828065008_AddCustomerRequestAbuseProtectionV155
+
+Operational guarantees
+- Existing appsettings and API App_Data are preserved.
+- IIS, application files and SQL database are backed up before deployment.
+- Database changes are idempotent and verified after application.
+- NICE verification before request publication is excluded by explicit product decision.

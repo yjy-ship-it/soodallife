@@ -33,3 +33,11 @@ public sealed record SaveAdminProviderDocumentTypeRequest(
     [param: Required, StringLength(200, MinimumLength = 1)] string Name,
     bool SupportsExpiry,
     bool IsActive);
+
+public sealed record AdminProviderRequirementDefaultsResponse(
+    int CreatedRequirementTypeCount,
+    int CreatedRequirementDefinitionCount,
+    int CreatedDocumentTypeCount,
+    int ExistingRequirementTypeCount,
+    int ExistingRequirementDefinitionCount,
+    int ExistingDocumentTypeCount);

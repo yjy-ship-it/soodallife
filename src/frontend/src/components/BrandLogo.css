@@ -1,0 +1,25 @@
+.brandLogo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brandLogoMark {
+  display: block;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.brandLogoText { display: grid; gap: 2px; justify-items: center; }
+.brandLogoText strong { color: var(--color-brand-deep); font-size: 1.05rem; letter-spacing: -.04em; text-align: center; }
+.brandLogoText small { display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; color: #56726a; font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-align: center; }
+.brandLogoText small svg { width: 13px; height: 13px; flex: 0 0 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

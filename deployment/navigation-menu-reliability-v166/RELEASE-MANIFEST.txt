@@ -1,0 +1,16 @@
+SOODAL LIFE V166 - Navigation menu reliability
+Release date: 2026-08-30
+
+Scope
+- Customer and provider desktop drop-down menus close on outside click, X button, Escape, and route change.
+- Mobile drawers close on backdrop, X button, Escape, and route change; body scrolling is locked while open.
+- Help Room and Suggestion Box are separated from transaction services into Community and Support.
+- Customer navigation now exposes Help Room, Suggestion Box, and Customer Support consistently.
+- Provider desktop header includes an explicit Logout button.
+
+Deployment impact
+- Frontend customer, partner, and admin static applications only.
+- Database schema/data: unchanged.
+- API binaries: unchanged.
+- Production settings: unchanged.
+- Existing IIS and frontend files are backed up before replacement; failed file deployment is restored.

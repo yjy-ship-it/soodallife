@@ -1,0 +1,8 @@
+.careSelectedServiceVisual,.careRequestSummaryLead{display:flex;align-items:center;gap:14px;min-width:0}
+.careSelectedServiceVisual{padding:12px;border:1px solid #dbe7e4;border-radius:14px;background:#f7fbfa}
+.careSelectedServiceVisual>.serviceThumbnail,.careRequestSummaryLead>.serviceThumbnail{width:96px;height:72px;min-width:96px;border-radius:12px;object-fit:cover}
+.careSelectedServiceVisual>div,.careRequestSummaryLead>div{display:grid;gap:4px;min-width:0}
+.careSelectedServiceVisual small,.careSelectedServiceVisual span{color:#64748b}
+.careRequestSummaryCard{display:grid!important;gap:10px}
+.careRequestSummaryLead strong{margin:0}
+@media(max-width:640px){.careSelectedServiceVisual>.serviceThumbnail,.careRequestSummaryLead>.serviceThumbnail{width:78px;height:62px;min-width:78px}}

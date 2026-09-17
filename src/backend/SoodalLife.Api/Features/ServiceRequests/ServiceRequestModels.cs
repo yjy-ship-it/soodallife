@@ -8,6 +8,7 @@ public sealed record CreateServiceRequestInput(
     string? Title,
     string? Description,
     string? DetailAddress,
+    string? DetailAddressDisclosureCode,
     bool IsUrgent,
     string? IdempotencyKey,
     IReadOnlyList<RequestAnswerInput>? Answers);
@@ -17,6 +18,7 @@ public sealed record UpdateServiceRequestDraftInput(
     string? Title,
     string? Description,
     string? DetailAddress,
+    string? DetailAddressDisclosureCode,
     bool IsUrgent,
     IReadOnlyList<RequestAnswerInput>? Answers);
 
@@ -37,10 +39,12 @@ public sealed record ServiceRequestListItemResponse(
     string Title,
     string Status,
     string DisplayStatus,
+    string Domain,
     string CategoryPath,
     DateTime CreatedAt,
     DateTime? DesiredAt,
     int QuoteCount,
+    int SiteVisitProposalCount,
     Guid? TransactionId);
 
 public sealed record ServiceRequestAnswerResponse(
@@ -72,6 +76,7 @@ public sealed record ServiceRequestDetailResponse(
     string Status,
     string DisplayStatus,
     bool IsUrgent,
+    string Domain,
     string CategoryPath,
     Guid MajorCategoryId,
     Guid MiddleCategoryId,
@@ -79,6 +84,7 @@ public sealed record ServiceRequestDetailResponse(
     Guid? AdministrativeAreaId,
     string? AdministrativeAreaName,
     string? DetailAddress,
+    string DetailAddressDisclosureCode,
     DateTime CreatedAt,
     DateTime? DesiredAt,
     int QuoteCount,

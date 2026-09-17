@@ -29,9 +29,12 @@ function ChangeBadge({ metric }: { metric: AdminAnalyticsMetric }) {
   return <span className={`analyticsChange ${direction}`}>이전 기간 대비 {metric.changeRate > 0 ? '+' : ''}{metric.changeRate}%</span>
 }
 
-function MetricCard({ metric }: { metric: AdminAnalyticsMetric }) {
+const detailPath = (code: string) => code.includes('provider') ? '/admin/providers' : code.includes('request') || code.includes('quote') || code.includes('transaction') ? '/admin/requests' : code.includes('wallet') || code.includes('fee') || code.includes('payment') || code.includes('settlement') ? '/admin/settlements' : code.includes('review') || code.includes('rating') ? '/admin/reviews' : code.includes('dispute') || code.includes('after_service') ? '/admin/disputes' : code.includes('notification') || code.includes('deliver') ? '/admin/notifications' : code.includes('subscription') ? '/admin/subscriptions' : code.includes('interior') ? '/admin/interior' : ''
+
+function MetricCard({ metric, open }: { metric: AdminAnalyticsMetric; open?: (path: string) => void }) {
+  const path = detailPath(metric.code)
   return (
-    <article className="analyticsKpiCard">
+    <article className={`analyticsKpiCard${path ? ' clickable' : ''}`} onClick={() => path && open?.(path)}>
       <span>{metric.label}</span>
       <strong className={metric.value === null ? 'unavailable' : ''}>{formatMetric(metric)}</strong>
       <ChangeBadge metric={metric} />
@@ -104,12 +107,19 @@ export function AdminDashboardPage({ pathname }: { pathname: string }) {
     window.history.pushState({}, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
+  const exportExcel = () => {
+    if (!dashboard) return
+    const rows: (string | number)[][] = [['수달 라이프 통계·분석'], ['기간', `${dashboard.appliedFilter.from} ~ ${dashboard.appliedFilter.to}`], ['전문가', dashboard.appliedFilter.providerId ?? '전체'], [], ['구분', '지표', '값', '단위', '비고']]
+    dashboard.kpis.forEach(item => rows.push(['핵심 KPI', item.label, item.value ?? '', item.unit, item.note ?? '']))
+    dashboard.sections.forEach(section => section.metrics.forEach(item => rows.push([section.title, item.label, item.value ?? '', item.unit, item.note ?? ''])))
+    const text='\uFEFF'+rows.map(row=>row.map(value=>String(value).replace(/\t|\r?\n/g,' ')).join('\t')).join('\r\n');const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([text],{type:'application/vnd.ms-excel;charset=utf-8'}));link.download=`soodal-analytics-${dashboard.appliedFilter.from}-${dashboard.appliedFilter.to}.xls`;link.click();URL.revokeObjectURL(link.href)
+  }
 
   return (
     <AdminLayout pathname={pathname}>
       <section className="adminPageHeading analyticsHeading">
         <div><p>본사 경영 현황</p><h1>통계·경영 대시보드</h1></div>
-        <span>{dashboard ? `${dashboard.appliedFilter.from} ~ ${dashboard.appliedFilter.to} · ${new Date(dashboard.generatedAt).toLocaleString('ko-KR')} 기준` : '실제 업무 DB를 읽기 전용으로 집계합니다.'}</span>
+        <div><span>{dashboard ? `${dashboard.appliedFilter.from} ~ ${dashboard.appliedFilter.to} · ${new Date(dashboard.generatedAt).toLocaleString('ko-KR')} 기준` : '실제 업무 DB를 읽기 전용으로 집계합니다.'}</span>{dashboard && <button type="button" onClick={exportExcel}>Excel 내려받기</button>}</div>
       </section>
 
       <section className="analyticsFilterBar" aria-label="대시보드 필터">
@@ -120,19 +130,20 @@ export function AdminDashboardPage({ pathname }: { pathname: string }) {
         <div className="analyticsSelects">
           <label>서비스<select value={filters.categoryId ?? ''} onChange={(event) => updateFilter('categoryId', event.target.value)}><option value="">전체 서비스</option>{dashboard?.categories.map((item) => <option key={item.id} value={item.id}>{item.parentLabel ? `${item.parentLabel} › ` : ''}{item.label}</option>)}</select></label>
           <label>지역<select value={filters.areaId ?? ''} onChange={(event) => updateFilter('areaId', event.target.value)}><option value="">전체 지역</option>{dashboard?.regions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+          <label>전문가<select value={filters.providerId ?? ''} onChange={(event) => updateFilter('providerId', event.target.value)}><option value="">전체 전문가</option>{dashboard?.providers.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
         </div>
       </section>
 
       {error && <div className="adminError" role="alert">{error}</div>}
       {loading && !dashboard ? <section className="analyticsLoading">실제 운영 데이터를 집계하고 있습니다…</section> : dashboard && <>
-        <section className="analyticsKpiGrid" aria-label="핵심 KPI">{dashboard.kpis.map((metric) => <MetricCard key={metric.code} metric={metric} />)}</section>
+        <section className="analyticsKpiGrid" aria-label="핵심 KPI">{dashboard.kpis.map((metric) => <MetricCard key={metric.code} metric={metric} open={navigate} />)}</section>
         <section className="analyticsAttentionPanel">
           <div className="analyticsPanelHeading"><div><span className="adminSectionLabel">ACTION REQUIRED</span><h2>지금 처리해야 할 일</h2></div><p>발생 건수는 귀책 또는 매출로 해석하지 않습니다.</p></div>
           <div className="analyticsAttentionGrid">{dashboard.attention.map((item) => <button key={item.code} type="button" onClick={() => navigate(item.path)}><span className={item.severity.toLowerCase()}>{item.severity === 'CRITICAL' ? '긴급' : '확인'}</span><strong>{item.count.toLocaleString('ko-KR')}건</strong><b>{item.label}</b><small>{item.description}</small></button>)}</div>
         </section>
         <TrendChart dashboard={dashboard} />
         <div className="analyticsTwoColumns"><BreakdownList title="서비스별 신규 요청" items={dashboard.requestsByCategory} /><BreakdownList title="지역별 신규 요청" items={dashboard.requestsByRegion} /></div>
-        <section className="analyticsSectionGrid">{dashboard.sections.map((section) => <article className="analyticsSectionCard" key={section.code}><div className="analyticsPanelHeading"><h2>{section.title}</h2><span>{section.metrics.length}개 지표</span></div><dl>{section.metrics.map((metric) => <div key={metric.code}><dt>{metric.label}{metric.note && <small>{metric.note}</small>}</dt><dd className={metric.value === null ? 'unavailable' : ''}>{formatMetric(metric)}<ChangeBadge metric={metric} /></dd></div>)}</dl></article>)}</section>
+        <section className="analyticsSectionGrid">{dashboard.sections.map((section) => <article className="analyticsSectionCard" key={section.code}><div className="analyticsPanelHeading"><h2>{section.title}</h2><span>{section.metrics.length}개 지표</span></div><dl>{section.metrics.map((metric) => { const path=detailPath(metric.code); return <div key={metric.code} className={path?'clickable':''} onClick={()=>path&&navigate(path)}><dt>{metric.label}{metric.note && <small>{metric.note}</small>}</dt><dd className={metric.value === null ? 'unavailable' : ''}>{formatMetric(metric)}<ChangeBadge metric={metric} /></dd></div> })}</dl></article>)}</section>
         <section className="analyticsUnavailable"><div><span className="adminSectionLabel">DATA LIMITATIONS</span><h2>현재 계산하지 않는 지표</h2></div><ul>{dashboard.unavailableMetrics.map((item) => <li key={item}>{item}</li>)}</ul></section>
       </>}
     </AdminLayout>

@@ -1,0 +1,7 @@
+﻿V238 audit
+- Frontend build: passed
+- Received quote detail: updated
+- Customer/provider work detail: updated
+- Interior quote detail: updated
+- Existing quote editor: updated
+- Database migration: none

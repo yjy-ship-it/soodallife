@@ -1,0 +1,8 @@
+SET NOCOUNT ON;
+IF NOT EXISTS(SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId=N'20260820123000_AddInteriorContractExpirySafetyV108') THROW 51810,'V108 migration history is missing.',1;
+IF COL_LENGTH('dbo.interior_projects','contract_action_due_at') IS NULL OR COL_LENGTH('dbo.interior_projects','fee_release_ledger_entry_id') IS NULL THROW 51811,'V108 contract expiry columns are missing.',1;
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.interior_projects') AND name=N'CK_interior_projects_fee' AND definition LIKE '%RESERVED_PENDING_CONTRACT%' AND definition LIKE '%RELEASED%') THROW 51812,'Interior fee status constraint is not updated.',1;
+IF EXISTS(SELECT 1 FROM dbo.interior_projects WHERE fee_assessment_status_code='RESERVED_PENDING_CONTRACT' AND contract_action_due_at IS NULL) THROW 51813,'Reserved project without contract deadline exists.',1;
+IF (SELECT COUNT(*) FROM dbo.notification_templates WHERE template_code IN ('INTERIOR_CONTRACT_DEADLINE_CUSTOMER_WEB','INTERIOR_CONTRACT_DEADLINE_PROVIDER_WEB','INTERIOR_CONTRACT_RELEASE_CUSTOMER_WEB','INTERIOR_CONTRACT_RELEASE_PROVIDER_WEB') AND is_active=1)<4 THROW 51814,'V108 notification templates are missing.',1;
+SELECT N'V108_OK' AS verification_result,(SELECT COUNT(*) FROM dbo.interior_projects WHERE fee_assessment_status_code='RESERVED_PENDING_CONTRACT') AS pending_contract_reservations,(SELECT COUNT(*) FROM dbo.interior_projects WHERE contract_expiry_paused_at IS NOT NULL) AS paused_deadlines,(SELECT COUNT(*) FROM dbo.wallet_ledger WHERE entry_type_code='RELEASE' AND reference_type='INTERIOR_FEE_RESERVATION') AS interior_release_ledger_count;
+GO

@@ -39,6 +39,14 @@ public sealed class AdminMatchingController(RequestMatchingService matchingServi
     }
 }
 
+[ApiController,Authorize(Roles=RoleCodes.Admin),Route("api/v1/admin/matching")]
+public sealed class AdminMatchingOperationsController(AdminMatchingOperationsService service,RequestMatchingService matching):ControllerBase
+{
+    [HttpGet] public Task<AdminMatchingDashboard> Dashboard(CancellationToken token)=>service.Dashboard(token);
+    [HttpPost("requests/{requestId:guid}/rematch")] public async Task<ActionResult<MatchAndDispatchResult>> Rematch(Guid requestId,CancellationToken token)
+    {try{return Ok(await matching.MatchAndDispatchAsync(requestId,token));}catch(MatchingException exception){return StatusCode(exception.StatusCode,ApiErrorResponse.Create(HttpContext,exception.BusinessCode,exception.Message));}}
+}
+
 [ApiController]
 [Authorize(Roles = RoleCodes.Provider)]
 [Route("api/v1/providers/me/matched-requests")]
@@ -53,5 +61,15 @@ public sealed class ProviderMatchedRequestsController(RequestMatchingService mat
     {
         var result = await matchingService.GetInboxDetailAsync(User, requestId, cancellationToken);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("{requestId:guid}/decline")]
+    public async Task<IActionResult> Decline(Guid requestId, DeclineMatchedRequestInput input, CancellationToken cancellationToken)
+    {
+        try { await matchingService.DeclineInboxAsync(User, requestId, input, cancellationToken); return NoContent(); }
+        catch (MatchingException exception)
+        {
+            return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message));
+        }
     }
 }

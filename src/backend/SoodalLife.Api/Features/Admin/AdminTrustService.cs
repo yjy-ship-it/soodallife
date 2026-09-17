@@ -10,7 +10,7 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
         bool? hasDispute, int page, int pageSize, CancellationToken cancellationToken)
     {
         if (page < 1 || pageSize is < 1 or > 100)
-            throw new AdminServiceCategoryException("ADMIN_TRUST_PAGE_INVALID", "페이지와 페이지당 공급자 수를 확인해 주세요.");
+            throw new AdminServiceCategoryException("ADMIN_TRUST_PAGE_INVALID", "페이지와 페이지당 전문가 수를 확인해 주세요.");
 
         var query = from provider in dbContext.ProviderProfiles.AsNoTracking()
                     join user in dbContext.Users.AsNoTracking() on provider.UserId equals user.Id
@@ -118,7 +118,7 @@ public sealed class AdminTrustService(SoodalLifeDbContext dbContext)
         var disputes = await dbContext.DisputeCases.AsNoTracking().Where(value => value.TransactionId.HasValue && transactionIds.Contains(value.TransactionId.Value))
             .OrderByDescending(value => value.ReceivedAt).Select(value => new AdminTrustDisputeResponse(value.PublicId, value.Subject,
                 value.StatusCode, value.ReceivedAt, value.ResolvedAt, value.ClosedAt,
-                "현재 책임판정 구조가 없어 분쟁 발생을 공급자 귀책으로 해석하지 않습니다.")).ToListAsync(cancellationToken);
+                "현재 책임판정 구조가 없어 분쟁 발생을 전문가 귀책으로 해석하지 않습니다.")).ToListAsync(cancellationToken);
         var events = await (from item in dbContext.TrustScoreEvents.AsNoTracking()
                             join policyValue in dbContext.TrustPolicies.AsNoTracking() on item.TrustPolicyId equals policyValue.Id into policies
                             from policy in policies.DefaultIfEmpty()

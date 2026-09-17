@@ -1,0 +1,14 @@
+Release: V157 gated external integrations
+Release date: 2026-08-29
+Applications: API, customer, partner, admin
+Database schema changed: false
+NICE: configurable TEST/PRODUCTION bridge; protected test token; NOT_INTEGRATED signup fails closed outside Testing environment
+NHN: SMS, Alimtalk, Email and Push senders; test recipient allow-list; channel settings and global mode must both be enabled
+Toss wallet: server-side payment confirmation; exact order and amount verification; idempotent wallet ledger credit after DONE only
+PWA: service-worker push display/click handlers; browser permission is requested only after an explicit user action
+Default external mode: DISABLED
+Production settings preserved: true
+API App_Data preserved: true
+Database backup and verification: enabled
+IIS configuration and file rollback backup: enabled
+Post-deployment health, readiness and UI route checks: enabled

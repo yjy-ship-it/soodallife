@@ -13,16 +13,18 @@ public sealed class CatalogController(CatalogQueryService catalogQueryService) :
     [HttpGet("majors")]
     public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMajors(
         [FromQuery] bool emergencyOnly,
+        [FromQuery] bool includeSubscription,
         CancellationToken cancellationToken) =>
-        Ok(await catalogQueryService.GetMajorCategoriesAsync(emergencyOnly, cancellationToken));
+        Ok(await catalogQueryService.GetMajorCategoriesAsync(emergencyOnly, includeSubscription, cancellationToken));
 
     [HttpGet("{majorId:guid}/middles")]
     public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetMiddles(
         Guid majorId,
         [FromQuery] bool emergencyOnly,
+        [FromQuery] bool includeSubscription,
         CancellationToken cancellationToken)
     {
-        var categories = await catalogQueryService.GetMiddleCategoriesAsync(majorId, emergencyOnly, cancellationToken);
+        var categories = await catalogQueryService.GetMiddleCategoriesAsync(majorId, emergencyOnly, includeSubscription, cancellationToken);
         return categories is null ? NotFound() : Ok(categories);
     }
 
@@ -30,9 +32,10 @@ public sealed class CatalogController(CatalogQueryService catalogQueryService) :
     public async Task<ActionResult<IReadOnlyList<CategoryResponse>>> GetServices(
         Guid middleId,
         [FromQuery] bool emergencyOnly,
+        [FromQuery] bool includeSubscription,
         CancellationToken cancellationToken)
     {
-        var categories = await catalogQueryService.GetServicesAsync(middleId, emergencyOnly, cancellationToken);
+        var categories = await catalogQueryService.GetServicesAsync(middleId, emergencyOnly, includeSubscription, cancellationToken);
         return categories is null ? NotFound() : Ok(categories);
     }
 

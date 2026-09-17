@@ -1,4 +1,4 @@
-import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, LegalDocument, MySoodalSummary, NotificationPreference, ProviderBlock, WithdrawalDashboard, WithdrawalReadiness, WithdrawalRequest } from './accountTypes'
+import type { AdministrativeArea, Availability, Consent, ConsentHistory, CustomerAddress, CustomerNotification, CustomerProfile, InterestedService, InterestedServiceState, LegalDocument, MySoodalSummary, NotificationPreference, ProviderBlock, WithdrawalDashboard, WithdrawalReadiness, WithdrawalRequest } from './accountTypes'
 
 export class CustomerAccountApiError extends Error {
   readonly status: number
@@ -27,6 +27,7 @@ export const customerAccountApi = {
   phoneAvailability: (value: string) => request<Availability>(`/api/v1/public/customer-account/availability/phone?value=${encodeURIComponent(value)}`),
   legalDocuments: () => request<LegalDocument[]>('/api/v1/public/customer-account/legal-documents'),
   identityVerificationStatus: () => request<{ statusCode: string; isVerified: boolean }>('/api/v1/public/customer-account/identity-verification/status'),
+  completeTestIdentityVerification: (phone: string, testCode: string) => request<{ verificationToken: string; expiresAt: string }>('/api/v1/public/customer-account/identity-verification/test-complete', json({ phone, testCode })),
   register: (value: unknown) => request('/api/v1/public/customer-account/register', json(value)),
   requestPasswordReset: (loginOrEmail: string) => request('/api/v1/public/customer-account/password-reset/requests', json({ loginOrEmail })),
   profile: () => request<CustomerProfile>('/api/v1/customer/account/profile'),
@@ -47,6 +48,9 @@ export const customerAccountApi = {
   blockProvider: (providerId: string, reasonCode: string | null, privateMemo: string | null) => request<ProviderBlock>('/api/v1/customers/me/provider-blocks', json({ providerId, reasonCode, privateMemo, idempotencyKey: crypto.randomUUID() })),
   releaseProviderBlock: (id: string, rowVersion: string) => request<ProviderBlock>(`/api/v1/customers/me/provider-blocks/${id}/release`, json({ rowVersion, idempotencyKey: crypto.randomUUID() })),
   mySoodalSummary: () => request<MySoodalSummary>('/api/v1/customers/me/my-soodal/summary'),
+  interestedServices: () => request<InterestedService[]>('/api/v1/customers/me/interested-services'),
+  interestedServiceState: (serviceId: string) => request<InterestedServiceState>(`/api/v1/customers/me/interested-services/${serviceId}/state`),
+  saveInterestedService: (serviceId: string, interested: boolean) => request<InterestedServiceState>(`/api/v1/customers/me/interested-services/${serviceId}`, put({ interested })),
   sidos: () => request<AdministrativeArea[]>('/api/v1/administrative-areas/sidos'),
   sigungu: (parentId?: string) => request<AdministrativeArea[]>(`/api/v1/administrative-areas/sigungu${parentId ? `?parentId=${parentId}` : ''}`),
   notificationPreferences: () => request<NotificationPreference[]>('/api/v1/notifications/preferences'),

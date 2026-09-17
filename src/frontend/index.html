@@ -6,15 +6,24 @@
     <meta name="theme-color" content="#0F766E" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="수달 라이프" />
+    <meta name="apple-mobile-web-app-title" content="수달 고객" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/png" href="/brand/soodal-life-mark.png" />
-    <link rel="apple-touch-icon" href="/brand/soodal-life-mark.png" />
+    <script>
+      const isPartnerSite = window.location.hostname.toLowerCase().startsWith('partner.');
+      document.title = isPartnerSite ? '수달 전문가' : '수달 고객';
+      if (isPartnerSite) {
+        document.querySelector('meta[name="apple-mobile-web-app-title"]')
+          ?.setAttribute('content', '수달 전문가');
+      }
+    </script>
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=269" />
+    <link rel="shortcut icon" type="image/png" href="/icons/icon-192.png?v=269" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=269" />
     <meta
       name="description"
       content="생활서비스를 찾고 견적을 비교하는 수달 라이프"
     />
-    <title>수달 라이프</title>
+    <title>수달 고객</title>
   </head>
   <body>
     <div id="root"></div>

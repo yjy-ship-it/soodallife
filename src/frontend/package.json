@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check:user-display": "node scripts/check-user-display-policy.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

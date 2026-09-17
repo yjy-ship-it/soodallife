@@ -1,0 +1,20 @@
+SOODAL LIFE V160 - Cross-portal navigation and friend sharing
+
+Release scope
+- Expert mobile header logout is replaced by Customer Home; logout remains in the full menu.
+- Customer mobile header includes Expert Home.
+- Existing experts go to the expert home or onboarding status according to their profile.
+- Customers without an expert role go to expert registration.
+- Customer and expert referral links use the mobile native share sheet so KakaoTalk can be selected.
+- Unsupported browsers copy the referral link for pasting into KakaoTalk.
+- Proposal detail includes Friend Participation Recommendation with the exact campaign deep link.
+
+Database schema changed: No
+Database data changed: No
+API changed: No
+Production settings changed: No
+
+Verification
+- Frontend TypeScript and production build: passed
+- Required V160 labels embedded in production JavaScript: checked
+- Customer, partner and admin frontends included

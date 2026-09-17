@@ -5,10 +5,14 @@ export interface AuditFilters { from?: string; to?: string; adminId?: string; ar
 export interface SystemMetric { code: string; label: string; count: number; severity: string; path: string }
 export interface OutboxStatus { status: string; count: number }
 export interface OutboxFailure { id: string; aggregateType: string; eventType: string; attemptCount: number; lastAttemptAt: string | null; lastError: string | null }
-export interface IntegrationStatus { code: string; label: string; status: string; note: string }
+export interface IntegrationStatus { code: string; label: string; status: string; note: string; deliveredCount: number; failedCount: number; successRate: number | null; lastSucceededAt: string | null; lastFailedAt: string | null }
 export interface ManagedSetting { area: string; source: string; path: string; note: string }
 export interface AdminAccountSummary { id: string; loginId: string; status: string; roles: string[]; createdAt: string; lastLoginAt: string | null }
 export interface DatabaseStatus { connection: string; migrationStatus: string; pendingMigrationCount: number; pendingMigrations: string[] }
 export interface AutomationJobStatus { name: string; configurationStatus: string; enabled: boolean; lastStartedAt: string | null; lastSucceededAt: string | null; lastFailedAt: string | null; lastErrorCode: string | null; nextScheduledAt: string | null; processingCount: number; failedCount: number }
 export interface RetentionCandidateSummary { domain: string; candidateCount: number; actionStatus: string; reasonCode: string }
-export interface SystemStatusResponse { generatedAt: string; database: DatabaseStatus; attention: SystemMetric[]; outbox: OutboxStatus[]; recentOutboxFailures: OutboxFailure[]; integrations: IntegrationStatus[]; managedSettings: ManagedSetting[]; administrators: AdminAccountSummary[]; securityLimitations: string[]; automationJobs: AutomationJobStatus[]; retentionCandidates: RetentionCandidateSummary[] }
+export interface RuntimeStatus { workingSetMb:number; managedMemoryMb:number; threadCount:number; uptimeHours:number; diskFreeMb:number; apiRequestCount24h:number; apiErrorRate24h:number|null; apiAverageDurationMs24h:number|null }
+export interface JobRunItem { id:string; jobName:string; status:string; startedAt:string; completedAt:string|null; processedCount:number; failedCount:number; errorCode:string|null }
+export interface RetentionPolicyItem { id:string; domainCode:string; actionCode:string; retentionDays:number; legalHoldDays:number; isEnabled:boolean; dryRun:boolean; updatedAt:string }
+export interface SecurityAccount { id:string; loginId:string; status:string; detailRoleCode:string; mfaEnabled:boolean; mfaConfirmedAt:string|null; createdAt:string; lastLoginAt:string|null }
+export interface SystemStatusResponse { generatedAt: string; database: DatabaseStatus; attention: SystemMetric[]; outbox: OutboxStatus[]; recentOutboxFailures: OutboxFailure[]; integrations: IntegrationStatus[]; managedSettings: ManagedSetting[]; administrators: AdminAccountSummary[]; securityLimitations: string[]; automationJobs: AutomationJobStatus[]; retentionCandidates: RetentionCandidateSummary[]; runtime:RuntimeStatus; recentJobRuns:JobRunItem[]; retentionPolicies:RetentionPolicyItem[] }

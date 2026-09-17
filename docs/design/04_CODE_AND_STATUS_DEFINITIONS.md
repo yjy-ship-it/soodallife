@@ -8,7 +8,7 @@
 - 역할은 데이터 행(`roles`)으로 관리한다. 상태 전이 자체는 애플리케이션 도메인 서비스가 검증하고 DB는 허용값/unique/FK를 방어한다.
 - 아래에 없는 새 값은 임의 추가하지 않고 `OPEN`으로 승인받는다.
 
-## 2. 사용자·공급자
+## 2. 사용자·전문가
 
 | 그룹 | 코드 | 의미 |
 |---|---|---|
@@ -16,7 +16,7 @@
 | USER_STATUS | SUSPENDED | 로그인/업무 제한 |
 | USER_STATUS | WITHDRAWN | 탈퇴 처리된 계정 |
 | ROLE | CUSTOMER | 고객 권한 |
-| ROLE | PROVIDER | 공급자 권한 |
+| ROLE | PROVIDER | 전문가 권한 |
 | ROLE | ADMIN | 관리자 권한 |
 | PROVIDER_APPROVAL | PENDING | 승인 대기 |
 | PROVIDER_APPROVAL | APPROVED | 승인 |
@@ -105,7 +105,7 @@
 | FILE_PURPOSE | PROVIDER_DOCUMENT, REQUEST_ANSWER, COMPLETION_EVIDENCE, AFTER_SERVICE | 연결 테이블과 일치 |
 | NOTIFICATION_STATUS | PENDING, RECORDED, PROCESSING, SENT, PARTIALLY_FAILED, FAILED | 외부 채널 미연결 시 RECORDED까지 사용 |
 | DELIVERY_STATUS | PENDING, SENT, FAILED, SKIPPED | 채널별 시도 |
-| CHANNEL | IN_APP, ALIMTALK | ALIMTALK은 공급자 연동 전 비활성 |
+| CHANNEL | IN_APP, ALIMTALK | ALIMTALK은 전문가 연동 전 비활성 |
 | OUTBOX_STATUS | PENDING, PROCESSING, PUBLISHED, FAILED | 재시도 가능한 발행 상태 |
 
 완료 사진 역할은 `completion_photo_roles`의 데이터로 관리한다. 초기 역할은 BEFORE/AFTER/OTHER이며, 향후 DETAIL/SERIAL/PROCESS 등을 데이터로 추가할 수 있으므로 C# enum이나 고정 CHECK 목록으로 제한하지 않는다. 정책별 최소수량은 `category_completion_photo_requirements`에 저장한다.

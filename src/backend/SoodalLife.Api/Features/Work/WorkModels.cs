@@ -21,7 +21,26 @@ public sealed record WorkQuoteItem(
     decimal Quantity,
     string? UnitText,
     decimal UnitPriceAmount,
-    decimal LineTotalAmount);
+    decimal LineTotalAmount,
+    string? WorkTradeText,
+    string? SpaceText,
+    string? ItemCategoryCode,
+    string? MaterialSpecText,
+    string? LaborNoteText);
+
+public sealed record WorkAcceptedQuote(
+    int RevisionNo,
+    string Summary,
+    string? Terms,
+    decimal SubtotalAmount,
+    decimal VatAmount,
+    decimal TotalAmount,
+    string CurrencyCode,
+    string? EstimatedDurationText,
+    DateTime? AvailableStartAt,
+    DateTime ValidUntil,
+    short WarrantyDays,
+    IReadOnlyList<WorkQuoteItem> Items);
 
 public sealed record WorkRequestAnswer(
     string Label,
@@ -73,6 +92,8 @@ public sealed record WorkCompletionRevisionResponse(
 
 public sealed record WorkTransactionDetail(
     Guid Id,
+    Guid RequestId,
+    Guid ProviderId,
     string Status,
     string CategoryPath,
     string AreaName,
@@ -87,6 +108,7 @@ public sealed record WorkTransactionDetail(
     DateTime? StartedAt,
     DateTime? CompletedAt,
     IReadOnlyList<WorkQuoteItem> QuoteItems,
+    WorkAcceptedQuote AcceptedQuote,
     IReadOnlyList<WorkRequestAnswer> RequestAnswers,
     CompletionPolicyStatus CompletionPolicy,
     IReadOnlyList<PhotoRoleOption> AvailablePhotoRoles,

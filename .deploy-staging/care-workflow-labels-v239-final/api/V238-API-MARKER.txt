@@ -1,0 +1,2 @@
+﻿Release: V238 quote summary display
+Quote placeholder replacement: enabled

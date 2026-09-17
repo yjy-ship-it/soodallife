@@ -98,6 +98,7 @@ public sealed class SubscriptionContract
     public long ServiceCategoryId { get; set; }
     public long? CareProductId { get; set; }
     public long SubscriptionApplicationId { get; set; }
+    public long? PaymentMethodId { get; set; }
     public string StatusCode { get; set; } = "ACTIVE";
     public DateTime StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
@@ -114,7 +115,11 @@ public sealed class SubscriptionContract
     public decimal? ProviderTrustScoreSnapshot { get; set; }
     public string CurrencyCode { get; set; } = "KRW";
     public DateTime? NextBillingAt { get; set; }
+    public int? BillingAnchorDay { get; set; }
     public string? BillingStatusCode { get; set; }
+    public string? GatewayTerminationStatusCode { get; set; }
+    public DateTime? GatewayTerminatedAt { get; set; }
+    public string? GatewayTerminationFailureReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }

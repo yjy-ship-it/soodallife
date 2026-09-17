@@ -1,4 +1,4 @@
-import type{NotificationDelivery,NotificationSummary,NotificationTemplate}from'./notificationTypes'
+import type{NotificationBroadcast,NotificationBroadcastPreview,NotificationChannelSetting,NotificationDelivery,NotificationDeliveryDetail,NotificationPreview,NotificationSummary,NotificationTemplate,PagedNotifications}from'./notificationTypes'
 async function call<T>(path:string,init?:RequestInit):Promise<T>{const r=await fetch(path,{credentials:'include',headers:{'Content-Type':'application/json'},...init});if(!r.ok){const b=await r.json().catch(()=>null) as{message?:string}|null;throw new Error(b?.message??'알림 관리 정보를 처리하지 못했습니다.')}return r.json() as Promise<T>}
 export const getNotificationSummary=()=>call<NotificationSummary>('/api/v1/admin/notifications/summary')
 export const getNotificationTemplates=(search='')=>call<NotificationTemplate[]>(`/api/v1/admin/notifications/templates?search=${encodeURIComponent(search)}`)
@@ -6,3 +6,17 @@ export const createNotificationTemplate=(body:unknown)=>call<NotificationTemplat
 export const setNotificationTemplateStatus=(id:string,isActive:boolean,rowVersion:string)=>call<NotificationTemplate>(`/api/v1/admin/notifications/templates/${id}/status`,{method:'PATCH',body:JSON.stringify({isActive,rowVersion})})
 export const getNotificationDeliveries=(status='')=>call<NotificationDelivery[]>(`/api/v1/admin/notifications/deliveries?status=${encodeURIComponent(status)}`)
 export const retryNotificationDelivery=(id:string)=>call<NotificationDelivery>(`/api/v1/admin/notifications/deliveries/${id}/retry`,{method:'POST'})
+export const updateNotificationTemplate=(id:string,body:unknown)=>call<NotificationTemplate>(`/api/v1/admin/notifications/templates/${id}`,{method:'PUT',body:JSON.stringify(body)})
+export const previewNotificationTemplate=(body:unknown)=>call<NotificationPreview>('/api/v1/admin/notifications/templates/preview',{method:'POST',body:JSON.stringify(body)})
+export const searchNotificationTemplates=(params:URLSearchParams)=>call<PagedNotifications<NotificationTemplate>>(`/api/v1/admin/notifications/templates/search?${params}`)
+export const searchNotificationDeliveries=(params:URLSearchParams)=>call<PagedNotifications<NotificationDelivery>>(`/api/v1/admin/notifications/deliveries/search?${params}`)
+export const getNotificationDelivery=(id:string)=>call<NotificationDeliveryDetail>(`/api/v1/admin/notifications/deliveries/${id}`)
+export const getNotificationChannels=()=>call<NotificationChannelSetting[]>('/api/v1/admin/notifications/channels')
+export const updateNotificationChannel=(channel:string,body:unknown)=>call<NotificationChannelSetting>(`/api/v1/admin/notifications/channels/${channel}`,{method:'PUT',body:JSON.stringify(body)})
+async function broadcastCall<T>(path:string,init?:RequestInit,reauthToken?:string):Promise<T>{const r=await fetch(path,{credentials:'include',...init,headers:{'Content-Type':'application/json',...(reauthToken?{'X-Admin-Reauth-Token':reauthToken}:{})}});if(!r.ok){const b=await r.json().catch(()=>null) as{message?:string}|null;throw new Error(b?.message??'단체발송 정보를 처리하지 못했습니다.')}return r.json() as Promise<T>}
+export const searchNotificationBroadcasts=(page=1)=>broadcastCall<PagedNotifications<NotificationBroadcast>>(`/api/v1/admin/notification-broadcasts?page=${page}&pageSize=20`)
+export const createNotificationBroadcast=(body:unknown)=>broadcastCall<NotificationBroadcast>('/api/v1/admin/notification-broadcasts',{method:'POST',body:JSON.stringify(body)})
+export const updateNotificationBroadcast=(id:string,body:unknown)=>broadcastCall<NotificationBroadcast>(`/api/v1/admin/notification-broadcasts/${id}`,{method:'PUT',body:JSON.stringify(body)})
+export const previewNotificationBroadcast=(id:string)=>broadcastCall<NotificationBroadcastPreview>(`/api/v1/admin/notification-broadcasts/${id}/preview`,{method:'POST'})
+export const confirmNotificationBroadcast=(id:string,body:unknown,token:string)=>broadcastCall<NotificationBroadcast>(`/api/v1/admin/notification-broadcasts/${id}/confirm`,{method:'POST',body:JSON.stringify(body)},token)
+export const cancelNotificationBroadcast=(id:string,body:unknown,token:string)=>broadcastCall<NotificationBroadcast>(`/api/v1/admin/notification-broadcasts/${id}/cancel`,{method:'POST',body:JSON.stringify(body)},token)

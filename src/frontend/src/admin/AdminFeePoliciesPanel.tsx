@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createAdminFeePolicy, getAdminFeePolicies, updateAdminFeePolicy } from './feePolicyApi'
 import type { AdminFeePolicy, AdminFeePolicyList, SaveAdminFeePolicyInput } from './feePolicyTypes'
+import { soodalConfirm } from '../components/soodalDialog'
 
 const statusLabels = { CURRENT: '현재 적용', SCHEDULED: '적용 예정', ENDED: '적용 종료', INACTIVE: '비활성' } as const
 const policyKindLabels: Record<string, string> = { QUOTE: '견적 채택 수수료', PROJECT: '프로젝트 수수료', SUPPORT: '정기구독 수수료' }
@@ -75,7 +76,7 @@ export function AdminFeePoliciesPanel({ serviceId, serviceName }: { serviceId: s
       perVisitAmount: numberOrNull(perVisitAmount), currencyCode: currency, chargeTiming,
       restoreRule: restoreRule.trim() || null, effectiveFrom, effectiveTo: effectiveTo || null, isActive,
     }
-    if (creating && !window.confirm(`'${serviceName}'의 새 수수료정책 버전을 등록합니다. 기존 적용 정책의 종료일이 조정될 수 있습니다. 계속할까요?`)) return
+    if (creating && !await soodalConfirm(`'${serviceName}'의 새 수수료정책 버전을 등록합니다. 기존 적용 정책의 종료일이 조정될 수 있습니다. 계속할까요?`)) return
     setSaving(true); setError(null); setNotice(null)
     try {
       const saved = creating ? await createAdminFeePolicy(serviceId, input) : await updateAdminFeePolicy(serviceId, selected.id, input)
@@ -128,7 +129,7 @@ export function AdminFeePoliciesPanel({ serviceId, serviceName }: { serviceId: s
           <label className="requestFieldCheck"><input type="checkbox" disabled={readOnly} checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span>활성 정책</span></label>
         </div>
         {!readOnly && <button className="categorySaveButton" disabled={saving || !version.trim() || !effectiveFrom || !chargeTiming} type="submit">{saving ? '저장 중…' : creating ? '새 버전 등록' : '적용 예정 정책 수정'}</button>}
-        <div className="pricePolicyLimitations"><p><strong>실제 차감</strong> 이번 단계에서는 정책만 관리하며 공급자 충전금 차감이나 원장 복원은 실행하지 않습니다.</p><p><strong>거래 보존</strong> 거래 시점 정책 Snapshot 연결은 후속 거래 통합 단계에서 구현합니다.</p></div>
+        <div className="pricePolicyLimitations"><p><strong>실제 차감</strong> 이번 단계에서는 정책만 관리하며 전문가 선결제 이용료 차감이나 원장 복원은 실행하지 않습니다.</p><p><strong>거래 보존</strong> 거래 시점 정책 Snapshot 연결은 후속 거래 통합 단계에서 구현합니다.</p></div>
       </form>
     </div>
   </div>

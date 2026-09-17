@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
+using SoodalLife.Api.Features.Trust;
 
 namespace SoodalLife.Api.Features.Work;
 
@@ -26,7 +27,7 @@ public sealed record TransactionAppointmentResponse(Guid Id, Guid TransactionId,
 public sealed record TransactionCancellationResponse(Guid Id, Guid TransactionId, string Reason, string Status,
     DateTime RequestedAt, DateTime? ProcessedAt, string FeeRestoreStatus, bool CanRespond, string RowVersion);
 
-public sealed class TransactionAppointmentService(SoodalLifeDbContext db)
+public sealed class TransactionAppointmentService(SoodalLifeDbContext db,TrustRecalculationRunner trustRecalculation)
 {
     public async Task<TransactionAppointmentResponse?> GetAsync(ClaimsPrincipal principal, Guid transactionId, CancellationToken token)
     {
@@ -144,7 +145,7 @@ public sealed class TransactionAppointmentService(SoodalLifeDbContext db)
         if (existing is not null) { if (existing.TransactionId != party.Transaction.Id) throw Conflict("IDEMPOTENCY_KEY_CONFLICT", "다른 거래에 사용된 요청 키입니다."); return CancelMap(existing, party.Transaction.PublicId, party.UserId); }
         if (party.Transaction.StatusCode is "COMPLETION_SUBMITTED" or "REVISION_REQUESTED" or "COMPLETED" or "DISPUTED" or "CANCELLED") throw Conflict("TRANSACTION_CANCELLATION_NOT_ALLOWED", "현재 단계에서는 일반 취소 대신 완료 보완 또는 분쟁 절차를 이용해 주세요.");
         if (await db.TransactionCancellationRequests.AnyAsync(x => x.TransactionId == party.Transaction.Id && (x.StatusCode == "REQUESTED" || x.StatusCode == "ADMIN_REVIEW_REQUIRED"), token)) throw Conflict("TRANSACTION_CANCELLATION_PENDING", "처리 대기 중인 거래 취소 요청이 있습니다.");
-        var now = DateTime.UtcNow; var status = party.Transaction.StatusCode == "CREATED" ? "REQUESTED" : "ADMIN_REVIEW_REQUIRED";
+        var now = DateTime.UtcNow; const string status = "REQUESTED";
         var row = new TransactionCancellationRequest { TransactionId = party.Transaction.Id, RequestedByUserId = party.UserId, Reason = input.Reason.Trim(), StatusCode = status,
             RequestedAt = now, IdempotencyKey = input.IdempotencyKey.Trim(), CreatedAt = now };
         db.TransactionCancellationRequests.Add(row); AddOutbox(party.Transaction, "TRANSACTION_CANCELLATION_REQUESTED", party.UserId, input.IdempotencyKey, now); await db.SaveChangesAsync(token);
@@ -160,7 +161,8 @@ public sealed class TransactionAppointmentService(SoodalLifeDbContext db)
             if (row.DecisionIdempotencyKey == input.IdempotencyKey) return CancelMap(row, party.Transaction.PublicId, party.UserId);
             throw Conflict("TRANSACTION_CANCELLATION_ALREADY_PROCESSED", "이미 처리된 거래 취소 요청입니다.");
         }
-        if (row.StatusCode != "REQUESTED" || party.Transaction.StatusCode != "CREATED") throw Conflict("TRANSACTION_CANCELLATION_ADMIN_REVIEW_REQUIRED", "작업 시작 이후 취소는 관리자 정책 검토가 필요합니다.");
+        if (row.StatusCode != "REQUESTED" || party.Transaction.StatusCode is not ("CREATED" or "IN_PROGRESS"))
+            throw Conflict("TRANSACTION_CANCELLATION_PARTY_DECISION_REQUIRED", "고객과 전문가가 직접 결정할 수 없는 상태입니다. 합의되지 않으면 분쟁 절차를 이용해 주세요.");
         if (row.RequestedByUserId == party.UserId) throw Conflict("TRANSACTION_CANCELLATION_SELF_DECISION", "요청자는 자신의 취소 요청을 처리할 수 없습니다.");
         SetVersion(row, input.RowVersion); var now = DateTime.UtcNow; var approve = input.Decision.ToUpperInvariant() == "APPROVE";
         row.StatusCode = approve ? "APPROVED" : "REJECTED"; row.ProcessedAt = now; row.ProcessedByUserId = party.UserId; row.ProcessingNote = Clean(input.Note); row.DecisionIdempotencyKey = input.IdempotencyKey.Trim();
@@ -175,6 +177,11 @@ public sealed class TransactionAppointmentService(SoodalLifeDbContext db)
             }
         }
         AddOutbox(party.Transaction, approve ? "TRANSACTION_CANCELLED" : "TRANSACTION_CANCELLATION_REJECTED", party.UserId, input.IdempotencyKey, now); await SaveConcurrent(token);
+        if(approve)
+        {
+            var providerPublicId=await db.ProviderProfiles.AsNoTracking().Where(x=>x.Id==party.Transaction.ProviderProfileId).Select(x=>x.PublicId).SingleAsync(token);
+            await trustRecalculation.RunAsync(providerPublicId,"TRANSACTION_CANCELLED",party.Transaction.PublicId,$"trust-transaction-cancelled:{party.Transaction.PublicId:N}:{row.PublicId:N}",token);
+        }
         return CancelMap(row, party.Transaction.PublicId, party.UserId);
     }
 

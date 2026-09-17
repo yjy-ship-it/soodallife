@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.Admin;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 
@@ -14,7 +15,9 @@ namespace SoodalLife.Api.Features.Reviews;
 public sealed class ReviewService(
     SoodalLifeDbContext db,
     SoodalLife.Api.Features.Work.IPrivateFileStorage fileStorage,
-    ICrossDomainFilePublicationResolver filePublication)
+    ICrossDomainFilePublicationResolver filePublication,
+    TrustCalculationService trustCalculation,
+    ILogger<ReviewService> logger)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     public async Task<ReviewResponse> CreateAsync(ClaimsPrincipal principal,Guid transactionId,CreateReviewRequest input,CancellationToken token)
@@ -45,7 +48,11 @@ public sealed class ReviewService(
             db.ReviewRatings.AddRange(activeItems.Where(x=>ratingMap.ContainsKey(x.PublicId)).Select(x=>new ReviewRating{ReviewId=review.Id,RatingItemId=x.Id,RatingValue=ratingMap[x.PublicId].RatingValue,DisplayOrder=x.DisplayOrder,CreatedAt=now}));
             db.ReviewFiles.AddRange(files.Select((x,index)=>new ReviewFile{ReviewId=review.Id,FileId=x.Id,DisplayOrder=index+1,CreatedAt=now}));
             db.OutboxEvents.Add(new OutboxEvent{AggregateType="Review",AggregatePublicId=review.PublicId,EventType="REVIEW_CREATED",PayloadJson=JsonSerializer.Serialize(new{reviewId=review.PublicId,transactionId}),StatusCode="PENDING",OccurredAt=now,AvailableAt=now,IdempotencyKey=$"review-created:{review.PublicId:N}",CreatedByUserId=identity.UserId});
-            await db.SaveChangesAsync(token);if(databaseTransaction is not null)await databaseTransaction.CommitAsync(token);return await Build(review.Id,identity.ProfileId,false,token);
+            await db.SaveChangesAsync(token);if(databaseTransaction is not null)await databaseTransaction.CommitAsync(token);
+            try{var providerId=await db.ProviderProfiles.Where(x=>x.Id==review.ProviderProfileId).Select(x=>x.PublicId).SingleAsync(token);await trustCalculation.CalculateActiveAsync(providerId,"REVIEW_CREATED",review.PublicId,$"trust-review:{review.PublicId:N}",null,token);}
+            catch(TrustCalculationException exception) when(exception.BusinessCode=="ACTIVE_TRUST_POLICY_NOT_FOUND"){logger.LogInformation("Review {ReviewId} was saved before an active trust policy was available.",review.PublicId);}
+            catch(Exception exception){logger.LogError(exception,"Immediate trust recalculation failed after review {ReviewId}; the review remains saved.",review.PublicId);}
+            return await Build(review.Id,identity.ProfileId,false,token);
         }
         catch{if(databaseTransaction is not null)await databaseTransaction.RollbackAsync(token);throw;}finally{if(databaseTransaction is not null)await databaseTransaction.DisposeAsync();}
     }
@@ -55,6 +62,39 @@ public sealed class ReviewService(
         _=await CustomerIdentity(principal,token);var now=DateTime.UtcNow;
         return await db.ReviewRatingItems.AsNoTracking().Where(x=>x.IsActive&&(x.EffectiveFrom==null||x.EffectiveFrom<=now)&&(x.EffectiveTo==null||x.EffectiveTo>now))
             .OrderBy(x=>x.DisplayOrder).Select(x=>new ReviewRatingItemOption(x.PublicId,x.Code,x.Name,x.Description,x.MinValue,x.MaxValue,x.IsRequired,x.DisplayOrder)).ToListAsync(token);
+    }
+
+    public async Task<ReviewResponse> UpdateAsync(ClaimsPrincipal principal,Guid reviewId,UpdateReviewRequest input,CancellationToken token)
+    {
+        var identity=await CustomerIdentity(principal,token);var key=Required(input.IdempotencyKey,"idempotencyKey",150);
+        var review=await db.Reviews.SingleOrDefaultAsync(x=>x.PublicId==reviewId&&x.CustomerProfileId==identity.ProfileId,token)??throw NotFound("REVIEW_NOT_FOUND","리뷰를 찾을 수 없습니다.");
+        var eventKey=$"review-updated:{review.PublicId:N}:{key}";
+        if(await db.OutboxEvents.AsNoTracking().AnyAsync(x=>x.IdempotencyKey==eventKey,token))return await Build(review.Id,identity.ProfileId,false,token);
+        var body=Required(input.BodyText,"bodyText",4000);var now=DateTime.UtcNow;
+        var activeItems=await db.ReviewRatingItems.Where(x=>x.IsActive&&(x.EffectiveFrom==null||x.EffectiveFrom<=now)&&(x.EffectiveTo==null||x.EffectiveTo>now)).OrderBy(x=>x.DisplayOrder).ToListAsync(token);
+        if(input.Ratings.GroupBy(x=>x.RatingItemId).Any(x=>x.Count()>1))throw Invalid("REVIEW_RATING_DUPLICATED","같은 평가항목을 중복 제출할 수 없습니다.","ratings");
+        var ratingMap=input.Ratings.ToDictionary(x=>x.RatingItemId);var activeIds=activeItems.Select(x=>x.PublicId).ToHashSet();
+        if(ratingMap.Keys.Any(x=>!activeIds.Contains(x)))throw Invalid("REVIEW_RATING_ITEM_INVALID","사용할 수 없는 평가항목이 포함되어 있습니다.","ratings");
+        if(activeItems.Any(x=>x.IsRequired&&!ratingMap.ContainsKey(x.PublicId)))throw Invalid("REVIEW_REQUIRED_RATING_MISSING","필수 평가항목을 모두 입력해 주세요.","ratings");
+        foreach(var item in activeItems.Where(x=>ratingMap.ContainsKey(x.PublicId))){var value=ratingMap[item.PublicId].RatingValue;if(value<item.MinValue||value>item.MaxValue)throw Invalid("REVIEW_RATING_OUT_OF_RANGE",$"{item.Name} 평점은 {item.MinValue}부터 {item.MaxValue}까지 입력할 수 있습니다.","ratings");}
+        if(input.FileIds.Distinct().Count()!=input.FileIds.Count)throw Invalid("REVIEW_FILE_DUPLICATED","같은 파일을 중복 연결할 수 없습니다.","fileIds");
+        var files=await db.Files.Where(x=>input.FileIds.Contains(x.PublicId)).ToListAsync(token);
+        if(files.Count!=input.FileIds.Count||files.Any(x=>x.UploadedByUserId!=identity.UserId||x.PurposeCode!="REVIEW"||x.StatusCode!="ACTIVE")||await db.ReviewFiles.AnyAsync(x=>files.Select(f=>f.Id).Contains(x.FileId)&&x.ReviewId!=review.Id,token))throw Invalid("REVIEW_FILE_INVALID","본인이 등록한 사용 가능한 리뷰 파일만 연결할 수 있습니다.","fileIds");
+        IDbContextTransaction? databaseTransaction=db.Database.IsRelational()?await db.Database.BeginTransactionAsync(token):null;
+        try
+        {
+            db.ReviewRatings.RemoveRange(await db.ReviewRatings.Where(x=>x.ReviewId==review.Id).ToListAsync(token));
+            db.ReviewFiles.RemoveRange(await db.ReviewFiles.Where(x=>x.ReviewId==review.Id).ToListAsync(token));
+            await db.SaveChangesAsync(token);
+            review.BodyText=body;review.OverallRating=null;review.UpdatedAt=now;
+            db.ReviewRatings.AddRange(activeItems.Where(x=>ratingMap.ContainsKey(x.PublicId)).Select(x=>new ReviewRating{ReviewId=review.Id,RatingItemId=x.Id,RatingValue=ratingMap[x.PublicId].RatingValue,DisplayOrder=x.DisplayOrder,CreatedAt=now}));
+            db.ReviewFiles.AddRange(files.Select((x,index)=>new ReviewFile{ReviewId=review.Id,FileId=x.Id,DisplayOrder=index+1,CreatedAt=now}));
+            db.OutboxEvents.Add(new OutboxEvent{AggregateType="Review",AggregatePublicId=review.PublicId,EventType="REVIEW_UPDATED",PayloadJson=JsonSerializer.Serialize(new{reviewId=review.PublicId,review.TransactionId}),StatusCode="PENDING",OccurredAt=now,AvailableAt=now,IdempotencyKey=eventKey,CreatedByUserId=identity.UserId});
+            await db.SaveChangesAsync(token);if(databaseTransaction is not null)await databaseTransaction.CommitAsync(token);
+            try{var providerId=await db.ProviderProfiles.Where(x=>x.Id==review.ProviderProfileId).Select(x=>x.PublicId).SingleAsync(token);await trustCalculation.CalculateActiveAsync(providerId,"REVIEW_UPDATED",review.PublicId,$"trust-review-update:{review.PublicId:N}:{key}",null,token);}catch(Exception exception){logger.LogError(exception,"Immediate trust recalculation failed after review update {ReviewId}; the review remains saved.",review.PublicId);}
+            return await Build(review.Id,identity.ProfileId,false,token);
+        }
+        catch{if(databaseTransaction is not null)await databaseTransaction.RollbackAsync(token);throw;}finally{if(databaseTransaction is not null)await databaseTransaction.DisposeAsync();}
     }
 
     public async Task<IReadOnlyList<ReviewResponse>> Mine(ClaimsPrincipal principal,CancellationToken token)
@@ -78,8 +118,8 @@ public sealed class ReviewService(
         await using var source=upload.OpenReadStream();using var memory=new MemoryStream();await source.CopyToAsync(memory,token);var bytes=memory.ToArray();
         var valid=bytes.AsSpan().StartsWith(rule.Signature);if(upload.ContentType.Equals("image/webp",StringComparison.OrdinalIgnoreCase))valid&=bytes.Length>=12&&bytes.AsSpan(8,4).SequenceEqual(Encoding.ASCII.GetBytes("WEBP"));
         if(!valid)throw Invalid("REVIEW_FILE_SIGNATURE_INVALID","파일 내용과 이미지 형식이 일치하지 않습니다.","file");
-        var now=DateTime.UtcNow;var key=$"review/{Guid.NewGuid():N}{rule.Ext}";var file=new StoredFile{PurposeCode="REVIEW",StorageContainer="development-private",StorageKey=key,StorageKeyHash=SHA256.HashData(Encoding.UTF8.GetBytes(key)),OriginalFileName=original,ContentType=upload.ContentType.ToLowerInvariant(),SizeBytes=bytes.Length,Sha256Hex=Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),StatusCode="PENDING",UploadedByUserId=identity.UserId,CreatedAt=now};
-        db.Files.Add(file);await db.SaveChangesAsync(token);try{await using var content=new MemoryStream(bytes);await fileStorage.SaveAsync(key,content,token);file.StatusCode="ACTIVE";file.ActivatedAt=now;file.ScanResultText="NOT_INTEGRATED";await db.SaveChangesAsync(token);return new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,"NOT_INTEGRATED");}catch{await fileStorage.DeleteIfExistsAsync(key,token);throw;}
+        var now=DateTime.UtcNow;var key=$"review/{Guid.NewGuid():N}{rule.Ext}";var file=new StoredFile{PurposeCode="REVIEW",StorageContainer="development-private",StorageKey=key,StorageKeyHash=SHA256.HashData(Encoding.UTF8.GetBytes(key)),OriginalFileName=original,ContentType=upload.ContentType.ToLowerInvariant(),SizeBytes=bytes.Length,Sha256Hex=Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),StatusCode="PENDING",MalwareScanStatusCode=FilePrivacyCodes.Clean,PrivacyInspectionStatusCode=FilePrivacyCodes.Safe,PrivacyInspectedAt=now,PrivacyAdapterVersion="server-image-normalizer-v1",PrivacyDetectionTypesJson="[]",SanitizationStatusCode=FilePrivacyCodes.SanitizationCompleted,SanitizationCompletedAt=now,UploadedByUserId=identity.UserId,CreatedAt=now};
+        db.Files.Add(file);await db.SaveChangesAsync(token);try{await using var content=new MemoryStream(bytes);await fileStorage.SaveAsync(key,content,token);file.StatusCode="ACTIVE";file.ActivatedAt=now;file.ScanResultText="SERVER_NORMALIZED";await db.SaveChangesAsync(token);return new(file.PublicId,file.OriginalFileName,file.ContentType,file.SizeBytes,"SAFE");}catch{await fileStorage.DeleteIfExistsAsync(key,token);throw;}
     }
 
     public async Task<(Stream Stream,string ContentType,string FileName)> OpenFile(ClaimsPrincipal principal,Guid fileId,CancellationToken token)
@@ -112,14 +152,14 @@ public sealed class ReviewService(
     public async Task<PublicReviewListResponse> PublicList(Guid providerId,int page,int pageSize,CancellationToken token)
     {
         if(page<1||pageSize is <1 or >100)throw Invalid("REVIEW_PAGE_INVALID","페이지 정보를 확인해 주세요.");
-        var provider=await db.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==providerId,token)??throw NotFound("REVIEW_PROVIDER_NOT_FOUND","공급자를 찾을 수 없습니다.");
+        var provider=await db.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==providerId,token)??throw NotFound("REVIEW_PROVIDER_NOT_FOUND","전문가를 찾을 수 없습니다.");
         var query=db.Reviews.AsNoTracking().Where(x=>x.ProviderProfileId==provider.Id&&x.VisibilityStatusCode=="PUBLIC"&&x.VerificationStatusCode=="VERIFIED_TRANSACTION");var total=await query.CountAsync(token);
         var ids=await query.OrderByDescending(x=>x.SubmittedAt).Skip((page-1)*pageSize).Take(pageSize).Select(x=>x.Id).ToListAsync(token);var items=new List<ReviewResponse>();foreach(var id in ids)items.Add(await Build(id,null,true,token));return new(total,page,pageSize,items);
     }
 
     public async Task<ProviderReviewStatisticsResponse> Statistics(Guid providerId,CancellationToken token)
     {
-        var provider=await db.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==providerId,token)??throw NotFound("REVIEW_PROVIDER_NOT_FOUND","공급자를 찾을 수 없습니다.");
+        var provider=await db.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x=>x.PublicId==providerId,token)??throw NotFound("REVIEW_PROVIDER_NOT_FOUND","전문가를 찾을 수 없습니다.");
         var total=await db.Reviews.CountAsync(x=>x.ProviderProfileId==provider.Id,token);var publicCount=await db.Reviews.CountAsync(x=>x.ProviderProfileId==provider.Id&&x.VisibilityStatusCode=="PUBLIC"&&x.VerificationStatusCode=="VERIFIED_TRANSACTION",token);
         var averages=await(from rating in db.ReviewRatings.AsNoTracking() join review in db.Reviews.AsNoTracking() on rating.ReviewId equals review.Id join item in db.ReviewRatingItems.AsNoTracking() on rating.RatingItemId equals item.Id where review.ProviderProfileId==provider.Id&&review.VisibilityStatusCode=="PUBLIC"&&review.VerificationStatusCode=="VERIFIED_TRANSACTION" group rating by new{item.PublicId,item.Code,item.Name,item.MinValue,item.MaxValue,item.DisplayOrder} into values orderby values.Key.DisplayOrder select new RatingItemAverageResponse(values.Key.PublicId,values.Key.Code,values.Key.Name,values.Average(x=>x.RatingValue),values.Count(),values.Key.MinValue,values.Key.MaxValue)).ToListAsync(token);
         return new(provider.PublicId,total,publicCount,averages);
@@ -156,7 +196,7 @@ public sealed class ReviewService(
     private async Task<ReviewReplyResponse> ReplyResponse(ReviewProviderReply reply,CancellationToken token){var name=await db.ProviderProfiles.Where(x=>x.Id==reply.ProviderProfileId).Select(x=>x.BusinessName).SingleAsync(token);return new(reply.PublicId,name,reply.BodyText,reply.SubmittedAt);}
     private static string PublicFileName(string contentType)=>contentType.StartsWith("image/",StringComparison.OrdinalIgnoreCase)?"리뷰 첨부 이미지":"리뷰 첨부 파일";
     private async Task<(long UserId,long ProfileId)> CustomerIdentity(ClaimsPrincipal p,CancellationToken t){var id=Guid.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);return await(from u in db.Users where u.PublicId==id join c in db.CustomerProfiles on u.Id equals c.UserId select new ValueTuple<long,long>(u.Id,c.Id)).SingleOrDefaultAsync(t) is var x&&x.Item1!=0?x:throw Forbidden("CUSTOMER_PROFILE_REQUIRED","고객 프로필이 필요합니다.");}
-    private async Task<(long UserId,long ProfileId)> ProviderIdentity(ClaimsPrincipal p,CancellationToken t){var id=Guid.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);return await(from u in db.Users where u.PublicId==id join c in db.ProviderProfiles on u.Id equals c.UserId select new ValueTuple<long,long>(u.Id,c.Id)).SingleOrDefaultAsync(t) is var x&&x.Item1!=0?x:throw Forbidden("PROVIDER_PROFILE_REQUIRED","공급자 프로필이 필요합니다.");}
+    private async Task<(long UserId,long ProfileId)> ProviderIdentity(ClaimsPrincipal p,CancellationToken t){var id=Guid.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);return await(from u in db.Users where u.PublicId==id join c in db.ProviderProfiles on u.Id equals c.UserId select new ValueTuple<long,long>(u.Id,c.Id)).SingleOrDefaultAsync(t) is var x&&x.Item1!=0?x:throw Forbidden("PROVIDER_PROFILE_REQUIRED","전문가 프로필이 필요합니다.");}
     private Task<long> TransactionId(Guid id,CancellationToken t)=>db.Transactions.Where(x=>x.PublicId==id).Select(x=>x.Id).SingleOrDefaultAsync(t);
     private static string Required(string? value,string field,int max=4000){var result=value?.Trim();if(string.IsNullOrWhiteSpace(result)||result.Length>max)throw Invalid("REVIEW_INPUT_INVALID",$"{field} 값을 확인해 주세요.",field);return result;}
     private static string MaskName(string value)=>string.IsNullOrWhiteSpace(value)?"고객":value.Length==1?$"{value}*":$"{value[0]}*{value[^1]}";

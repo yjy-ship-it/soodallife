@@ -1,0 +1,12 @@
+{
+  "roles": [
+    { "code": "BEFORE", "name": "작업 전", "description": "작업 시작 전 상태" },
+    { "code": "AFTER", "name": "작업 후", "description": "작업 완료 후 상태" },
+    { "code": "OTHER", "name": "추가 증빙", "description": "작업과정, 상세부위, 제품명판, 손상부위 또는 자재" }
+  ],
+  "requirementsByTotal": [
+    { "total": 0, "roles": [] },
+    { "total": 2, "roles": [ { "code": "BEFORE", "minimumCount": 1 }, { "code": "AFTER", "minimumCount": 1 } ] },
+    { "total": 5, "roles": [ { "code": "BEFORE", "minimumCount": 1 }, { "code": "AFTER", "minimumCount": 1 }, { "code": "OTHER", "minimumCount": 3 } ] }
+  ]
+}

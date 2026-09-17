@@ -7,6 +7,46 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
 {
     private const int MaximumPageSize = 100;
 
+    public async Task SetRequestAbuseExclusionAsync(
+        Guid customerPublicId,
+        Guid requestPublicId,
+        AdminCustomerRequestAbuseExclusionRequest input,
+        Guid actorPublicId,
+        CancellationToken cancellationToken)
+    {
+        var reason = input.Reason?.Trim();
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > 500)
+            throw Invalid("ADMIN_REQUEST_EXCLUSION_REASON_REQUIRED", "요청 제외 사유를 500자 이하로 입력해 주세요.");
+        var customerId = await dbContext.CustomerProfiles.AsNoTracking()
+            .Where(item => item.PublicId == customerPublicId).Select(item => (long?)item.Id).SingleOrDefaultAsync(cancellationToken)
+            ?? throw Invalid("ADMIN_CUSTOMER_NOT_FOUND", "고객을 찾을 수 없습니다.");
+        var request = await dbContext.ServiceRequests.SingleOrDefaultAsync(item =>
+            item.PublicId == requestPublicId && item.CustomerProfileId == customerId, cancellationToken)
+            ?? throw Invalid("ADMIN_CUSTOMER_REQUEST_NOT_FOUND", "고객의 견적요청을 찾을 수 없습니다.");
+        var actorId = await dbContext.Users.AsNoTracking().Where(item => item.PublicId == actorPublicId)
+            .Select(item => (long?)item.Id).SingleOrDefaultAsync(cancellationToken)
+            ?? throw Invalid("ADMIN_ACTOR_NOT_FOUND", "관리자 계정을 찾을 수 없습니다.");
+        var before = request.AbuseCountExcluded;
+        request.AbuseCountExcluded = input.Excluded;
+        request.AbuseExclusionReason = input.Excluded ? reason : null;
+        request.UpdatedAt = DateTime.UtcNow;
+        request.UpdatedByUserId = actorId;
+        dbContext.AuditLogs.Add(new()
+        {
+            OccurredAt = DateTime.UtcNow,
+            ActorUserId = actorId,
+            ActorRoleCode = "ADMIN",
+            ActionCode = input.Excluded ? "REQUEST_ABUSE_COUNT_EXCLUDED" : "REQUEST_ABUSE_COUNT_RESTORED",
+            EntityType = "SERVICE_REQUEST",
+            EntityPublicId = request.PublicId,
+            ResultCode = "SUCCESS",
+            Reason = reason,
+            BeforeJson = System.Text.Json.JsonSerializer.Serialize(new { abuseCountExcluded = before }),
+            AfterJson = System.Text.Json.JsonSerializer.Serialize(new { abuseCountExcluded = input.Excluded }),
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<AdminCustomerListResponse> SearchAsync(
         string? search,
         string? status,
@@ -123,7 +163,8 @@ public sealed class AdminCustomerService(SoodalLifeDbContext dbContext)
                                      request.PublicId, request.Title, category.Name, request.CreatedAt, request.StatusCode,
                                      area.AreaName, AdminPrivacy.DetailAddress(request.DetailAddress),
                                      dbContext.Quotes.Count(quote => quote.ServiceRequestId == request.Id),
-                                     dbContext.Quotes.Any(quote => quote.ServiceRequestId == request.Id && quote.StatusCode == "ACCEPTED")))
+                                     dbContext.Quotes.Any(quote => quote.ServiceRequestId == request.Id && quote.StatusCode == "ACCEPTED"),
+                                     request.AbuseCountExcluded, request.AbuseExclusionReason))
             .ToListAsync(cancellationToken);
 
         var quoteBaseRows = await (from quote in dbContext.Quotes.AsNoTracking()

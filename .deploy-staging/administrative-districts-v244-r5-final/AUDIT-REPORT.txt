@@ -1,0 +1,21 @@
+﻿V243 감사 요약
+- 프런트엔드 TypeScript 및 Vite 전체 빌드 통과
+- 배포 PowerShell 구문 검사 통과
+- 배포 PowerShell 파일 UTF-8 BOM 검사 대상
+- SQL은 트랜잭션 및 XACT_ABORT 사용, 적용 후 별도 검증 SQL 실행
+- 수수료는 서버 readiness의 예상 채택 수수료를 그대로 표시하며 클라이언트가 임의 계산하지 않음
+- 채택 후 취소·환급은 기존 서버 거래/원장 정책을 유지하며 화면에서 자동 복원으로 단정하지 않음
+- 카카오 알림톡 등 외부 채널은 운영 인증키·활성 채널이 있을 때만 기존 알림 시스템이 발송
+V243: attached 35-district upsert is transactional, idempotent, province-bound, duplicate-checked and deployment-verified.
+
+V243-R2: corrected the final API marker verification phrase; database and district contents are unchanged.
+
+V244: 13 parent city choices are deactivated while all 39 city-district choices remain active. Historical foreign-key references are preserved.
+
+V244-R2: physically deletes the 13 parent city rows only when no foreign-key reference exists. All 39 district choices are verified after deletion.
+
+V244-R3: preserves customer address rows, clears only their obsolete city FK, then deletes 13 city rows. Other FK references remain protected; 39 district choices are verified.
+
+V244-R4: preserves saved address rows, deletes only target service requests without dependent history, deletes 13 parent cities, and verifies 39 districts. Any dependent request history or other FK reference stops the transaction.
+
+V244-R5: cleans request form answers, attachment links, automated matching rows and public activity only when no quote, transaction, site visit, interior or emergency history exists. Preserves standalone records by unlinking them, deletes 13 cities and verifies 39 districts.

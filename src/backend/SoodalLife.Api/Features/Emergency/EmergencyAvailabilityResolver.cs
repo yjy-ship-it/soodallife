@@ -15,17 +15,19 @@ public sealed class EmergencyAvailabilityResolver(SoodalLifeDbContext db) : IEme
         DateTime nowUtc, CancellationToken token)
     {
         var provider = await db.ProviderProfiles.AsNoTracking().Where(x=>x.Id==providerProfileId)
-            .Select(x=>new{x.ApprovalStatusCode,x.ActivityStatusCode}).SingleOrDefaultAsync(token);
-        if (provider is null || provider.ApprovalStatusCode!="APPROVED" || provider.ActivityStatusCode!="ACTIVE")
-            return No("PROVIDER_NOT_APPROVED_ACTIVE");
+            .Select(x=>new{x.UserId,x.ActivityStatusCode,UserActive=db.Users.Any(u=>u.Id==x.UserId&&u.StatusCode=="ACTIVE")}).SingleOrDefaultAsync(token);
+        if (provider is null || provider.ActivityStatusCode!="ACTIVE" || !provider.UserActive)
+            return No("PROVIDER_NOT_ACTIVE");
+        if(await db.ProviderExitRequests.AsNoTracking().AnyAsync(x=>x.ProviderProfileId==providerProfileId&&new[]{"REQUESTED","UNDER_REVIEW","REFUND_REQUIRED","BLOCKED_BY_ACTIVE_WORK","READY_TO_COMPLETE"}.Contains(x.StatusCode),token))
+            return No("PROVIDER_EXIT_IN_PROGRESS");
+        var today=DateOnly.FromDateTime(nowUtc);
+        if(!await db.CategoryPolicies.AsNoTracking().AnyAsync(x=>x.CategoryId==categoryId&&x.IsEmergencyAllowed&&
+                (x.TransactionTypeCode=="ONE_TIME"||x.TransactionTypeCode=="PROJECT")&&x.EffectiveFrom<=today&&
+                (x.EffectiveTo==null||x.EffectiveTo>today),token)) return No("EMERGENCY_CATEGORY_NOT_ALLOWED");
 
-        var service = await (from psc in db.ProviderServiceCategories.AsNoTracking()
-                             join approval in db.ProviderServiceApprovals.AsNoTracking() on psc.Id equals approval.ProviderServiceCategoryId
-                             join policy in db.CategoryPolicies.AsNoTracking() on psc.CategoryId equals policy.CategoryId
-                             where psc.ProviderProfileId==providerProfileId && psc.CategoryId==categoryId && psc.StatusCode=="ACTIVE" &&
-                                   approval.ApprovalStatusCode=="APPROVED" && policy.IsEmergencyAllowed
-                             select psc).FirstOrDefaultAsync(token);
-        if (service is null) return No("EMERGENCY_SERVICE_NOT_APPROVED");
+        var service = await db.ProviderServiceCategories.AsNoTracking().FirstOrDefaultAsync(psc=>
+            psc.ProviderProfileId==providerProfileId&&psc.CategoryId==categoryId&&psc.StatusCode=="ACTIVE",token);
+        if (service is null) return No("EMERGENCY_SERVICE_NOT_REGISTERED");
         if (!await db.ProviderServiceAreas.AsNoTracking().AnyAsync(x=>x.ProviderServiceCategoryId==service.Id &&
                 x.AdministrativeAreaId==administrativeAreaId && x.StatusCode=="ACTIVE",token)) return No("EMERGENCY_AREA_MISMATCH");
 

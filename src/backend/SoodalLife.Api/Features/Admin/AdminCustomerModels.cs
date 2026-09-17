@@ -1,6 +1,7 @@
 namespace SoodalLife.Api.Features.Admin;
 
 public sealed record AdminCustomerListResponse(int TotalCount, int Page, int PageSize, IReadOnlyList<AdminCustomerListItemResponse> Items);
+public sealed record AdminCustomerRequestAbuseExclusionRequest(bool Excluded, string Reason);
 
 public sealed record AdminCustomerListItemResponse(
     Guid Id,
@@ -60,7 +61,9 @@ public sealed record AdminCustomerRequestResponse(
     string AreaName,
     string? DetailAddress,
     int QuoteCount,
-    bool HasAcceptedQuote);
+    bool HasAcceptedQuote,
+    bool AbuseCountExcluded,
+    string? AbuseExclusionReason);
 
 public sealed record AdminCustomerQuoteResponse(
     Guid Id,
@@ -129,4 +132,3 @@ public sealed record AdminCustomerAuditResponse(
     string ResultCode,
     string? Reason,
     string? ActorRoleCode);
-

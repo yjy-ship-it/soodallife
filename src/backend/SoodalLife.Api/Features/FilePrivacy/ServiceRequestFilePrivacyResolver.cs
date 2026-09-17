@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.FilePrivacy;
@@ -54,6 +55,6 @@ public sealed class ServiceRequestFilePrivacyResolver(SoodalLifeDbContext db, IF
 
     private static string ProviderFileName(int sequence, string contentType) => $"attachment-{sequence}{contentType switch
     {
-        "image/jpeg" => ".jpg", "image/png" => ".png", "application/pdf" => ".pdf", _ => ".bin",
+        "image/jpeg" => ".jpg", "image/png" => ".png", _ => ".bin",
     }}";
 }

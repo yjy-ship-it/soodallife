@@ -30,6 +30,9 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         var otherAreaId = await db.AdministrativeAreas.Where(item => item.PublicId == factory.Catalog.OtherAreaId).Select(item => item.Id).SingleAsync();
         var service = await db.ProviderServiceCategories.SingleAsync(item => item.ProviderProfileId == provider.Id && item.CategoryId == categoryId);
         var approval = await db.ProviderServiceApprovals.SingleAsync(item => item.ProviderServiceCategoryId == service.Id);
+        var operation = await db.CategoryOperationPolicies.SingleAsync(item => item.CategoryId == categoryId && item.IsActive);
+        var originalNationwide = service.IsNationwide;
+        var originalCoverage = operation.CoverageTypeCode;
 
         provider.ApprovalStatusCode = "PENDING"; await db.SaveChangesAsync();
         Assert.Equal("PROVIDER_NOT_APPROVED_ACTIVE", (await evaluator.EvaluateAsync(provider.Id, categoryId, areaId, default)).ReasonCode);
@@ -39,9 +42,16 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         Assert.Equal("SERVICE_AREA_MISMATCH", (await evaluator.EvaluateAsync(provider.Id, categoryId, otherAreaId, default)).ReasonCode);
         var assignments = await db.CategoryProviderRequirementAssignments.Where(item => item.IsActive).ToListAsync();
         assignments.ForEach(item => item.IsActive = false); await db.SaveChangesAsync();
-        Assert.Equal("STRUCTURED_REQUIREMENTS_NOT_CONFIGURED", (await evaluator.EvaluateAsync(provider.Id, categoryId, areaId, default)).ReasonCode);
+        Assert.True((await evaluator.EvaluateAsync(provider.Id, categoryId, areaId, default)).IsEligible);
         assignments.ForEach(item => item.IsActive = true); await db.SaveChangesAsync();
         Assert.True((await evaluator.EvaluateAsync(provider.Id, categoryId, areaId, default)).IsEligible);
+        service.IsNationwide = true;
+        operation.CoverageTypeCode = "NATIONWIDE_REMOTE";
+        await db.SaveChangesAsync();
+        Assert.True((await evaluator.EvaluateAsync(provider.Id, categoryId, null, default)).IsEligible);
+        service.IsNationwide = originalNationwide;
+        operation.CoverageTypeCode = originalCoverage;
+        await db.SaveChangesAsync();
     }
 
     [Fact]
@@ -73,6 +83,18 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
 
         var selectedQuote = await CreateAndSubmitQuote(selectedProvider, request.Id, "수전 교체 견적", 120000m);
         var otherQuote = await CreateAndSubmitQuote(otherProvider, request.Id, "비교 견적", 125000m);
+        using (var reservedScope = factory.Services.CreateScope())
+        {
+            var reservedDb = reservedScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var selectedInternalId = await reservedDb.Quotes.Where(x => x.PublicId == selectedQuote.Id).Select(x => x.Id).SingleAsync();
+            var reserved = await reservedDb.QuoteFeeReservations.SingleAsync(x => x.QuoteId == selectedInternalId);
+            var reservedWallet = await reservedDb.ProviderWallets.SingleAsync(x => x.Id == reserved.WalletId);
+            Assert.Equal("RESERVED", reserved.StatusCode);
+            Assert.Equal(3000m, reserved.Amount);
+            Assert.Equal(97000m, reservedWallet.AvailableBalance);
+            Assert.Equal(3000m, reservedWallet.ReservedBalance);
+            Assert.Contains(await reservedDb.WalletLedgerEntries.Where(x => x.WalletId == reserved.WalletId).ToListAsync(), x => x.EntryTypeCode == "RESERVE" && x.Amount == -3000m);
+        }
         var acceptedResponse = await customer.PostAsJsonAsync($"/api/v1/quotes/{selectedQuote.Id}/accept", new { detailAddress = "대구광역시 동구 테스트로 1" });
         Assert.Equal(HttpStatusCode.OK, acceptedResponse.StatusCode);
         var acceptedJson = await acceptedResponse.Content.ReadAsStringAsync();
@@ -108,6 +130,14 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         Assert.Single(await db.WalletLedgerEntries.Where(item => item.TransactionId == transaction.Id && item.EntryTypeCode == "USE").ToListAsync());
         var wallet = await db.ProviderWallets.SingleAsync(item => item.ProviderProfileId == transaction.ProviderProfileId);
         Assert.Equal(97000m, wallet.AvailableBalance);
+        Assert.Equal(0m, wallet.ReservedBalance);
+        var selectedInternalQuoteId = await db.Quotes.Where(x => x.PublicId == selectedQuote.Id).Select(x => x.Id).SingleAsync();
+        var selectedReservation = await db.QuoteFeeReservations.SingleAsync(x => x.QuoteId == selectedInternalQuoteId);
+        var otherInternalId = await db.Quotes.Where(x => x.PublicId == otherQuote.Id).Select(x => x.Id).SingleAsync();
+        var otherReservation = await db.QuoteFeeReservations.SingleAsync(x => x.QuoteId == otherInternalId);
+        Assert.Equal("CAPTURED", selectedReservation.StatusCode);
+        Assert.Equal("RELEASED", otherReservation.StatusCode);
+        Assert.Equal("QUOTE_NOT_SELECTED", otherReservation.ReleaseReasonCode);
 
         var adminRequests = await admin.GetFromJsonAsync<AdminRequestListResponse>($"/api/v1/admin/requests?search={request.Id}");
         Assert.Single(adminRequests!.Items);
@@ -116,6 +146,9 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         Assert.Equal(accepted.TransactionId, adminRequest.TransactionId);
         var adminTransactions = await admin.GetFromJsonAsync<AdminTransactionListResponse>($"/api/v1/admin/transactions?search={accepted.TransactionId}");
         Assert.Single(adminTransactions!.Items);
+        var displayedNumber = Uri.EscapeDataString(adminTransactions.Items[0].TransactionNumber);
+        var transactionNumberSearch = await admin.GetFromJsonAsync<AdminTransactionListResponse>($"/api/v1/admin/transactions?search={displayedNumber}");
+        Assert.Contains(transactionNumberSearch!.Items, item => item.Id == accepted.TransactionId);
         var adminTransaction = await admin.GetFromJsonAsync<AdminTransactionDetailResponse>($"/api/v1/admin/transactions/{accepted.TransactionId}");
         Assert.Equal(3000m, adminTransaction!.FeePolicy!.ActualChargedFeeAmount);
         Assert.Equal("USE", adminTransaction.WalletFee!.LedgerType);
@@ -150,9 +183,42 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
         Assert.False(await db.Transactions.AnyAsync(item => item.ServiceRequestId == internalRequestId));
         Assert.Equal(feeCountBefore, await db.FeeCharges.CountAsync());
         Assert.Equal(useCountBefore, await db.WalletLedgerEntries.CountAsync(item => item.EntryTypeCode == "USE"));
+        Assert.False(await db.QuoteFeeReservations.AnyAsync(x => db.Quotes.Any(q => q.Id == x.QuoteId && q.PublicId == draft.Id)));
         var wallet = await db.ProviderWallets.SingleAsync(item => item.AvailableBalance == 0);
         wallet.AvailableBalance = 100000m;
         await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ExpiredSubmittedQuote_ReleasesReservedFeeAndMarksQuoteExpired()
+    {
+        using var provider = Client();
+        using var customer = Client();
+        await Login(provider, factory.Credentials[RoleCodes.Provider]);
+        await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        await ResetWalletsAsync();
+        await ConfigureArea(provider);
+        var request = await CreateRequest(customer, "만료 예약 해제 점검", "101동 101호");
+        var submitted = await CreateAndSubmitQuote(provider, request.Id, "만료 예정 견적", 50000m);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var quote = await db.Quotes.SingleAsync(x => x.PublicId == submitted.Id);
+        quote.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+        await db.SaveChangesAsync();
+        var service = scope.ServiceProvider.GetRequiredService<QuoteFeeReservationService>();
+
+        Assert.Equal(1, await service.ExpireDueAsync(default));
+
+        await db.Entry(quote).ReloadAsync();
+        var reservation = await db.QuoteFeeReservations.SingleAsync(x => x.QuoteId == quote.Id);
+        var wallet = await db.ProviderWallets.SingleAsync(x => x.Id == reservation.WalletId);
+        Assert.Equal("EXPIRED", quote.StatusCode);
+        Assert.Equal("RELEASED", reservation.StatusCode);
+        Assert.Equal("QUOTE_EXPIRED", reservation.ReleaseReasonCode);
+        Assert.Equal(100000m, wallet.AvailableBalance);
+        Assert.Equal(0m, wallet.ReservedBalance);
+        Assert.Contains(await db.WalletLedgerEntries.Where(x => x.WalletId == wallet.Id).ToListAsync(), x => x.EntryTypeCode == "RELEASE" && x.Amount == 3000m);
     }
 
     [Fact]
@@ -194,6 +260,15 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
 
     private async Task<ServiceRequestCreatedResponse> CreateRequest(HttpClient customer, string title, string detailAddress)
     {
+        using (var cleanupScope = factory.Services.CreateScope())
+        {
+            var cleanupDb = cleanupScope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var customerId = await (from profile in cleanupDb.CustomerProfiles
+                                    join user in cleanupDb.Users on profile.UserId equals user.Id
+                                    where user.LoginId == factory.Credentials[RoleCodes.Customer].LoginId select profile.Id).SingleAsync();
+            foreach (var existing in await cleanupDb.ServiceRequests.Where(item => item.CustomerProfileId == customerId).ToListAsync()) existing.AbuseCountExcluded = true;
+            await cleanupDb.SaveChangesAsync();
+        }
         var response = await customer.PostAsJsonAsync("/api/v1/requests", new
         {
             categoryId = factory.Catalog.ServiceId, administrativeAreaId = factory.Catalog.AreaId, title,
@@ -202,7 +277,7 @@ public sealed class QuoteAcceptanceWalletIntegrationTests(AuthenticationWebAppli
             answers = new object[]
             {
                 new { fieldId = factory.Catalog.FieldIds[0], value = "증상과 요청사항을 충분히 설명한 고객 요청 내용입니다." },
-                new { fieldId = factory.Catalog.FieldIds[1], value = DateTimeOffset.UtcNow.AddDays(2).ToString("O") },
+                new { fieldId = factory.Catalog.FieldIds[1], value = TestScheduleSlots.Future().ToString("O") },
                 new { fieldId = factory.Catalog.FieldIds[2], value = "주거" },
             },
         });

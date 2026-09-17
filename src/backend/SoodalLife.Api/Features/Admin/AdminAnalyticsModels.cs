@@ -64,5 +64,6 @@ public sealed record AdminAnalyticsDashboardResponse(
     IReadOnlyList<AdminAnalyticsAttentionResponse> Attention,
     IReadOnlyList<AdminAnalyticsFilterOptionResponse> Categories,
     IReadOnlyList<AdminAnalyticsFilterOptionResponse> Regions,
+    IReadOnlyList<AdminAnalyticsFilterOptionResponse> Providers,
     IReadOnlyList<string> UnavailableMetrics,
     DateTime GeneratedAt);

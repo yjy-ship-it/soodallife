@@ -1,0 +1,7 @@
+Release: V182 request/interior test-contract consistency
+Components: four API integration-test contracts and automated verification
+VerificationScope: six related suites, 48 tests
+ProductionAppChanged: false
+DatabaseChanged: false
+ProductionSettingsChanged: false
+Rollback: automatic source-file restore on verification failure

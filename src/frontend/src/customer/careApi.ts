@@ -1,4 +1,4 @@
-import type { CareApplication, CareContract, CareHome, CareProduct, CareRequest, CareVisit, CareVisitDetail, PaymentHistory, PaymentMethod, ScheduleChange, SubscriptionService } from './careTypes'
+import type { BillingRegistration, CareApplication, CareContract, CareHome, CareProduct, CareRequest, CareVisit, CareVisitDetail, PaymentHistory, PaymentMethod, ScheduleChange, SubscriptionService } from './careTypes'
 
 export class CareApiError extends Error {
   readonly status: number
@@ -30,6 +30,7 @@ export const careApi = {
   createRequest: (body: unknown) => request<CareRequest>('/api/v1/subscriptions/requests', post(body)),
   requests: () => request<CareRequest[]>('/api/v1/customers/me/care/requests'),
   request: (id: string) => request<CareRequest>(`/api/v1/customers/me/care/requests/${id}`),
+  cancelRequest: (item: CareRequest, reason: string) => request<CareRequest>(`/api/v1/customers/me/care/requests/${item.id}/cancel`, post({ reason, rowVersion: item.rowVersion, idempotencyKey: `customer-care-request-cancel-${item.id}-${crypto.randomUUID()}` })),
   applications: (id: string) => request<CareApplication[]>(`/api/v1/customers/me/care/requests/${id}/applications`),
   select: (requestId: string, applicationId: string) => request<CareContract>(`/api/v1/subscriptions/requests/${requestId}/selection`, post({ applicationId, idempotencyKey: `customer-care-selection-${requestId}-${crypto.randomUUID()}` })),
   contracts: (status?: string) => request<CareContract[]>(`/api/v1/customers/me/care/contracts${status ? `?status=${status}` : ''}`),
@@ -45,5 +46,8 @@ export const careApi = {
   afterService: (id: string, subject: string, description: string) => request<string>(`/api/v1/subscriptions/visits/${id}/after-service`, post({ subject, description, idempotencyKey: `customer-care-as-${id}-${crypto.randomUUID()}` })),
   dispute: (id: string, subject: string, description: string) => request<string>(`/api/v1/subscriptions/visits/${id}/dispute`, post({ subject, description, idempotencyKey: `customer-care-dispute-${id}-${crypto.randomUUID()}` })),
   paymentMethods: () => request<PaymentMethod[]>('/api/v1/customers/me/care/payment-methods'),
+  billingRegistration: () => request<BillingRegistration>('/api/v1/customers/me/care/billing-registration'),
+  completeBillingAuthorization: (authKey:string,customerKey:string) => request<PaymentMethod>('/api/v1/customers/me/care/billing-authorizations',post({authKey,customerKey,isDefault:true})),
   payments: () => request<PaymentHistory[]>('/api/v1/customers/me/care/payments'),
+  consentRecurringPayment: (contractId:string,paymentMethodId:string,rowVersion:string) => request<CareContract>(`/api/v1/customers/me/care/contracts/${contractId}/recurring-payment-consent`, { method:'POST', body:JSON.stringify({paymentMethodId,consent:true,rowVersion,idempotencyKey:`care-billing-consent-${crypto.randomUUID()}`}) }),
 }

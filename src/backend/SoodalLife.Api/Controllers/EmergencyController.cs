@@ -67,3 +67,15 @@ public sealed class EmergencyProgressController(EmergencyWorkflowService service
     [HttpPost][Authorize(Roles=RoleCodes.Provider)] public Task<ActionResult<EmergencyProgressResponse>> Add(Guid transactionId,EmergencyProgressInput input,CancellationToken token)=>Run(()=>service.AddProgress(User,transactionId,input,token));
     private async Task<ActionResult<T>> Run<T>(Func<Task<T>> work){try{return Ok(await work());}catch(EmergencyWorkflowException e){return StatusCode(e.StatusCode,new ApiErrorResponse(e.BusinessCode,e.Message,null,HttpContext.TraceIdentifier));}}
 }
+
+[ApiController]
+[Authorize(Roles=RoleCodes.Customer+","+RoleCodes.Provider)]
+[Route("api/v1/emergency-transactions/{transactionId:guid}")]
+public sealed class EmergencyTransactionActionsController(EmergencyWorkflowService service):ControllerBase
+{
+    [HttpPost("payment-report")][Authorize(Roles=RoleCodes.Customer)] public Task<ActionResult<EmergencyProgressResponse>> ReportPayment(Guid transactionId,EmergencyPaymentReportInput input,CancellationToken token)=>Run(()=>service.ReportPayment(User,transactionId,input,token));
+    [HttpPost("payment-decision")][Authorize(Roles=RoleCodes.Provider)] public Task<ActionResult<EmergencyProgressResponse>> DecidePayment(Guid transactionId,EmergencyPaymentDecisionInput input,CancellationToken token)=>Run(()=>service.DecidePayment(User,transactionId,input,token));
+    [HttpPost("no-show")] public Task<ActionResult<EmergencyProgressResponse>> ReportNoShow(Guid transactionId,EmergencyNoShowInput input,CancellationToken token)=>Run(()=>service.ReportNoShow(User,transactionId,input,token));
+    [HttpPost("no-show/dispute")] public Task<ActionResult<EmergencyProgressResponse>> DisputeNoShow(Guid transactionId,EmergencyNoShowDisputeInput input,CancellationToken token)=>Run(()=>service.DisputeNoShow(User,transactionId,input,token));
+    private async Task<ActionResult<T>> Run<T>(Func<Task<T>> work){try{return Ok(await work());}catch(EmergencyWorkflowException e){return StatusCode(e.StatusCode,new ApiErrorResponse(e.BusinessCode,e.Message,null,HttpContext.TraceIdentifier));}}
+}

@@ -1,0 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SoodalLife.Api.Domain.Entities;
+
+namespace SoodalLife.Api.Infrastructure.Persistence.Configurations;
+
+internal sealed class NotificationBroadcastConfiguration():EntityConfiguration<NotificationBroadcast>("notification_broadcasts")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<NotificationBroadcast> b)
+    {
+        Mapping.PublicId(b);Mapping.NullableLong(b,nameof(NotificationBroadcast.NotificationId),"notification_id");Mapping.String(b,nameof(NotificationBroadcast.Name),"name",200);Mapping.String(b,nameof(NotificationBroadcast.AudienceCode),"audience_code",20,unicode:false);Mapping.String(b,nameof(NotificationBroadcast.KindCode),"kind_code",30,unicode:false);Mapping.String(b,nameof(NotificationBroadcast.ChannelsJson),"channels_json",1000,unicode:false);Mapping.String(b,nameof(NotificationBroadcast.Title),"title",300);Mapping.String(b,nameof(NotificationBroadcast.Body),"body",3000);Mapping.DateTime(b,nameof(NotificationBroadcast.ScheduledAt),"scheduled_at",true);Mapping.String(b,nameof(NotificationBroadcast.StatusCode),"status_code",20,unicode:false);Mapping.Int(b,nameof(NotificationBroadcast.EstimatedAudienceCount),"estimated_audience_count");Mapping.Int(b,nameof(NotificationBroadcast.RecipientsProcessedCount),"recipients_processed_count");Mapping.Int(b,nameof(NotificationBroadcast.DeliveriesCreatedCount),"deliveries_created_count");Mapping.NullableLong(b,nameof(NotificationBroadcast.LastProcessedUserId),"last_processed_user_id");Mapping.DateTime(b,nameof(NotificationBroadcast.PreviewedAt),"previewed_at",true);Mapping.DateTime(b,nameof(NotificationBroadcast.ConfirmedAt),"confirmed_at",true);Mapping.NullableLong(b,nameof(NotificationBroadcast.ConfirmedByUserId),"confirmed_by_user_id");Mapping.DateTime(b,nameof(NotificationBroadcast.CancelledAt),"cancelled_at",true);Mapping.NullableLong(b,nameof(NotificationBroadcast.CancelledByUserId),"cancelled_by_user_id");Mapping.String(b,nameof(NotificationBroadcast.CancellationReason),"cancellation_reason",1000,true);Mapping.FullAudit(b);
+        Mapping.Fk<NotificationBroadcast,Notification>(b,nameof(NotificationBroadcast.NotificationId));Mapping.Fk<NotificationBroadcast,User>(b,nameof(NotificationBroadcast.ConfirmedByUserId));Mapping.Fk<NotificationBroadcast,User>(b,nameof(NotificationBroadcast.CancelledByUserId));b.HasIndex(x=>new{x.StatusCode,x.ScheduledAt});b.HasIndex(x=>x.CreatedAt).IsDescending();
+        b.ToTable("notification_broadcasts",t=>{t.HasCheckConstraint("CK_notification_broadcast_audience","[audience_code] IN ('CUSTOMER','PROVIDER','ALL')");t.HasCheckConstraint("CK_notification_broadcast_kind","[kind_code] IN ('BUSINESS_NOTICE','MARKETING')");t.HasCheckConstraint("CK_notification_broadcast_status","[status_code] IN ('DRAFT','QUEUED','PREPARING','SENDING','COMPLETED','CANCELLED')");t.HasCheckConstraint("CK_notification_broadcast_channels","ISJSON([channels_json])=1");});
+    }
+}

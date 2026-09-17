@@ -17,6 +17,8 @@ public sealed class AccountPasswordPolicyTests
     [InlineData("123456!")]
     [InlineData("abc123")]
     [InlineData("abc 1!")]
+    [InlineData("abc123가")]
+    [InlineData("abc１２!")]
     public void Rejects_MissingRequiredComponentOrWhitespace(string value)
         => Assert.False(AccountPasswordPolicy.IsSatisfied(value));
 }

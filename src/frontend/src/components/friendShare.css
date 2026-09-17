@@ -1,0 +1,18 @@
+.friendShare{display:grid;gap:4px}
+.friendShare>small{grid-column:1/-1;color:#0f766e;font-size:.72rem;line-height:1.4;white-space:normal}
+.headerFriendShareButton{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 12px;border:1px solid #e2ad43;border-radius:11px;color:#6f4a08;background:#fff8df;font-size:.8rem;font-weight:900;white-space:nowrap;cursor:pointer;transition:border-color .18s ease,background .18s ease,transform .18s ease}
+.headerFriendShareButton:hover{border-color:#cb8d19;background:#fff2c5;transform:translateY(-1px)}
+.headerFriendShareButton:focus-visible{outline:3px solid rgb(226 173 67/.28);outline-offset:2px}
+.headerFriendShareButton>span{font-size:.95rem}
+.providerMobileMenuGrid>.friendShare>button,.customerMobileMenuGrid>.friendShare>button{width:100%;height:100%;min-height:44px;padding:8px 10px;border:1px solid #dbe5e1;border-radius:10px;color:#40554e;background:#fff;font-weight:800;text-align:left}
+.providerHeaderActions .providerCustomerHomeButton{color:#0f766e;font-weight:900}
+.customerProviderHomeButton{min-height:42px;padding:0 10px;border:1px solid var(--color-border);border-radius:10px;color:#0f766e;background:#fff;font-size:.82rem;font-weight:900;white-space:nowrap}
+.proposalActions>.friendShare{display:grid}
+.proposalActions>.friendShare>button{height:100%}
+.proposalShareButton{border-color:#f0b65f!important;color:#80530f!important;background:#fff8e7!important}
+@media(max-width:1080px){.providerHeaderActions>.friendShare{display:none}}
+@media(max-width:980px){.customerHeaderActions>.friendShare{display:none}}
+@media(max-width:680px){
+  .providerHeaderActions .providerCustomerHomeButton{display:block!important;min-width:68px!important;padding:0 6px!important}
+  .customerProviderHomeButton{display:block;min-height:42px;padding:0 7px;font-size:.74rem}
+}

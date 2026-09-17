@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Providers;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Tests;
@@ -20,12 +21,9 @@ public sealed class ProviderExitApiTests(AuthenticationWebApplicationFactory fac
         using var provider = Client(); await Login(provider, account.Credential);
         var created = await Request(provider, "PROVIDER_ROLE_EXIT");
         Assert.Equal("READY_TO_COMPLETE", created.Status); Assert.True(created.Readiness.CanComplete);
-        created = created with { RowVersion = await SetRowVersion(created.Id) };
-
-        using var admin = Client(); await Login(admin, factory.Credentials[RoleCodes.Admin]);
-        var completed = await admin.PostAsJsonAsync($"/api/v1/admin/provider-exits/{created.Id}/complete", new { reason = "모든 종료 조건 확인", rowVersion = created.RowVersion });
-        Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
-        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        using var scope = factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ProviderExitService>().RefreshActiveAsync(default);
+        var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
         var providerRoleId = await db.Roles.Where(x => x.Code == RoleCodes.Provider).Select(x => x.Id).SingleAsync();
         var customerRoleId = await db.Roles.Where(x => x.Code == RoleCodes.Customer).Select(x => x.Id).SingleAsync();
         Assert.NotNull(await db.UserRoles.Where(x => x.UserId == account.UserId && x.RoleId == providerRoleId).Select(x => x.RevokedAt).SingleAsync());
@@ -110,7 +108,7 @@ public sealed class ProviderExitApiTests(AuthenticationWebApplicationFactory fac
     [Fact]
     public async Task AdminCanInspectRecheckAndRejectWithAudit()
     {
-        var account = await SeedProvider(false);
+        var account = await SeedProvider(false, reserved: 1000);
         using var provider = Client(); await Login(provider, account.Credential);
         var created = await Request(provider, "PROVIDER_ROLE_EXIT");
         using var admin = Client(); await Login(admin, factory.Credentials[RoleCodes.Admin]);
@@ -123,6 +121,23 @@ public sealed class ProviderExitApiTests(AuthenticationWebApplicationFactory fac
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
         Assert.Contains(await db.AuditLogs.Where(x => x.EntityPublicId == created.Id).Select(x => x.ActionCode).ToListAsync(), x => x == "PROVIDER_EXIT_RECHECKED");
         Assert.Contains(await db.AuditLogs.Where(x => x.EntityPublicId == created.Id).Select(x => x.ActionCode).ToListAsync(), x => x == "PROVIDER_EXIT_REJECTED");
+    }
+
+    [Fact]
+    public async Task ExitRequestImmediatelyLocksAllTradingEligibility()
+    {
+        var account=await SeedProvider(false);using var provider=Client();await Login(provider,account.Credential);_ = await Request(provider,"PROVIDER_ROLE_EXIT");
+        using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();var category=await db.ServiceCategories.FirstAsync(x=>x.LevelCode=="SERVICE");var area=await db.AdministrativeAreas.FirstAsync();
+        var result=await scope.ServiceProvider.GetRequiredService<ProviderTradingEligibilityService>().EvaluateAsync(account.ProviderId,category.Id,area.Id,default);
+        Assert.False(result.IsEligible);Assert.Equal("PROVIDER_EXIT_IN_PROGRESS",result.ReasonCode);
+    }
+
+    [Fact]
+    public async Task AccountWithdrawalAutomaticallyCompletesAndPreservesProfiles()
+    {
+        var account=await SeedProvider(true);using var provider=Client();await Login(provider,account.Credential);var created=await Request(provider,"ACCOUNT_WITHDRAWAL");Assert.Equal("READY_TO_COMPLETE",created.Status);
+        using var scope=factory.Services.CreateScope();await scope.ServiceProvider.GetRequiredService<ProviderExitService>().RefreshActiveAsync(default);var db=scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        Assert.Equal("WITHDRAWN",await db.Users.Where(x=>x.Id==account.UserId).Select(x=>x.StatusCode).SingleAsync());Assert.All(await db.UserRoles.Where(x=>x.UserId==account.UserId).ToListAsync(),x=>Assert.NotNull(x.RevokedAt));Assert.True(await db.ProviderProfiles.AnyAsync(x=>x.Id==account.ProviderId));Assert.True(await db.CustomerProfiles.AnyAsync(x=>x.UserId==account.UserId));Assert.Equal("COMPLETED",await db.ProviderExitRequests.Where(x=>x.PublicId==created.Id).Select(x=>x.StatusCode).SingleAsync());
     }
 
     [Theory]
@@ -150,7 +165,7 @@ public sealed class ProviderExitApiTests(AuthenticationWebApplicationFactory fac
             db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = customerRoleId, GrantedAt = now });
             db.CustomerProfiles.Add(new CustomerProfile { UserId = user.Id, DisplayName = "복수 역할 고객", CreatedAt = now, UpdatedAt = now });
         }
-        var profile = new ProviderProfile { UserId = user.Id, BusinessName = "종료 테스트 공급자", ApprovalStatusCode = "APPROVED", ActivityStatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now };
+        var profile = new ProviderProfile { UserId = user.Id, BusinessName = "종료 테스트 전문가", ApprovalStatusCode = "APPROVED", ActivityStatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now };
         db.ProviderProfiles.Add(profile); await db.SaveChangesAsync();
         var wallet = new ProviderWallet { ProviderProfileId = profile.Id, CurrencyCode = "KRW", AvailableBalance = available, ReservedBalance = reserved, StatusCode = "ACTIVE", CreatedAt = now, UpdatedAt = now };
         db.ProviderWallets.Add(wallet); await db.SaveChangesAsync();
@@ -179,7 +194,7 @@ public sealed class ProviderExitApiTests(AuthenticationWebApplicationFactory fac
 
     private static async Task<ProviderExitRequestResponse> Request(HttpClient client, string type)
     {
-        var response = await client.PostAsJsonAsync(Path, new { requestType = type, reason = "공급자 활동 종료 요청", idempotencyKey = $"exit-{Guid.NewGuid():N}" });
+        var response = await client.PostAsJsonAsync(Path, new { requestType = type, reason = "전문가 활동 종료 요청", idempotencyKey = $"exit-{Guid.NewGuid():N}" });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); return (await response.Content.ReadFromJsonAsync<ProviderExitRequestResponse>())!;
     }
     private async Task<string> SetRowVersion(Guid id)

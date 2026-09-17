@@ -19,6 +19,8 @@
 .inlineField button, .formButtons > button, .addressList button, .withdrawalPanel button { min-height: 42px; padding: 0 14px; border: 1px solid var(--color-brand-deep); border-radius: 9px; color: var(--color-brand-deep); background: #fff; font-weight: 800; cursor: pointer; }
 .accountPrimary { min-height: 48px; padding: 0 20px; border: 0 !important; border-radius: 10px; color: #fff !important; background: var(--color-brand-deep) !important; font-weight: 850; cursor: pointer; }
 .accountPrimary:disabled { opacity: .55; cursor: wait; }
+.signupCard > .accountSecondary { width: 100%; min-height: 52px; padding: 0 20px; margin-top: 16px; border: 0; border-radius: 12px; color: #fff; background: var(--color-brand-deep); font-weight: 850; cursor: pointer; box-shadow: 0 7px 18px rgba(15, 118, 110, .18); }
+.signupCard > .accountSecondary:hover, .signupCard > .accountSecondary:focus-visible { background: var(--color-brand-main); transform: translateY(-1px); }
 .signupActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 30px; }
 .signupActions > button:not(.accountPrimary) { min-height: 48px; padding: 0 20px; border: 1px solid #cbd9d4; border-radius: 10px; background: #fff; }
 .accountError { padding: 12px 14px; margin: 18px 0 0; border-radius: 9px; color: #8d3029; background: #fff0ed; }
@@ -51,8 +53,9 @@
 .mySoodalHeading > span { color: #6d7b76; }
 .mySoodalLayout { display: grid; width: min(1180px, calc(100% - 40px)); grid-template-columns: 210px minmax(0, 1fr); gap: 34px; padding-bottom: 90px; margin: auto; }
 .mySoodalLayout > nav { display: flex; align-self: start; flex-direction: column; gap: 4px; padding: 13px; border: 1px solid #dce6e2; border-radius: 16px; background: #fff; }
-.mySoodalLayout > nav button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 9px; color: #56665f; background: transparent; text-align: left; cursor: pointer; }
+.mySoodalLayout > nav button { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 0 12px; border: 0; border-radius: 9px; color: #56665f; background: transparent; text-align: left; cursor: pointer; }
 .mySoodalLayout > nav button.isActive { color: var(--color-brand-deep); background: #eaf9f4; font-weight: 850; }
+.mySoodalLayout > nav button.mySoodalLogout{color:#a13b31}.mySoodalLayout > nav button.mySoodalLogout:hover{background:#fff1ef}
 .mySoodalLayout > nav hr { width: 100%; border: 0; border-top: 1px solid #e3eae7; }
 .mySoodalContent { min-width: 0; }
 .accountSummary, .accountForm, .withdrawalPanel, .futureMenu { padding: 28px; border: 1px solid #dce6e2; border-radius: 18px; background: #fff; }
@@ -111,6 +114,12 @@
 .notificationPreferences header > div { display: grid; gap: 6px; }
 .notificationPreferences header span { color: #6f7f78; }
 .notificationPreferences label { display: flex; align-items: center; gap: 8px; }
+.notificationChannelChoices { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.notificationChannelChoices label, .notificationNightConsent { align-items: flex-start; padding: 13px; border: 1px solid #dce6e2; border-radius: 11px; background: #f7faf9; cursor: pointer; }
+.notificationChannelChoices label > span, .notificationNightConsent > span { display: grid; gap: 4px; }
+.notificationChannelChoices small, .notificationNightConsent small, .notificationConsentState { color: #6f7f78; font-size: .78rem; }
+.notificationNightConsent { margin-top: 10px; background: #fff8e9; }
+.notificationConsentState { margin: 10px 0 0; }
 .notificationPreferences dl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0 0; }
 .notificationPreferences dl div { padding: 12px; border-radius: 10px; background: #f3f7f5; }
 .notificationPreferences dt { font-weight: 800; }
@@ -125,6 +134,8 @@
 .notificationList article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 18px; border: 1px solid #dce6e2; border-radius: 14px; background: #fff; }
 .notificationList article.notificationUnread { border-left: 5px solid var(--color-brand-main); background: #f5fffb; }
 .notificationList article > button:first-child { display: grid; gap: 6px; border: 0; color: #3b514a; background: transparent; text-align: left; cursor: pointer; }
+.notificationList article > .accountSecondary { align-self: center; min-width: 72px; min-height: 42px; padding: 0 16px; border: 1px solid #0f766e; border-radius: 10px; color: #0f766e; background: #fff; font-weight: 850; cursor: pointer; }
+.notificationList article > .accountSecondary:hover, .notificationList article > .accountSecondary:focus-visible { color: #fff; background: #0f766e; }
 .notificationState { color: var(--color-brand-deep); font-size: .75rem; font-weight: 850; }
 .notificationDetail { position: sticky; top: 90px; align-self: start; padding: 26px; border: 1px solid #dce6e2; border-radius: 16px; background: #fff; }
 .notificationDetail > span { color: var(--color-brand-deep); font-weight: 800; }
@@ -152,6 +163,7 @@
   .mySoodalLayout { grid-template-columns: 1fr; }
   .mySoodalLayout > nav { overflow-x: auto; flex-direction: row; padding: 8px; }
   .mySoodalLayout > nav button { flex: 0 0 auto; }
+  .mySoodalLayout > nav button.isActive { order: -1; }
   .mySoodalLayout > nav hr { display: none; }
   .addressLayout { grid-template-columns: 1fr; }
   .addressForm { position: static; }
@@ -159,6 +171,7 @@
   .notificationWorkspace { grid-template-columns: 1fr; }
   .notificationDetail { position: static; }
   .notificationPreferences dl { grid-template-columns: repeat(2, 1fr); }
+  .notificationChannelChoices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
@@ -176,8 +189,10 @@
   .accountForm, .accountSummary, .withdrawalPanel, .futureMenu { padding: 22px; }
   .consentList article { align-items: start; flex-direction: column; }
   .notificationPreferences header { flex-direction: column; }
+  .notificationChannelChoices { grid-template-columns: 1fr; }
   .notificationToolbar > span { width: 100%; margin-left: 0; }
   .notificationList article { grid-template-columns: 1fr; }
   .legalDocuments { width: min(100% - 32px, 960px); padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
 }
 .providerBlockList{display:grid;gap:12px}.providerBlockList article{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;border:1px solid #d8e7e1;border-radius:16px;background:#fff}.providerBlockList h2{margin:.3rem 0}.providerBlockList span{color:#0f766e;font-weight:800}.providerBlockList button{border:1px solid #0f766e;border-radius:10px;padding:.7rem 1rem;background:#fff;color:#0f766e}@media(max-width:640px){.providerBlockList article{align-items:stretch;flex-direction:column}.providerBlockList button{width:100%}}
+.interestedServiceGuide{display:grid;grid-template-columns:1fr auto;gap:6px 18px;align-items:center;padding:20px;border-radius:16px;background:#eaf8f4}.interestedServiceGuide strong{color:#134d43;font-size:1.05rem}.interestedServiceGuide p{margin:0;color:#536d65;line-height:1.6}.interestedServiceGuide button,.interestedServiceList button,.interestedServiceEmpty button{min-height:42px;padding:0 15px;border:1px solid #0f766e;border-radius:10px;color:#0f766e;background:#fff;font-weight:800}.interestedServiceGuide button{grid-column:2;grid-row:1/3}.interestedServiceList{display:grid;gap:12px;margin-top:16px}.interestedServiceList article{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:18px;border:1px solid #d8e7e1;border-radius:16px;background:#fff}.interestedServiceMain{display:grid!important;justify-items:start;height:auto!important;padding:0!important;border:0!important;background:transparent!important;text-align:left}.interestedServiceMain span{color:#678078;font-size:.8rem}.interestedServiceMain strong{margin:5px 0;color:#183f36;font-size:1.15rem}.interestedServiceMain small{color:#7a8c86}.interestedServiceList article>div{display:flex;gap:8px}.interestedServiceList article>div button:first-child{color:#fff;background:#0f766e}.interestedServiceEmpty{display:grid;gap:10px;justify-items:start;padding:28px;margin-top:16px;border-radius:16px;background:#fff}@media(max-width:700px){.interestedServiceGuide,.interestedServiceList article{grid-template-columns:1fr}.interestedServiceGuide button{grid-column:auto;grid-row:auto}.interestedServiceList article>div{display:grid;grid-template-columns:1fr 1fr}.interestedServiceList article>div button{width:100%}}

@@ -88,12 +88,15 @@ public sealed class OutboxProcessor(
             await db.OutboxEvents.Where(x => x.Id == id && x.StatusCode == "PROCESSING")
                 .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.StatusCode, "PUBLISHED")
                     .SetProperty(x => x.ProcessedAt, now).SetProperty(x => x.ErrorMessage, (string?)null), token);
+            await db.OutboxRetryRequests.Where(x=>x.OutboxEventId==id&&x.StatusCode=="REQUESTED")
+                .ExecuteUpdateAsync(setters=>setters.SetProperty(x=>x.StatusCode,"CONSUMED").SetProperty(x=>x.ConsumedAt,now),token);
             return;
         }
         var row = await db.OutboxEvents.SingleAsync(x => x.Id == id, token);
         row.StatusCode = "PUBLISHED";
         row.ProcessedAt = now;
         row.ErrorMessage = null;
+        var retries=await db.OutboxRetryRequests.Where(x=>x.OutboxEventId==id&&x.StatusCode=="REQUESTED").ToListAsync(token);foreach(var retry in retries){retry.StatusCode="CONSUMED";retry.ConsumedAt=now;}
         await db.SaveChangesAsync(token);
     }
 
@@ -104,6 +107,7 @@ public sealed class OutboxProcessor(
         row.StatusCode = dead ? "DEAD" : "FAILED";
         row.ErrorMessage = SecurityTextSanitizer.ErrorCode(exception);
         row.AvailableAt = dead ? DateTime.MaxValue : DateTime.UtcNow.AddSeconds(BackoffSeconds(row.AttemptCount));
+        if(dead){var retries=await db.OutboxRetryRequests.Where(x=>x.OutboxEventId==id&&x.StatusCode=="REQUESTED").ToListAsync(token);foreach(var retry in retries)retry.StatusCode="FAILED";}
         await db.SaveChangesAsync(token);
     }
 

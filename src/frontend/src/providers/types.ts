@@ -45,14 +45,16 @@ export interface ProviderDashboard { approvalStatus: string; activityStatus: str
 export interface ProviderOperationsDashboard { newMatchedRequestCount:number; submittedQuoteCount:number; waitingSelectionQuoteCount:number; selectedTransactionCount:number; appointmentActionRequiredCount:number; todayAppointmentCount:number; inProgressWorkCount:number; waitingCompletionConfirmationCount:number; revisionRequestedCount:number; unreadNotificationCount:number }
 export interface ProviderHubMetric { key:string; label:string; count:number; route:string; tone:string }
 export interface ProviderHubMetricGroup { key:string; title:string; items:ProviderHubMetric[] }
-export interface ProviderHubWorkItem { type:string; publicId:string; title:string; description:string; status:string; priorityGroup:string; scheduledAt:string|null; badge:string; route:string; nextAction:string; domain:string }
+export interface ProviderHubWorkItem { type:string; publicId:string; title:string; description:string; status:string; priorityGroup:string; scheduledAt:string|null; actionDueAt:string|null; badge:string; route:string; nextAction:string; domain:string }
 export interface ProviderHubInboxPage { items:ProviderHubWorkItem[]; page:number; pageSize:number; totalCount:number; totalPages:number }
 export interface ProviderHubScheduleItem { type:string; publicId:string; title:string; status:string; scheduledAt:string; scheduledEndAt:string|null; route:string; domain:string }
 export interface ProviderHubChatItem { roomId:string; counterpartyDisplayName:string; serviceName:string; lastMessageAt:string|null; unreadCount:number; route:string }
 export interface ProviderHubEmergency { isEnabled:boolean; isCurrentlyAvailable:boolean; availabilityReason:string; newRequestCount:number; waitingResponseCount:number; activeAssignmentCount:number; todayAvailability:string; route:string }
 export interface ProviderHubWallet { availableBalance:number; reservedBalance:number; currencyCode:string; status:string; latestEntryType:string|null; latestEntryAmount:number|null; latestEntryAt:string|null; requiresAttention:boolean; route:string }
 export interface ProviderHubApproval { approvalStatus:string; activityStatus:string; pendingServiceCount:number; rejectedServiceCount:number; missingEvidenceCount:number; rejectedEvidenceCount:number; expiredEvidenceCount:number; nextActions:string[]; route:string }
-export interface ProviderOperationsHub { generatedAt:string; summary:ProviderHubMetricGroup[]; inbox:ProviderHubInboxPage; schedule:ProviderHubScheduleItem[]; recentChats:ProviderHubChatItem[]; emergency:ProviderHubEmergency; wallet:ProviderHubWallet; approval:ProviderHubApproval }
+export interface ProviderHubOperationalHealth { deadlineApproachingCount:number; overdueCount:number; scheduleConflictCount:number; paymentActionCount:number; reviewReplyCount:number; expiringEvidenceCount:number; serviceConfigurationIssueCount:number; nextSchedule:ProviderHubScheduleItem|null }
+export interface ProviderRequestStatus { generatedAt:string; items:ProviderHubWorkItem[]; wallet:ProviderHubWallet }
+export interface ProviderOperationsHub { generatedAt:string; summary:ProviderHubMetricGroup[]; inbox:ProviderHubInboxPage; schedule:ProviderHubScheduleItem[]; recentChats:ProviderHubChatItem[]; emergency:ProviderHubEmergency; wallet:ProviderHubWallet; approval:ProviderHubApproval; operationalHealth:ProviderHubOperationalHealth }
 export interface ProviderLegalDocument { id: string; versionId: string; code: string; requirementCode: string; title: string; content: string; version: number; effectiveFrom: string; effectiveTo: string | null; isPlaceholder: boolean }
 
 export interface ProviderArea {
@@ -63,17 +65,26 @@ export interface ProviderArea {
 
 export interface ProviderServiceArea {
   serviceCategoryId: string
+  middleCategoryId: string
+  middleCategoryName: string
+  middleCategoryPath: string
   categoryPath: string
+  isNationwide: boolean
+  nationwideAllowed: boolean
+  coverageTypeCode: string
+  coverageTypeName: string
   areas: ProviderArea[]
 }
 
 export interface MatchedRequestListItem {
   requestId: string
+  domain: 'GENERAL' | 'INTERIOR' | 'EMERGENCY'
   categoryPath: string
   areaName: string
   summary: string
   desiredAt: string | null
   dispatchedAt: string
+  expiresAt: string
   dispatchStatus: string
   requestStatus: string
 }
@@ -92,8 +103,13 @@ export interface MatchedRequestDetail extends MatchedRequestListItem {
   description: string | null
   isUrgent: boolean
   expiresAt: string
+  desiredAtSecond: string | null
+  requiresServiceAddress: boolean
   customerPhone: string | null
   detailAddress: string | null
+  detailAddressDisclosureCode: 'AFTER_SELECTION' | 'BEFORE_QUOTE'
+  approximateDistanceKm: number | null
+  distanceBasis: 'SAVED_DEFAULT_ADDRESSES' | 'UNAVAILABLE'
   answers: MatchedRequestAnswer[]
   files: MatchedRequestFile[]
 }
@@ -101,7 +117,7 @@ export interface MatchedRequestDetail extends MatchedRequestListItem {
 export interface ProviderCaseSource { transactionId:string|null; subscriptionVisitId:string|null; interiorProjectId:string|null; afterServiceId:string|null }
 export interface ProviderCaseFile { id:string; fileName:string; contentType:string; sizeBytes:number; role:string|null; description:string|null; sourceType:string; publicationMode:string; downloadUrl:string|null; publicationStatus:string; publicationMessage:string|null }
 export interface ProviderAfterServiceTimeline { actionType:string; status:string; displayStatus:string; note:string|null; scheduledAt:string|null; performedAt:string|null; occurredAt:string }
-export interface ProviderAfterServiceListItem { id:string; caseNumber:string; subject:string; status:string; displayStatus:string; sourceType:string; receivedAt:string; scheduledAt:string|null; contactAvailable:boolean }
+export interface ProviderAfterServiceListItem { id:string; caseNumber:string; subject:string; requestTitle:string|null; status:string; displayStatus:string; sourceType:string; receivedAt:string; scheduledAt:string|null; contactAvailable:boolean }
 export interface ProviderAfterServiceDetail extends ProviderAfterServiceListItem { source:ProviderCaseSource; description:string; requestDetails:string|null; warrantyStartDate:string|null; warrantyEndDate:string|null; isWithinWarranty:boolean|null; dueAt:string|null; providerConfirmedAt:string|null; providerResponse:string|null; visitRequired:boolean|null; startedAt:string|null; completedAt:string|null; resolutionSummary:string|null; unresolvedReason:string|null; recurrenceOccurred:boolean|null; customerName:string; customerPhone:string|null; detailAddress:string|null; contactPolicy:string; rowVersion:string; timeline:ProviderAfterServiceTimeline[]; evidence:ProviderCaseFile[] }
 export interface ProviderDisputeTimeline { actionType:string; note:string|null; reason:string|null; occurredAt:string; isProviderSubmission:boolean }
 export interface ProviderDisputeListItem { id:string; caseNumber:string; subject:string; status:string; displayStatus:string; sourceType:string; receivedAt:string; lastActionAt:string|null }

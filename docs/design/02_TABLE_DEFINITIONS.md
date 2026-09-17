@@ -9,7 +9,7 @@
 - 변경 가능한 테이블의 `row_version ROWVERSION`은 NULL/기본값 개념 없이 SQL Server가 생성한다.
 - `created_by_user_id`, `updated_by_user_id`는 시스템 작업을 허용하기 위해 NULL이며 `users.id`를 참조한다.
 
-## 2. 계정·역할·공급자 승인
+## 2. 계정·역할·전문가 승인
 
 ### 2.1 `users`
 
@@ -35,7 +35,7 @@
 
 ### 2.2 `roles`
 
-- 업무 목적: 고객/공급자/관리자 역할 기준값
+- 업무 목적: 고객/전문가/관리자 역할 기준값
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -54,13 +54,13 @@
 
 ### 3.1 `provider_service_categories`
 
-- 업무 목적: 승인 공급자가 제공하는 leaf 서비스 카테고리
+- 업무 목적: 승인 전문가가 제공하는 leaf 서비스 카테고리
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
 |---|---|---:|---|---|---|
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 전문가 |
 | category_id | BIGINT | N | 없음 | FK service_categories.id, IX | SERVICE 노드 |
 | status_code | VARCHAR(20) | N | `ACTIVE` | CHECK, IX | ACTIVE/INACTIVE |
 | activated_at | DATETIME2(7) | N | SYSUTCDATETIME() |  | 활성 시작 UTC |
@@ -75,7 +75,7 @@ unique/index 후보: `UQ(provider_profile_id, category_id)`, `(category_id, stat
 
 ### 3.2 `provider_service_areas`
 
-- 업무 목적: 공급자의 카테고리별 서비스 가능 SIGUNGU
+- 업무 목적: 전문가의 카테고리별 서비스 가능 SIGUNGU
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -121,13 +121,13 @@ unique/index 후보: `UQ(provider_service_category_id, administrative_area_id)`,
 
 ### 3.4 `provider_documents`
 
-- 업무 목적: 공급자 승인용 사업자/자격/보험 파일 연결
+- 업무 목적: 전문가 승인용 사업자/자격/보험 파일 연결
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
 |---|---|---:|---|---|---|
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 전문가 |
 | file_id | BIGINT | N | 없음 | FK files.id, UQ | 파일 |
 | document_type_code | VARCHAR(50) | N | 없음 | IX | 사업자/자격/보험 유형; 값 목록은 승인 흐름에서 확정 |
 | document_number | NVARCHAR(100) | Y | NULL |  | 문서 번호, 민감도 검토 |
@@ -143,7 +143,7 @@ unique/index 후보: `UQ(provider_service_category_id, administrative_area_id)`,
 | updated_by_user_id | BIGINT | Y | NULL | FK users.id | 수정자 |
 | row_version | ROWVERSION | N | SQL Server | concurrency | 동시성 |
 
-`document_type_code`와 `verification_status_code`의 최종 값은 공급자 승인 화면 상세가 확정될 때 코드 문서에 추가한다. 스키마는 문자열 코드로 확장 가능하다.
+`document_type_code`와 `verification_status_code`의 최종 값은 전문가 승인 화면 상세가 확정될 때 코드 문서에 추가한다. 스키마는 문자열 코드로 확장 가능하다.
 
 ## 4. 고객 요청·동적 답변
 
@@ -160,7 +160,7 @@ unique/index 후보: `UQ(provider_service_category_id, administrative_area_id)`,
 | category_id | BIGINT | N | 없음 | FK service_categories.id, IX | leaf 서비스 |
 | category_policy_id | BIGINT | N | 없음 | FK category_policies.id, IX | 요청 시 정책 |
 | administrative_area_id | BIGINT | N | 없음 | FK administrative_areas.id, IX | 매칭 SIGUNGU |
-| detail_address | NVARCHAR(500) | Y | NULL |  | 상세주소, 채택 전 공급자 비공개 |
+| detail_address | NVARCHAR(500) | Y | NULL |  | 상세주소, 채택 전 전문가 비공개 |
 | title | NVARCHAR(200) | N | 없음 |  | 요청 제목 |
 | description | NVARCHAR(MAX) | Y | NULL |  | 공통 설명 |
 | status_code | VARCHAR(20) | N | `DRAFT` | CHECK, IX | 요청 상태 |
@@ -225,14 +225,14 @@ unique 후보: `(request_answer_id, file_id)`.
 
 ### 5.1 `dispatch_candidates`
 
-- 업무 목적: 요청 시점 공급자 적격성 계산 결과
+- 업무 목적: 요청 시점 전문가 적격성 계산 결과
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
 |---|---|---:|---|---|---|
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
 | service_request_id | BIGINT | N | 없음 | FK service_requests.id, IX | 요청 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 전문가 |
 | status_code | VARCHAR(20) | N | 없음 | CHECK, IX | ELIGIBLE/INELIGIBLE/DISPATCHED/EXPIRED |
 | category_match | BIT | N | 없음 |  | 카테고리 조건 결과 |
 | area_match | BIT | N | 없음 |  | SIGUNGU 조건 결과 |
@@ -246,7 +246,7 @@ unique 후보: `(service_request_id, provider_profile_id)`; 조회 index `(servi
 
 ### 5.2 `request_dispatches`
 
-- 업무 목적: 적격 공급자에게 요청을 실제 공개/배포한 기록
+- 업무 목적: 적격 전문가에게 요청을 실제 공개/배포한 기록
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -254,7 +254,7 @@ unique 후보: `(service_request_id, provider_profile_id)`; 조회 index `(servi
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
 | public_id | UNIQUEIDENTIFIER | N | 앱 UUID v4 | UQ | 운영/API 식별 |
 | service_request_id | BIGINT | N | 없음 | FK service_requests.id, IX | 요청 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 수신 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 수신 전문가 |
 | candidate_id | BIGINT | N | 없음 | FK dispatch_candidates.id, UQ | 근거 후보 |
 | status_code | VARCHAR(20) | N | `AVAILABLE` | CHECK, IX | 배포 상태 |
 | available_at | DATETIME2(7) | N | SYSUTCDATETIME() | IX | 공개 UTC |
@@ -265,7 +265,7 @@ unique 후보: `(service_request_id, provider_profile_id)`; 조회 index `(servi
 | created_at | DATETIME2(7) | N | SYSUTCDATETIME() |  | 생성 UTC |
 | row_version | ROWVERSION | N | SQL Server | concurrency | 상태 동시성 |
 
-unique 후보: `(service_request_id, provider_profile_id)`; 공급자 inbox index `(provider_profile_id, status_code, available_at DESC)`.
+unique 후보: `(service_request_id, provider_profile_id)`; 전문가 inbox index `(provider_profile_id, status_code, available_at DESC)`.
 
 ### 5.3 `notifications`
 
@@ -316,7 +316,7 @@ unique 후보: `(notification_id, channel_code, attempt_no)`.
 
 ### 6.1 `quotes`
 
-- 업무 목적: 요청별 공급자 1개의 논리 견적 aggregate
+- 업무 목적: 요청별 전문가 1개의 논리 견적 aggregate
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -324,7 +324,7 @@ unique 후보: `(notification_id, channel_code, attempt_no)`.
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
 | public_id | UNIQUEIDENTIFIER | N | 앱 UUID v4 | UQ | API 공개 ID |
 | service_request_id | BIGINT | N | 없음 | FK service_requests.id, IX | 요청 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 전문가 |
 | request_dispatch_id | BIGINT | N | 없음 | FK request_dispatches.id, IX | 응답 배포 |
 | status_code | VARCHAR(20) | N | `DRAFT` | CHECK, IX | 견적 상태 |
 | submitted_at | DATETIME2(7) | Y | NULL | IX | 최초/최근 제출 시각은 revision과 함께 갱신 |
@@ -361,7 +361,7 @@ unique 후보: `(service_request_id, provider_profile_id)`; 목록 index `(servi
 | valid_until | DATETIME2(7) | N | 없음 | IX | 견적 유효 UTC |
 | revision_reason | NVARCHAR(1000) | Y | NULL |  | 수정 사유 |
 | submitted_at | DATETIME2(7) | N | SYSUTCDATETIME() | IX | 제출 UTC |
-| submitted_by_user_id | BIGINT | N | 없음 | FK users.id | 제출 공급자 계정 |
+| submitted_by_user_id | BIGINT | N | 없음 | FK users.id | 제출 전문가 계정 |
 | idempotency_key | VARCHAR(100) | N | 없음 | UQ | 제출 중복 방지 |
 
 unique/index 후보: `(quote_id, revision_no)`, `(quote_id, submitted_at DESC)`.
@@ -424,7 +424,7 @@ unique 후보: `(quote_revision_id, line_no)`.
 
 ### 7.3 `provider_profiles`
 
-- 업무 목적: 공급자 업무정보, 승인 현재값, 활동 상태
+- 업무 목적: 전문가 업무정보, 승인 현재값, 활동 상태
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -449,13 +449,13 @@ unique 후보: `(quote_revision_id, line_no)`.
 
 ### 7.4 `provider_approval_events`
 
-- 업무 목적: 공급자 승인/반려/정지 결정의 append-only 업무 이력
+- 업무 목적: 전문가 승인/반려/정지 결정의 append-only 업무 이력
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
 |---|---|---:|---|---|---|
 | id | BIGINT IDENTITY(1,1) | N | IDENTITY | PK | 내부 키 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 대상 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 대상 전문가 |
 | from_status_code | VARCHAR(20) | Y | NULL | CHECK | 최초 결정은 NULL 가능 |
 | to_status_code | VARCHAR(20) | N | 없음 | CHECK | 변경 후 승인 상태 |
 | action_code | VARCHAR(20) | N | 없음 | CHECK | APPROVE/REJECT/SUSPEND/RESUME |
@@ -669,7 +669,7 @@ unique 후보: `(field_definition_id, target_category_id)`.
 
 ### 8.8 `qualification_policies`
 
-- 업무 목적: 중분류별 공급자 자격·보험·안전 승인 기준
+- 업무 목적: 중분류별 전문가 자격·보험·안전 승인 기준
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -730,7 +730,7 @@ unique/index 후보: `UQ(area_code, effective_from)`, `FIX UNIQUE(area_code) WHE
 
 ### 9.1 `transactions`
 
-- 업무 목적: 채택된 견적과 고객-공급자 작업의 계약적 연결; 회계 원장은 아님
+- 업무 목적: 채택된 견적과 고객-전문가 작업의 계약적 연결; 회계 원장은 아님
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -740,7 +740,7 @@ unique/index 후보: `UQ(area_code, effective_from)`, `FIX UNIQUE(area_code) WHE
 | service_request_id | BIGINT | N | 없음 | FK service_requests.id, UQ | MVP 요청당 거래 최대 1 |
 | accepted_quote_revision_id | BIGINT | N | 없음 | FK quote_revisions.id, UQ | 채택 견적 버전 |
 | customer_profile_id | BIGINT | N | 없음 | FK customer_profiles.id, IX | 고객 snapshot 대상 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 공급자 snapshot 대상 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 전문가 snapshot 대상 |
 | category_id | BIGINT | N | 없음 | FK service_categories.id, IX | leaf 카테고리 |
 | status_code | VARCHAR(30) | N | `CREATED` | CHECK, IX | 거래 상태 |
 | agreed_amount | DECIMAL(19,4) | N | 없음 |  | 채택 총액 |
@@ -784,7 +784,7 @@ unique/index 후보: `UQ(area_code, effective_from)`, `FIX UNIQUE(area_code) WHE
 
 ### 9.3 `work_completion_revisions`
 
-- 업무 목적: 공급자가 제출한 작업완료 내용의 immutable 버전
+- 업무 목적: 전문가가 제출한 작업완료 내용의 immutable 버전
 - PK: `id`
 
 | 컬럼 | 형식 | NULL | 기본값 | FK / Unique / Index | 설명 |
@@ -796,9 +796,9 @@ unique/index 후보: `UQ(area_code, effective_from)`, `FIX UNIQUE(area_code) WHE
 | status_code | VARCHAR(30) | N | `SUBMITTED` | CHECK, IX | revision 상태 |
 | work_summary | NVARCHAR(MAX) | N | 없음 |  | 수행 내용 |
 | checklist_json | NVARCHAR(MAX) | Y | NULL | ISJSON CHECK | 체크리스트 snapshot |
-| provider_attestation_at | DATETIME2(7) | N | 없음 |  | 공급자 전자확인 UTC |
+| provider_attestation_at | DATETIME2(7) | N | 없음 |  | 전문가 전자확인 UTC |
 | submitted_at | DATETIME2(7) | N | SYSUTCDATETIME() | IX | 제출 UTC |
-| submitted_by_user_id | BIGINT | N | 없음 | FK users.id | 공급자 계정 |
+| submitted_by_user_id | BIGINT | N | 없음 | FK users.id | 전문가 계정 |
 | revision_reason | NVARCHAR(1000) | Y | NULL |  | 수정 제출 사유 |
 | idempotency_key | VARCHAR(100) | N | 없음 | UQ | 제출 중복 방지 |
 
@@ -859,7 +859,7 @@ index 후보: `(transaction_id, confirmed_at DESC)`. 거래 완료 응답 최대
 | event_type_code | VARCHAR(40) | N | 없음 | CHECK, IX | 이력 event |
 | title | NVARCHAR(200) | N | 없음 |  | 표시 제목 |
 | summary | NVARCHAR(2000) | N | 없음 |  | 표시 요약 |
-| provider_name_snapshot | NVARCHAR(200) | Y | NULL |  | 당시 공급자 표시명 |
+| provider_name_snapshot | NVARCHAR(200) | Y | NULL |  | 당시 전문가 표시명 |
 | category_name_snapshot | NVARCHAR(500) | Y | NULL |  | 당시 분류 경로 |
 | total_amount_snapshot | DECIMAL(19,4) | Y | NULL |  | 당시 금액 |
 | currency_code | CHAR(3) | Y | NULL | CHECK 후보 | 금액 존재 시 통화 |
@@ -952,7 +952,7 @@ index 후보: `(transaction_id, status_code)`, `(service_asset_id, linked_at DES
 | public_id | UNIQUEIDENTIFIER | N | 앱 UUID v4 | UQ | API 공개 ID |
 | transaction_id | BIGINT | N | 없음 | FK transactions.id, IX | 원 거래 |
 | customer_profile_id | BIGINT | N | 없음 | FK customer_profiles.id, IX | 접수 고객 |
-| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 담당 공급자 |
+| provider_profile_id | BIGINT | N | 없음 | FK provider_profiles.id, IX | 담당 전문가 |
 | status_code | VARCHAR(20) | N | `RECEIVED` | CHECK, IX | RECEIVED/IN_PROGRESS/COMPLETED |
 | subject | NVARCHAR(200) | N | 없음 |  | 접수 제목 |
 | description | NVARCHAR(MAX) | N | 없음 |  | 증상/요청 내용 |
@@ -981,7 +981,7 @@ index 후보: `(transaction_id, status_code)`, `(service_asset_id, linked_at DES
 | to_status_code | VARCHAR(20) | N | 없음 | CHECK, IX | 변경 후 상태 |
 | action_note | NVARCHAR(2000) | Y | NULL |  | 처리 메모 |
 | occurred_at | DATETIME2(7) | N | SYSUTCDATETIME() | IX | 발생 UTC |
-| actor_user_id | BIGINT | Y | NULL | FK users.id, IX | 고객/공급자/관리자/시스템 |
+| actor_user_id | BIGINT | Y | NULL | FK users.id, IX | 고객/전문가/관리자/시스템 |
 | idempotency_key | VARCHAR(100) | N | 없음 | UQ | 중복 상태변경 방지 |
 
 index 후보: `(after_service_case_id, occurred_at)`.

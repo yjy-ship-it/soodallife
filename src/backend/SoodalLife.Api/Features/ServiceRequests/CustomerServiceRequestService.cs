@@ -1,3 +1,4 @@
+using System.Data;
 using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.Matching;
+using SoodalLife.Api.Features.Providers;
 using SoodalLife.Api.Features.Work;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
@@ -17,6 +19,7 @@ namespace SoodalLife.Api.Features.ServiceRequests;
 public sealed class CustomerServiceRequestService(
     SoodalLifeDbContext db,
     RequestMatchingService matchingService,
+    CustomerRequestAbusePolicy abusePolicy,
     IPrivateFileStorage fileStorage,
     ServiceRequestFilePrivacyResolver filePrivacyResolver)
 {
@@ -49,8 +52,11 @@ public sealed class CustomerServiceRequestService(
             }
         }
 
-        var context = await CategoryContextAsync(input.CategoryId, token);
-        var areaId = await ResolveAreaIdAsync(input.AdministrativeAreaId, token);
+        var context = await CategoryContextAsync(input.CategoryId, input.IsUrgent, token);
+        EnsureEmergencyAllowed(input.IsUrgent, context);
+        var addressRequired = RequiresServiceAddress(context);
+        var disclosureCode = addressRequired ? NormalizeDisclosureCode(input.DetailAddressDisclosureCode) : "AFTER_SELECTION";
+        var areaId = addressRequired ? await ResolveAreaIdAsync(input.AdministrativeAreaId, token) : null;
         var answers = await NormalizeAnswersAsync(context, input.Answers ?? [], identity.UserId, requireAll: false, null, token);
         var now = DateTime.UtcNow;
         var request = new ServiceRequest
@@ -59,7 +65,8 @@ public sealed class CustomerServiceRequestService(
             CategoryId = context.Category.Id,
             CategoryPolicyId = context.Policy.Id,
             AdministrativeAreaId = areaId,
-            DetailAddress = EmptyToNull(input.DetailAddress),
+            DetailAddress = addressRequired ? EmptyToNull(input.DetailAddress) : null,
+            DetailAddressDisclosureCode = disclosureCode,
             Title = input.Title?.Trim() ?? string.Empty,
             Description = EmptyToNull(input.Description),
             StatusCode = "DRAFT",
@@ -94,15 +101,19 @@ public sealed class CustomerServiceRequestService(
             throw Conflict("REQUEST_NOT_EDITABLE", "견적 요청 공개 후에는 요청 내용을 수정할 수 없습니다.", "requestId");
 
         ValidateDraftInput(input.Title, input.Description, input.DetailAddress, null, input.Answers);
-        var context = await CategoryContextAsync(request.CategoryId, token);
-        var areaId = await ResolveAreaIdAsync(input.AdministrativeAreaId, token);
+        var context = await CategoryContextAsync(request.CategoryId, input.IsUrgent, token);
+        EnsureEmergencyAllowed(input.IsUrgent, context);
+        var addressRequired = RequiresServiceAddress(context);
+        var disclosureCode = addressRequired ? NormalizeDisclosureCode(input.DetailAddressDisclosureCode) : "AFTER_SELECTION";
+        var areaId = addressRequired ? await ResolveAreaIdAsync(input.AdministrativeAreaId, token) : null;
         var answers = await NormalizeAnswersAsync(context, input.Answers ?? [], identity.UserId, requireAll: false, request.Id, token);
         var now = DateTime.UtcNow;
 
         await using var transaction = await BeginTransactionAsync(token);
         db.RequestAnswers.RemoveRange(await db.RequestAnswers.Where(x => x.ServiceRequestId == request.Id).ToListAsync(token));
         request.AdministrativeAreaId = areaId;
-        request.DetailAddress = EmptyToNull(input.DetailAddress);
+        request.DetailAddress = addressRequired ? EmptyToNull(input.DetailAddress) : null;
+        request.DetailAddressDisclosureCode = disclosureCode;
         request.Title = input.Title?.Trim() ?? string.Empty;
         request.Description = EmptyToNull(input.Description);
         request.IsUrgent = input.IsUrgent;
@@ -122,25 +133,28 @@ public sealed class CustomerServiceRequestService(
         CancellationToken token)
     {
         var identity = await CustomerIdentityAsync(principal, token);
+        await using var transaction = await BeginTransactionAsync(token, IsolationLevel.Serializable);
+        await AcquireCustomerPublishLockAsync(identity.CustomerProfileId, token);
         var request = await OwnedRequestAsync(identity.CustomerProfileId, requestId, token);
         if (request.StatusCode is not ("DRAFT" or "OPEN"))
             throw Conflict("REQUEST_NOT_PUBLISHABLE", "작성 중이거나 견적 모집 중인 요청만 공개할 수 있습니다.", "requestId");
 
         if (request.StatusCode == "DRAFT")
         {
-            var context = await CategoryContextAsync(request.CategoryId, token);
+            var context = await CategoryContextAsync(request.CategoryId, request.IsUrgent, token);
             var links = await db.ServiceRequestFiles.AsNoTracking().Where(x => x.ServiceRequestId == request.Id).ToListAsync(token);
             await ValidatePublishAsync(request, context, links, token);
+            request.AbuseFingerprint = await abusePolicy.ValidateAsync(request, token);
+            request.AbusePolicyVersion = CustomerRequestAbusePolicy.CurrentVersion;
         }
 
-        await using var transaction = await BeginTransactionAsync(token);
         if (request.StatusCode == "DRAFT")
         {
             var policy = await db.CategoryPolicies.SingleAsync(x => x.Id == request.CategoryPolicyId, token);
             var now = DateTime.UtcNow;
             request.StatusCode = "OPEN";
             request.OpenedAt = now;
-            request.ExpiresAt = now.AddMinutes(policy.QuoteValidityMinutes);
+            request.ExpiresAt = now.AddMinutes(Math.Max(policy.QuoteValidityMinutes, 48 * 60));
             request.UpdatedAt = now;
             request.UpdatedByUserId = identity.UserId;
             await db.SaveChangesAsync(token);
@@ -149,8 +163,8 @@ public sealed class CustomerServiceRequestService(
         var matching = await matchingService.MatchAndDispatchAsync(request, token);
         if (transaction is not null) await transaction.CommitAsync(token);
         var message = matching.EligibleCandidateCount == 0
-            ? "현재 조건에 맞는 공급자를 찾는 중입니다. 운영팀이 확인할 수 있도록 요청은 정상 공개되었습니다."
-            : $"조건에 맞는 공급자 {matching.EligibleCandidateCount}명에게 요청이 공개되었습니다.";
+            ? "현재 조건에 맞는 전문가를 찾는 중입니다. 운영팀이 확인할 수 있도록 요청은 정상 공개되었습니다."
+            : $"조건에 맞는 전문가 중 {matching.NewDispatchCount}명에게 우선 요청을 전달했습니다. 견적 상황에 따라 자동으로 대상을 확대합니다.";
         return new(request.PublicId, request.StatusCode, matching.EligibleCandidateCount, matching.DispatchCount, message);
     }
 
@@ -163,11 +177,15 @@ public sealed class CustomerServiceRequestService(
         var identity = await CustomerIdentityAsync(principal, token);
         var request = await OwnedRequestAsync(identity.CustomerProfileId, requestId, token);
         var reason = RequireText(input.Reason, 1000, "reason");
+        var siteVisits = await db.SiteVisitProposals.Where(x => x.ServiceRequestId == request.Id).ToListAsync(token);
         if (request.StatusCode == "ACCEPTED" || await db.Transactions.AnyAsync(x => x.ServiceRequestId == request.Id, token))
-            throw Conflict("REQUEST_ALREADY_ACCEPTED", "공급자를 선택한 요청은 거래 절차에서 취소해야 합니다.", "requestId");
+            throw Conflict("REQUEST_ALREADY_ACCEPTED", "전문가를 선택한 요청은 거래 절차에서 취소해야 합니다.", "requestId");
         if (request.StatusCode == "OPEN" && await db.Quotes.AnyAsync(
                 x => x.ServiceRequestId == request.Id && x.StatusCode == "SUBMITTED", token))
             throw Conflict("REQUEST_HAS_QUOTES", "도착한 견적이 있는 요청은 현재 화면에서 바로 취소할 수 없습니다.", "requestId");
+        if (siteVisits.Any(x => x.StatusCode == "DEPARTED" || x.StatusCode == "ARRIVED" || x.StatusCode == "COMPLETED" ||
+                                x.StatusCode == "NO_SHOW" || x.StatusCode == "DISPUTED"))
+            throw Conflict("REQUEST_SITE_VISIT_IN_PROGRESS", "전문가가 이미 출발했거나 방문 절차가 시작된 요청은 바로 취소할 수 없습니다. 방문 취소 또는 고객센터 절차를 이용해 주세요.", "requestId");
         if (request.StatusCode is not ("DRAFT" or "OPEN" or "CANCELLED"))
             throw Conflict("REQUEST_NOT_CANCELLABLE", "현재 상태에서는 요청을 취소할 수 없습니다.", "requestId");
 
@@ -183,6 +201,12 @@ public sealed class CustomerServiceRequestService(
             foreach (var dispatch in dispatches) dispatch.StatusCode = "EXPIRED";
             var candidates = await db.DispatchCandidates.Where(x => x.ServiceRequestId == request.Id).ToListAsync(token);
             foreach (var candidate in candidates) candidate.StatusCode = "EXPIRED";
+            foreach (var visit in siteVisits.Where(x => x.StatusCode == "PROPOSED" || x.StatusCode == "ACCEPTED"))
+            {
+                visit.StatusCode = "CANCELLED";
+                visit.UpdatedAt = now;
+                visit.UpdatedByUserId = identity.UserId;
+            }
             await db.SaveChangesAsync(token);
         }
 
@@ -353,9 +377,12 @@ public sealed class CustomerServiceRequestService(
                           select new
                           {
                               Request = request,
+                              IsInterior = db.InteriorProjects.Any(project => project.ServiceRequestId == request.Id),
                               Path = major.Name + " > " + middle.Name + " > " + service.Name,
                               QuoteCount = db.Quotes.Count(x => x.ServiceRequestId == request.Id &&
                                   (x.StatusCode == "SUBMITTED" || x.StatusCode == "ACCEPTED" || x.StatusCode == "NOT_SELECTED")),
+                              SiteVisitProposalCount = db.SiteVisitProposals.Count(x => x.ServiceRequestId == request.Id &&
+                                  x.StatusCode != "CANCELLED" && x.StatusCode != "REJECTED" && x.StatusCode != "EXPIRED"),
                               Transaction = db.Transactions.Where(x => x.ServiceRequestId == request.Id)
                                   .Select(x => new { x.PublicId, x.StatusCode }).FirstOrDefault(),
                           }).ToListAsync(token);
@@ -365,10 +392,12 @@ public sealed class CustomerServiceRequestService(
             string.IsNullOrWhiteSpace(x.Request.Title) ? "작성 중인 요청" : x.Request.Title,
             x.Request.StatusCode,
             DisplayStatus(x.Request.StatusCode, x.QuoteCount, x.Transaction?.StatusCode),
+            RequestDomain(x.Request.IsUrgent, x.IsInterior),
             x.Path,
             x.Request.CreatedAt,
             desired.GetValueOrDefault(x.Request.Id),
             x.QuoteCount,
+            x.SiteVisitProposalCount,
             x.Transaction?.PublicId)).ToArray();
     }
 
@@ -385,6 +414,7 @@ public sealed class CustomerServiceRequestService(
                          select new
                          {
                              Request = request,
+                             IsInterior = db.InteriorProjects.Any(project => project.ServiceRequestId == request.Id),
                              Path = major.Name + " > " + middle.Name + " > " + service.Name,
                              MajorPublicId = major.PublicId,
                              MiddlePublicId = middle.PublicId,
@@ -410,7 +440,10 @@ public sealed class CustomerServiceRequestService(
                               select new { TransactionId = transaction.PublicId, TransactionStatus = transaction.StatusCode, ProviderId = provider.PublicId, provider.BusinessName })
             .SingleOrDefaultAsync(token);
         var desiredAt = answerRows.FirstOrDefault(x => x.Field.FieldKey == "desired_date")?.Answer.ValueDateTime;
-        var canCancel = row.Request.StatusCode == "DRAFT" || row.Request.StatusCode == "OPEN" && quoteCount == 0;
+        var visitStarted = await db.SiteVisitProposals.AsNoTracking().AnyAsync(x => x.ServiceRequestId == row.Request.Id &&
+            (x.StatusCode == "DEPARTED" || x.StatusCode == "ARRIVED" || x.StatusCode == "COMPLETED" ||
+             x.StatusCode == "NO_SHOW" || x.StatusCode == "DISPUTED"), token);
+        var canCancel = !visitStarted && (row.Request.StatusCode == "DRAFT" || row.Request.StatusCode == "OPEN" && quoteCount == 0);
         return new ServiceRequestDetailResponse(
             row.Request.PublicId,
             string.IsNullOrWhiteSpace(row.Request.Title) ? "작성 중인 요청" : row.Request.Title,
@@ -418,6 +451,7 @@ public sealed class CustomerServiceRequestService(
             row.Request.StatusCode,
             DisplayStatus(row.Request.StatusCode, quoteCount, selected?.TransactionStatus),
             row.Request.IsUrgent,
+            RequestDomain(row.Request.IsUrgent, row.IsInterior),
             row.Path,
             row.MajorPublicId,
             row.MiddlePublicId,
@@ -425,6 +459,7 @@ public sealed class CustomerServiceRequestService(
             row.AreaPublicId,
             row.AreaName,
             row.Request.DetailAddress,
+            row.Request.DetailAddressDisclosureCode,
             row.Request.CreatedAt,
             desiredAt,
             quoteCount,
@@ -438,15 +473,18 @@ public sealed class CustomerServiceRequestService(
             files);
     }
 
+    private static string RequestDomain(bool isUrgent, bool isInterior) =>
+        isUrgent ? "EMERGENCY" : isInterior ? "INTERIOR" : "GENERAL";
+
     private async Task ValidatePublishAsync(ServiceRequest request, CategoryContext context, IReadOnlyList<ServiceRequestFile> files, CancellationToken token)
     {
-        if (request.IsUrgent && !context.Policy.IsEmergencyAllowed)
-            throw Invalid("EMERGENCY_NOT_ALLOWED", "이 서비스는 긴급출동 요청을 지원하지 않습니다.", "isUrgent");
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        if (request.IsUrgent && !context.Policy.IsEmergencyAllowed) errors["categoryId"] = ["긴급출동이 허용된 서비스를 선택해 주세요."];
         if (string.IsNullOrWhiteSpace(request.Title)) errors["title"] = ["요청 제목을 입력해 주세요."];
-        if (!request.AdministrativeAreaId.HasValue) errors["administrativeAreaId"] = ["서비스 지역을 선택해 주세요."];
+        if (RequiresServiceAddress(context) && !request.AdministrativeAreaId.HasValue) errors["administrativeAreaId"] = ["서비스 지역을 선택해 주세요."];
+        if (RequiresServiceAddress(context) && string.IsNullOrWhiteSpace(request.DetailAddress)) errors["detailAddress"] = ["서비스 상세주소를 입력해 주세요."];
         var answers = await db.RequestAnswers.AsNoTracking().Where(x => x.ServiceRequestId == request.Id).ToDictionaryAsync(x => x.FieldDefinitionId, token);
-        foreach (var assigned in context.Fields.Where(x => x.Assignment.IsRequired))
+        foreach (var assigned in context.Fields.Where(x => IsEffectivelyRequired(x, context.Fields)))
         {
             var present = assigned.Field.FieldTypeCode == "FILE"
                 ? files.Any(x => x.FieldDefinitionId == assigned.Field.Id)
@@ -486,7 +524,7 @@ public sealed class CustomerServiceRequestService(
             var provided = grouped.GetValueOrDefault(assigned.Field.PublicId)?.SingleOrDefault();
             if (provided is null || IsEmpty(provided.Value))
             {
-                if (requireAll && assigned.Assignment.IsRequired && assigned.Field.FieldTypeCode != "FILE")
+                if (requireAll && IsEffectivelyRequired(assigned, context.Fields) && assigned.Field.FieldTypeCode != "FILE")
                     errors[$"answers.{assigned.Field.FieldKey}"] = ["필수 입력 항목입니다."];
                 continue;
             }
@@ -545,22 +583,30 @@ public sealed class CustomerServiceRequestService(
         return answer;
     }
 
-    private async Task<CategoryContext> CategoryContextAsync(Guid categoryId, CancellationToken token)
+    private async Task<CategoryContext> CategoryContextAsync(Guid categoryId, bool requireEmergencyAllowed, CancellationToken token)
     {
         var category = await db.ServiceCategories.SingleOrDefaultAsync(x => x.PublicId == categoryId && x.LevelCode == "SERVICE" && x.StatusCode == "ACTIVE", token);
         if (category?.ParentId is null) throw Invalid("CATEGORY_NOT_ACTIVE", "현재 요청할 수 있는 서비스를 선택해 주세요.", "categoryId");
-        return await CategoryContextAsync(category.Id, token);
+        return await CategoryContextAsync(category.Id, requireEmergencyAllowed, token);
     }
 
-    private async Task<CategoryContext> CategoryContextAsync(long categoryId, CancellationToken token)
+    private async Task<CategoryContext> CategoryContextAsync(long categoryId, bool requireEmergencyAllowed, CancellationToken token)
     {
         var category = await db.ServiceCategories.SingleAsync(x => x.Id == categoryId, token);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var policy = await db.CategoryPolicies.Where(x => x.CategoryId == category.Id &&
+        var policyQuery = db.CategoryPolicies.Where(x => x.CategoryId == category.Id &&
                 (x.TransactionTypeCode == "ONE_TIME" || x.TransactionTypeCode == "PROJECT") &&
-                x.EffectiveFrom <= today && (x.EffectiveTo == null || x.EffectiveTo > today))
-            .OrderByDescending(x => x.EffectiveFrom).FirstOrDefaultAsync(token)
+                x.EffectiveFrom <= today && (x.EffectiveTo == null || x.EffectiveTo > today));
+        if (requireEmergencyAllowed) policyQuery = policyQuery.Where(x => x.IsEmergencyAllowed);
+        var policy = await policyQuery
+            .OrderByDescending(x => x.EffectiveFrom).ThenByDescending(x => x.Id).FirstOrDefaultAsync(token)
             ?? throw Invalid("CATEGORY_NOT_ACTIVE", "현재 적용 가능한 서비스 정책이 없습니다.", "categoryId");
+        var coverageTypeCode = await db.CategoryOperationPolicies.AsNoTracking()
+            .Where(x => x.CategoryId == category.Id && x.IsActive && x.EffectiveFrom <= today &&
+                        (x.EffectiveTo == null || x.EffectiveTo > today))
+            .OrderByDescending(x => x.EffectiveFrom).ThenByDescending(x => x.Id)
+            .Select(x => x.CoverageTypeCode)
+            .FirstOrDefaultAsync(token) ?? ProviderCoveragePolicy.LocalOnly;
         var fields = await (from assignment in db.CategoryFieldAssignments.AsNoTracking()
                             join field in db.CategoryFieldDefinitions.AsNoTracking() on assignment.FieldDefinitionId equals field.Id
                             where assignment.IsActive && field.StatusCode == "ACTIVE" &&
@@ -569,8 +615,8 @@ public sealed class CustomerServiceRequestService(
                                        o.FieldDefinitionId == field.Id && o.TargetCategoryId == category.Id)))
                             orderby assignment.DisplayOrder, assignment.Id
                             select new AssignedField(field, assignment)).ToListAsync(token);
-        return new(category, policy, fields
-            .Where(x => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(x.Field))
+        return new(category, policy, coverageTypeCode, fields
+            .Where(x => !CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(x.Field) && !CustomerRequestFieldPolicy.IsIncompatibleWithCoverage(x.Field, coverageTypeCode))
             .ToList());
     }
 
@@ -659,9 +705,10 @@ public sealed class CustomerServiceRequestService(
     private static string DisplayStatus(string status, int quoteCount, string? transactionStatus) => status switch
     {
         "DRAFT" => "작성 중",
+        "OPEN" when quoteCount >= 5 => "견적 5개 도착 · 비교 후 전문가를 선택해 주세요",
         "OPEN" when quoteCount > 0 => "견적 도착",
         "OPEN" => "견적 받는 중",
-        "ACCEPTED" when transactionStatus == "CREATED" => "공급자 선택 완료",
+        "ACCEPTED" when transactionStatus == "CREATED" => "전문가 선택 완료",
         "ACCEPTED" => "거래 진행",
         "CANCELLED" => "요청 취소",
         "EXPIRED" => "견적 모집 종료",
@@ -699,7 +746,18 @@ public sealed class CustomerServiceRequestService(
         context.Policy.QuoteValidityMinutes,
         context.Policy.ProviderResponseDeadlineMinutes,
         context.Policy.RequiredCompletionPhotoCount,
+        context.Policy.IsEmergencyAllowed,
+        context.CoverageTypeCode,
     });
+
+    private static void EnsureEmergencyAllowed(bool isUrgent, CategoryContext context)
+    {
+        if (isUrgent && !context.Policy.IsEmergencyAllowed)
+            throw Invalid("EMERGENCY_CATEGORY_NOT_ALLOWED", "긴급출동이 허용된 서비스를 선택해 주세요.", "categoryId");
+    }
+
+    private static bool RequiresServiceAddress(CategoryContext context) =>
+        ProviderCoveragePolicy.RequiresServiceAddress(context.CoverageTypeCode);
 
     private static void ValidateDraftInput(string? title, string? description, string? detailAddress, string? idempotencyKey, IReadOnlyList<RequestAnswerInput>? answers)
     {
@@ -711,14 +769,33 @@ public sealed class CustomerServiceRequestService(
         if (answers.Count > 100) throw Invalid("REQUEST_INVALID", "동적 요청 항목이 너무 많습니다.", "answers");
     }
 
-    private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken token) =>
+    private async Task<IDbContextTransaction?> BeginTransactionAsync(CancellationToken token, IsolationLevel? isolationLevel = null) =>
         db.Database.IsRelational() && db.Database.CurrentTransaction is null
-            ? await db.Database.BeginTransactionAsync(token)
+            ? isolationLevel.HasValue
+                ? await db.Database.BeginTransactionAsync(isolationLevel.Value, token)
+                : await db.Database.BeginTransactionAsync(token)
             : null;
+
+    private async Task AcquireCustomerPublishLockAsync(long customerProfileId, CancellationToken cancellationToken)
+    {
+        if (!db.Database.IsSqlServer()) return;
+        var resource = $"customer-request-publish:{customerProfileId}";
+        await db.Database.ExecuteSqlInterpolatedAsync($@"
+DECLARE @lock_result int;
+EXEC @lock_result = sys.sp_getapplock
+    @Resource = {resource},
+    @LockMode = 'Exclusive',
+    @LockOwner = 'Transaction',
+    @LockTimeout = 10000;
+IF @lock_result < 0 THROW 51000, 'Customer request publish lock timeout.', 1;", cancellationToken);
+    }
 
     private static bool IsEmpty(JsonElement value) => value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ||
         value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(value.GetString()) ||
         value.ValueKind == JsonValueKind.Array && value.GetArrayLength() == 0;
+    private static bool IsEffectivelyRequired(AssignedField field, IReadOnlyList<AssignedField> fields) =>
+        field.Assignment.IsRequired && (field.Field.FieldTypeCode != "DATETIME" ||
+            fields.Where(candidate => candidate.Field.FieldTypeCode == "DATETIME").Take(1).Any(candidate => candidate.Field.Id == field.Field.Id));
     private static string RequiredString(JsonElement value) =>
         value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
             ? value.GetString()!.Trim()
@@ -728,6 +805,12 @@ public sealed class CustomerServiceRequestService(
             ? value.Trim()
             : throw Invalid("REQUEST_INVALID", "취소 사유를 입력해 주세요.", field);
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string NormalizeDisclosureCode(string? value) => value?.Trim().ToUpperInvariant() switch
+    {
+        null or "" or "AFTER_SELECTION" => "AFTER_SELECTION",
+        "BEFORE_QUOTE" => "BEFORE_QUOTE",
+        _ => throw Invalid("REQUEST_INVALID", "상세주소 공개 시점을 다시 선택해 주세요.", "detailAddressDisclosureCode"),
+    };
     private static RequestValidationException Invalid(string code, string message, string field) =>
         new(code, message, new Dictionary<string, string[]> { [field] = [message] });
     private static RequestValidationException Conflict(string code, string message, string field) =>
@@ -737,7 +820,7 @@ public sealed class CustomerServiceRequestService(
 
     private sealed record CustomerIdentity(long UserId, long CustomerProfileId);
     private sealed record AssignedField(CategoryFieldDefinition Field, CategoryFieldAssignment Assignment);
-    private sealed record CategoryContext(ServiceCategory Category, CategoryPolicy Policy, IReadOnlyList<AssignedField> Fields);
+    private sealed record CategoryContext(ServiceCategory Category, CategoryPolicy Policy, string CoverageTypeCode, IReadOnlyList<AssignedField> Fields);
     private sealed record FileRule(string StorageExtension, string[] AllowedExtensions, byte[][] Signatures);
     private sealed record ValidatedFile(string OriginalName, string ContentType, string Extension, byte[] Hash);
 }

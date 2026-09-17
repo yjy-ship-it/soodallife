@@ -10,6 +10,7 @@ using SoodalLife.Api.Features.Wallet;
 using SoodalLife.Api.Features.Chat;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Features.RelationshipBlocks;
+using SoodalLife.Api.Features.Providers;
 
 namespace SoodalLife.Api.Features.Quotes;
 
@@ -17,11 +18,59 @@ public sealed class QuoteService(
     SoodalLifeDbContext dbContext,
     ProviderTradingEligibilityService eligibilityService,
     ProviderWalletService walletService,
+    QuoteFeeReservationService feeReservations,
     ChatService chatService,
-    IUserRelationshipBlockPolicy relationshipBlocks)
+    IUserRelationshipBlockPolicy relationshipBlocks,
+    ProviderWorkInboxNotifier workInboxNotifier)
 {
     private const decimal MaximumAmount = 999_999_999_999_999m;
+    private const int MaximumTemplateCount = 30;
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> AcceptanceLocks = new();
+
+    public async Task<IReadOnlyList<ProviderQuoteTemplateResponse>> GetTemplatesAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        var identity = await GetProviderIdentityAsync(principal, cancellationToken);
+        var rows = await dbContext.ProviderQuoteTemplates.AsNoTracking().Where(item => item.ProviderProfileId == identity.ProviderId)
+            .OrderByDescending(item => item.UpdatedAt).ToListAsync(cancellationToken);
+        return rows.Select(ToTemplateResponse).ToList();
+    }
+
+    public async Task<ProviderQuoteTemplateResponse> SaveTemplateAsync(ClaimsPrincipal principal, SaveQuoteTemplateInput input, CancellationToken cancellationToken)
+    {
+        var identity = await GetProviderIdentityAsync(principal, cancellationToken);
+        ValidateTemplate(input);
+        var name = input.Name.Trim();
+        var template = await dbContext.ProviderQuoteTemplates.SingleOrDefaultAsync(
+            item => item.ProviderProfileId == identity.ProviderId && item.Name == name, cancellationToken);
+        var now = DateTime.UtcNow;
+        if (template is null)
+        {
+            var count = await dbContext.ProviderQuoteTemplates.CountAsync(item => item.ProviderProfileId == identity.ProviderId, cancellationToken);
+            if (count >= MaximumTemplateCount) throw Conflict("QUOTE_TEMPLATE_LIMIT_REACHED", $"견적 기본폼은 최대 {MaximumTemplateCount}개까지 저장할 수 있습니다.");
+            template = new ProviderQuoteTemplate { ProviderProfileId = identity.ProviderId, Name = name, CreatedAt = now, CreatedByUserId = identity.UserId };
+            dbContext.ProviderQuoteTemplates.Add(template);
+        }
+        template.Summary = input.Summary.Trim();
+        template.Terms = NullIfEmpty(input.Terms);
+        template.EstimatedDurationText = NullIfEmpty(input.EstimatedDurationText);
+        template.VatMode = input.VatMode.Trim().ToUpperInvariant();
+        template.ItemsJson = JsonSerializer.Serialize(input.Items.Select(NormalizeTemplateItem));
+        template.UpdatedAt = now;
+        template.UpdatedByUserId = identity.UserId;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ToTemplateResponse(template);
+    }
+
+    public async Task<bool> DeleteTemplateAsync(ClaimsPrincipal principal, Guid templatePublicId, CancellationToken cancellationToken)
+    {
+        var identity = await GetProviderIdentityAsync(principal, cancellationToken);
+        var template = await dbContext.ProviderQuoteTemplates.SingleOrDefaultAsync(
+            item => item.PublicId == templatePublicId && item.ProviderProfileId == identity.ProviderId, cancellationToken)
+            ?? throw new QuoteBusinessException("QUOTE_TEMPLATE_NOT_FOUND", "견적 기본폼을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
+        dbContext.ProviderQuoteTemplates.Remove(template);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 
     public async Task<QuoteSubmissionReadinessResponse> GetSubmissionReadinessAsync(
         ClaimsPrincipal principal,
@@ -30,9 +79,10 @@ public sealed class QuoteService(
     {
         var identity = await GetProviderIdentityAsync(principal, cancellationToken);
         var dispatch = await FindOwnedDispatchAsync(identity.ProviderId, requestPublicId, cancellationToken);
+        await EnsureNotSelfRequestAsync(identity.UserId, dispatch.Request.CustomerProfileId, cancellationToken);
         ValidateRequestOpen(dispatch.Request);
         var evaluation = await eligibilityService.EvaluateAsync(identity.ProviderId, dispatch.Request.CategoryId,
-            dispatch.Request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
+            dispatch.Request.AdministrativeAreaId, cancellationToken);
         var policy = await ResolveAcceptanceFeePolicyAsync(dispatch.Request, cancellationToken);
         var amount = FeeAmount(policy);
         var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == identity.ProviderId)
@@ -56,7 +106,8 @@ public sealed class QuoteService(
         var identity = await GetProviderIdentityAsync(principal, cancellationToken);
         var quote = await dbContext.Quotes.AsNoTracking()
             .SingleOrDefaultAsync(item => item.ProviderProfileId == identity.ProviderId &&
-                                          dbContext.ServiceRequests.Any(request => request.Id == item.ServiceRequestId && request.PublicId == requestPublicId),
+                                          dbContext.ServiceRequests.Any(request => request.Id == item.ServiceRequestId && request.PublicId == requestPublicId &&
+                                              !dbContext.CustomerProfiles.Any(customer => customer.Id == request.CustomerProfileId && customer.UserId == identity.UserId)),
                 cancellationToken);
         return quote is null ? null : await BuildDetailAsync(quote, cancellationToken);
     }
@@ -70,12 +121,14 @@ public sealed class QuoteService(
             .SingleAsync(cancellationToken);
         var rows = await (from quote in dbContext.Quotes.AsNoTracking()
                           join request in dbContext.ServiceRequests.AsNoTracking() on quote.ServiceRequestId equals request.Id
+                          join customer in dbContext.CustomerProfiles.AsNoTracking() on request.CustomerProfileId equals customer.Id
                           join category in dbContext.ServiceCategories.AsNoTracking() on request.CategoryId equals category.Id
                           join middle in dbContext.ServiceCategories.AsNoTracking() on category.ParentId equals middle.Id
                           join major in dbContext.ServiceCategories.AsNoTracking() on middle.ParentId equals major.Id
-                          where quote.ProviderProfileId == identity.ProviderId
+                          where quote.ProviderProfileId == identity.ProviderId && customer.UserId != identity.UserId
                           orderby quote.UpdatedAt descending
-                          select new { Quote = quote, RequestId = request.PublicId, request.Title,
+                          select new { Quote = quote, RequestId = request.PublicId, request.Title, request.IsUrgent,
+                              IsInterior = dbContext.InteriorProjects.Any(project => project.ServiceRequestId == request.Id),
                               CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name })
             .ToListAsync(cancellationToken);
         var result = new List<QuoteListItemResponse>(rows.Count);
@@ -86,7 +139,8 @@ public sealed class QuoteService(
             var transactionId = await dbContext.Transactions.AsNoTracking()
                 .Where(x => x.AcceptedQuoteRevisionId == revision.Id).Select(x => (Guid?)x.PublicId)
                 .SingleOrDefaultAsync(cancellationToken);
-            result.Add(new(row.Quote.PublicId, row.RequestId, row.Title, row.CategoryPath,
+            result.Add(new(row.Quote.PublicId, row.RequestId, row.Title,
+                row.IsUrgent ? "EMERGENCY" : row.IsInterior ? "INTERIOR" : "GENERAL", row.CategoryPath,
                 providerName, row.Quote.StatusCode, revision.TotalAmount, revision.CurrencyCode,
                 row.Quote.SubmittedAt, revision.RevisionNo, revision.ValidUntil,
                 row.Quote.StatusCode == "ACCEPTED", transactionId));
@@ -102,6 +156,7 @@ public sealed class QuoteService(
     {
         var identity = await GetProviderIdentityAsync(principal, cancellationToken);
         var dispatch = await FindOwnedDispatchAsync(identity.ProviderId, requestPublicId, cancellationToken);
+        await EnsureNotSelfRequestAsync(identity.UserId, dispatch.Request.CustomerProfileId, cancellationToken);
         var existing = await dbContext.Quotes.SingleOrDefaultAsync(
             item => item.ServiceRequestId == dispatch.Request.Id && item.ProviderProfileId == identity.ProviderId,
             cancellationToken);
@@ -156,6 +211,7 @@ public sealed class QuoteService(
             ?? throw NotFound();
         if (quote.ProviderProfileId != identity.ProviderId) throw Forbidden("QUOTE_ACCESS_DENIED", "본인의 견적만 수정할 수 있습니다.");
         var request = await dbContext.ServiceRequests.SingleAsync(item => item.Id == quote.ServiceRequestId, cancellationToken);
+        await EnsureNotSelfRequestAsync(identity.UserId, request.CustomerProfileId, cancellationToken);
         return await AddRevisionAsync(identity, quote, request, input, cancellationToken);
     }
 
@@ -172,37 +228,139 @@ public sealed class QuoteService(
         if (quote.StatusCode != "DRAFT") throw Conflict("QUOTE_STATE_CONFLICT", "현재 상태에서는 견적을 제출할 수 없습니다.");
 
         var request = await dbContext.ServiceRequests.SingleAsync(item => item.Id == quote.ServiceRequestId, cancellationToken);
+        await EnsureNotSelfRequestAsync(identity.UserId, request.CustomerProfileId, cancellationToken);
         ValidateRequestOpen(request);
         await relationshipBlocks.EnsureAllowedAsync(request.CustomerProfileId, identity.ProviderId, cancellationToken);
         await ValidateProviderEligibilityAsync(identity.ProviderId, request, cancellationToken);
         var readiness = await BuildSubmissionReadinessAsync(identity.ProviderId, request, cancellationToken);
         if (!readiness.CanSubmit)
-            throw Conflict(readiness.UnavailableReason ?? "QUOTE_SUBMISSION_NOT_ALLOWED", "현재 Wallet 잔액 또는 공급자 자격으로 견적을 제출할 수 없습니다.");
+            throw Conflict(readiness.UnavailableReason ?? "QUOTE_SUBMISSION_NOT_ALLOWED", "현재 Wallet 잔액 또는 전문가 자격으로 견적을 제출할 수 없습니다.");
         var revision = await LatestRevisionAsync(quote.Id, cancellationToken)
             ?? throw Conflict("QUOTE_REVISION_REQUIRED", "제출할 견적 내용을 먼저 저장해 주세요.");
         var now = DateTime.UtcNow;
         if (revision.ValidUntil <= now) throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
 
         var policy = await dbContext.CategoryPolicies.AsNoTracking().SingleAsync(item => item.Id == request.CategoryPolicyId, cancellationToken);
-        var submittedCount = await dbContext.Quotes.CountAsync(item => item.ServiceRequestId == request.Id &&
-            item.Id != quote.Id && (item.StatusCode == "SUBMITTED" || item.StatusCode == "ACCEPTED"), cancellationToken);
-        if (submittedCount >= policy.MaxQuoteCount) throw Conflict("MAX_QUOTES_REACHED", "이 요청은 최대 견적 수에 도달했습니다.");
-
+        var feePolicy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
         var dispatch = await dbContext.RequestDispatches.SingleAsync(item => item.Id == quote.RequestDispatchId, cancellationToken);
-        quote.StatusCode = "SUBMITTED";
-        quote.SubmittedAt = now;
-        quote.ExpiresAt = revision.ValidUntil;
-        quote.UpdatedAt = now;
-        quote.UpdatedByUserId = identity.UserId;
-        dispatch.StatusCode = "RESPONDED";
-        dispatch.RespondedAt = now;
-        dbContext.OutboxEvents.Add(NewOutbox("Quote", quote.PublicId, "QUOTE_SUBMITTED", new
+        var affectedProviderUserPublicIds = new List<Guid>();
+        await using var transaction = await BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
+        try
         {
-            quoteId = quote.PublicId,
-            requestId = request.PublicId,
-            revisionId = revision.PublicId,
-        }, $"quote-submitted:{quote.PublicId:N}:{revision.PublicId:N}", identity.UserId, now));
-        await dbContext.SaveChangesAsync(cancellationToken);
+            var submittedCount = await dbContext.Quotes.CountAsync(item => item.ServiceRequestId == request.Id &&
+                item.Id != quote.Id && (item.StatusCode == "SUBMITTED" || item.StatusCode == "ACCEPTED"), cancellationToken);
+            if (submittedCount >= policy.MaxQuoteCount) throw Conflict("MAX_QUOTES_REACHED", "견적 접수가 마감되었습니다.");
+            await feeReservations.EnsureReservedAsync(quote, feePolicy, identity.UserId, cancellationToken);
+            quote.StatusCode = "SUBMITTED";
+            quote.SubmittedAt = now;
+            quote.ExpiresAt = revision.ValidUntil;
+            quote.UpdatedAt = now;
+            quote.UpdatedByUserId = identity.UserId;
+            dispatch.StatusCode = "RESPONDED";
+            dispatch.RespondedAt = now;
+            if (submittedCount + 1 >= policy.MaxQuoteCount)
+            {
+                var remainingDispatches = await dbContext.RequestDispatches
+                    .Where(item => item.ServiceRequestId == request.Id && item.Id != dispatch.Id &&
+                        (item.StatusCode == "AVAILABLE" || item.StatusCode == "VIEWED"))
+                    .ToListAsync(cancellationToken);
+                var affectedProviderIds = remainingDispatches.Select(item => item.ProviderProfileId).Distinct().ToArray();
+                foreach (var item in remainingDispatches)
+                {
+                    item.StatusCode = "EXPIRED";
+                    item.ExpiresAt = now;
+                }
+                var remainingCandidates = await dbContext.DispatchCandidates
+                    .Where(item => item.ServiceRequestId == request.Id && affectedProviderIds.Contains(item.ProviderProfileId))
+                    .ToListAsync(cancellationToken);
+                foreach (var item in remainingCandidates)
+                {
+                    item.StatusCode = "EXPIRED";
+                    item.ReasonCode = "MAX_QUOTES_REACHED";
+                    item.EvaluatedAt = now;
+                    item.ExpiresAt = now;
+                }
+                var draftQuotes = await dbContext.Quotes
+                    .Where(item => item.ServiceRequestId == request.Id && item.Id != quote.Id && item.StatusCode == "DRAFT")
+                    .ToListAsync(cancellationToken);
+                foreach (var item in draftQuotes)
+                {
+                    item.StatusCode = "EXPIRED";
+                    item.ExpiresAt = now;
+                    item.UpdatedAt = now;
+                    item.UpdatedByUserId = identity.UserId;
+                }
+                var affectedUsers = await (from provider in dbContext.ProviderProfiles.AsNoTracking()
+                                           join user in dbContext.Users.AsNoTracking() on provider.UserId equals user.Id
+                                           where affectedProviderIds.Contains(provider.Id)
+                                           select new { user.Id, user.PublicId }).ToListAsync(cancellationToken);
+                affectedProviderUserPublicIds.AddRange(affectedUsers.Select(item => item.PublicId));
+                foreach (var user in affectedUsers)
+                {
+                    var key = $"quote-limit-reached:{request.PublicId:N}:{user.Id}";
+                    if (await dbContext.Notifications.AnyAsync(item => item.IdempotencyKey == key, cancellationToken)) continue;
+                    var notification = new Notification
+                    {
+                        RecipientUserId = user.Id,
+                        ServiceRequestId = request.Id,
+                        TypeCode = "REQUEST_QUOTE_LIMIT_REACHED",
+                        PriorityCode = "NORMAL",
+                        SourceTypeCode = "SERVICE_REQUEST",
+                        SourcePublicId = request.PublicId,
+                        TargetTypeCode = "PROVIDER_INBOX",
+                        TargetPublicId = request.PublicId,
+                        StatusCode = "RECORDED",
+                        Title = "견적 접수가 마감되었습니다",
+                        Body = $"요청 {request.PublicId.ToString("N")[..10].ToUpperInvariant()}에 견적 {policy.MaxQuoteCount}개가 도착해 접수가 마감되었습니다.",
+                        DataJson = JsonSerializer.Serialize(new { requestId = request.PublicId, route = "/provider/matched-requests" }),
+                        RecordedAt = now,
+                        IdempotencyKey = key,
+                        CreatedByUserId = identity.UserId,
+                    };
+                    dbContext.Notifications.Add(notification);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    var recipient = new NotificationRecipient
+                    {
+                        NotificationId = notification.Id,
+                        UserId = user.Id,
+                        RecipientRoleCode = "PROVIDER",
+                        CreatedAt = now,
+                    };
+                    dbContext.NotificationRecipients.Add(recipient);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    dbContext.NotificationDeliveries.Add(new NotificationDelivery
+                    {
+                        NotificationId = notification.Id,
+                        NotificationRecipientId = recipient.Id,
+                        ChannelCode = "WEB",
+                        AttemptNo = 1,
+                        StatusCode = "DELIVERED",
+                        AttemptedAt = now,
+                        CompletedAt = now,
+                        DeliveredAt = now,
+                        RetryCount = 0,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    });
+                }
+            }
+            dbContext.OutboxEvents.Add(NewOutbox("Quote", quote.PublicId, "QUOTE_SUBMITTED", new
+            {
+                quoteId = quote.PublicId,
+                requestId = request.PublicId,
+                revisionId = revision.PublicId,
+                request_no = request.PublicId.ToString("N")[..10].ToUpperInvariant(),
+            }, $"quote-submitted:{quote.PublicId:N}:{revision.PublicId:N}", identity.UserId, now));
+            await dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+        foreach (var userPublicId in affectedProviderUserPublicIds.Distinct())
+            await workInboxNotifier.NotifyProviderAsync(userPublicId, "REQUEST_QUOTE_LIMIT_REACHED", CancellationToken.None, request.PublicId);
         return (await BuildDetailAsync(quote, cancellationToken))!;
     }
 
@@ -212,14 +370,22 @@ public sealed class QuoteService(
         CancellationToken cancellationToken)
     {
         var customer = await GetCustomerIdentityAsync(principal, cancellationToken);
-        var request = await dbContext.ServiceRequests.AsNoTracking()
+        var request = await dbContext.ServiceRequests
             .SingleOrDefaultAsync(item => item.PublicId == requestPublicId && item.CustomerProfileId == customer.CustomerId, cancellationToken);
         if (request is null) throw NotFound();
 
         var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
         var quotes = await dbContext.Quotes.AsNoTracking()
-            .Where(quote => quote.ServiceRequestId == request.Id && visibleStatuses.Contains(quote.StatusCode))
+            .Where(quote => quote.ServiceRequestId == request.Id && visibleStatuses.Contains(quote.StatusCode) &&
+                !dbContext.ProviderProfiles.Any(provider => provider.Id == quote.ProviderProfileId && provider.UserId == customer.UserId))
             .ToListAsync(cancellationToken);
+        if (quotes.Count > 0 && request.CustomerQuotesViewedAt is null)
+        {
+            request.CustomerQuotesViewedAt = DateTime.UtcNow;
+            request.UpdatedAt = DateTime.UtcNow;
+            request.UpdatedByUserId = customer.UserId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
         var result = new List<CustomerQuoteComparisonResponse>();
         foreach (var quote in quotes)
         {
@@ -244,12 +410,20 @@ public sealed class QuoteService(
         var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
         var quote = await dbContext.Quotes.AsNoTracking().SingleOrDefaultAsync(item => item.PublicId == quotePublicId &&
             visibleStatuses.Contains(item.StatusCode) && dbContext.ServiceRequests.Any(request =>
-                request.Id == item.ServiceRequestId && request.CustomerProfileId == customer.CustomerId), cancellationToken);
+                request.Id == item.ServiceRequestId && request.CustomerProfileId == customer.CustomerId) &&
+            !dbContext.ProviderProfiles.Any(provider => provider.Id == item.ProviderProfileId && provider.UserId == customer.UserId), cancellationToken);
         if (quote is null) throw NotFound();
         var detail = (await BuildDetailAsync(quote, cancellationToken))!;
         if (quote.StatusCode == "SUBMITTED" && detail.Revision.ValidUntil <= DateTime.UtcNow)
             throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
-        var request = await dbContext.ServiceRequests.AsNoTracking().SingleAsync(x => x.Id == quote.ServiceRequestId, cancellationToken);
+        var request = await dbContext.ServiceRequests.SingleAsync(x => x.Id == quote.ServiceRequestId, cancellationToken);
+        if (request.CustomerQuotesViewedAt is null)
+        {
+            request.CustomerQuotesViewedAt = DateTime.UtcNow;
+            request.UpdatedAt = DateTime.UtcNow;
+            request.UpdatedByUserId = customer.UserId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
         var revision = await LatestRevisionAsync(quote.Id, cancellationToken)
             ?? throw Conflict("QUOTE_REVISION_REQUIRED", "견적 상세가 없습니다.");
         var comparison = await BuildCustomerComparisonAsync(quote, revision, request, cancellationToken);
@@ -270,6 +444,7 @@ public sealed class QuoteService(
             x.PublicId == requestPublicId && x.CustomerProfileId == customer.CustomerId, cancellationToken) ?? throw NotFound();
         var provider = await dbContext.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == providerPublicId, cancellationToken)
             ?? throw NotFound();
+        if (provider.UserId == customer.UserId) throw NotFound();
         var visibleStatuses = new[] { "SUBMITTED", "ACCEPTED", "NOT_SELECTED" };
         var visibleQuoteStatus = await dbContext.Quotes.AsNoTracking()
             .Where(x => x.ServiceRequestId == request.Id && x.ProviderProfileId == provider.Id && visibleStatuses.Contains(x.StatusCode))
@@ -374,14 +549,14 @@ public sealed class QuoteService(
             var now = DateTime.UtcNow;
             if (revision.ValidUntil <= now || quote.ExpiresAt <= now) throw Conflict("QUOTE_EXPIRED", "견적 유효기간이 만료되었습니다.");
             var provider = await dbContext.ProviderProfiles.SingleAsync(item => item.Id == quote.ProviderProfileId, cancellationToken);
+            if (provider.UserId == customer.UserId)
+                throw Forbidden("SELF_REQUEST_NOT_ALLOWED", "본인이 요청한 서비스에는 본인의 전문가 역할로 견적을 제출하거나 채택할 수 없습니다.");
             await ValidateProviderEligibilityAsync(provider.Id, request, cancellationToken);
             await relationshipBlocks.EnsureAllowedAsync(customer.CustomerId, provider.Id, cancellationToken);
-            var feePolicy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
-            var feeAmount = FeeAmount(feePolicy);
-            var balance = await walletService.GetBalanceAsync(provider.PublicId, feeAmount, cancellationToken);
-            if (balance is null) throw Conflict("WALLET_NOT_FOUND", "공급자 Wallet을 찾을 수 없습니다.");
-            if (balance.StatusCode != "ACTIVE") throw Conflict("WALLET_NOT_ACTIVE", "현재 사용할 수 없는 공급자 Wallet입니다.");
-            if (!balance.HasSufficientBalance) throw Conflict("WALLET_INSUFFICIENT_BALANCE", "견적 채택 수수료를 차감할 Wallet 잔액이 부족합니다.");
+            var currentFeePolicy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
+            var reservation = await feeReservations.EnsureReservedAsync(quote, currentFeePolicy, customer.UserId, cancellationToken);
+            var feePolicy = await dbContext.CategoryFeePolicies.AsNoTracking().SingleAsync(x => x.Id == reservation.CategoryFeePolicyId, cancellationToken);
+            var feeAmount = reservation.Amount;
 
             var items = await dbContext.QuoteItems.AsNoTracking().Where(item => item.QuoteRevisionId == revision.Id)
                 .OrderBy(item => item.LineNo).ToListAsync(cancellationToken);
@@ -472,8 +647,7 @@ public sealed class QuoteService(
             WalletOperationResponse debit;
             try
             {
-                debit = await walletService.DebitFeeAsync(new DebitFeeCommand(provider.PublicId, transactionRecord.PublicId,
-                    feePolicy.PublicId, feeAmount, $"quote-accept-fee:{request.PublicId:N}", "고객 견적 채택 수수료"), customer.UserId, cancellationToken);
+                debit = await feeReservations.CaptureAsync(quote, transactionRecord, customer.UserId, cancellationToken);
             }
             catch (WalletOperationException exception)
             {
@@ -491,6 +665,7 @@ public sealed class QuoteService(
                 .ToListAsync(cancellationToken);
             foreach (var other in otherQuotes)
             {
+                await feeReservations.ReleaseAsync(other, "QUOTE_NOT_SELECTED", "다른 견적 채택으로 예상 수수료 예약 해제", customer.UserId, cancellationToken);
                 other.StatusCode = "NOT_SELECTED";
                 other.UpdatedAt = now;
                 other.UpdatedByUserId = customer.UserId;
@@ -513,10 +688,10 @@ public sealed class QuoteService(
             return new AcceptQuoteResponse(transactionRecord.PublicId, quote.PublicId, request.PublicId, transactionRecord.StatusCode,
                 transactionRecord.AgreedAmount, transactionRecord.CurrencyCode, transactionRecord.ActualChargedFeeAmount, debit.LedgerEntryId);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException exception) when (exception.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
         {
             if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
-            throw Conflict("QUOTE_ACCEPTANCE_CONFLICT", "다른 요청에서 견적 채택이 먼저 완료되었습니다.");
+            throw Conflict("QUOTE_ACCEPTANCE_CONFLICT", "이미 다른 견적이 선택된 요청입니다.");
         }
         catch
         {
@@ -537,6 +712,7 @@ public sealed class QuoteService(
         SaveQuoteRevisionInput input,
         CancellationToken cancellationToken)
     {
+        await EnsureNotSelfRequestAsync(identity.UserId, request.CustomerProfileId, cancellationToken);
         if (quote.StatusCode is not ("DRAFT" or "SUBMITTED"))
             throw Conflict("QUOTE_STATE_CONFLICT", "채택 전 견적만 수정할 수 있습니다.");
         ValidateRequestOpen(request);
@@ -572,8 +748,16 @@ public sealed class QuoteService(
         ValidateRevision(input, request);
         var nextRevision = (await dbContext.QuoteRevisions.Where(item => item.QuoteId == quote.Id)
             .MaxAsync(item => (int?)item.RevisionNo, cancellationToken) ?? 0) + 1;
-        var subtotal = input.Items.Sum(item => RoundMoney(item.Quantity * item.UnitPriceAmount));
-        var total = subtotal + input.VatAmount;
+        var itemAmount = input.Items.Sum(item => RoundMoney(item.Quantity * item.UnitPriceAmount));
+        var vatMode = input.VatMode?.Trim().ToUpperInvariant();
+        var vatAmount = vatMode switch
+        {
+            "INCLUDED" => RoundMoney(itemAmount / 11m),
+            "EXCLUDED" => RoundMoney(itemAmount * 0.1m),
+            _ => input.VatAmount,
+        };
+        var subtotal = vatMode == "INCLUDED" ? itemAmount - vatAmount : itemAmount;
+        var total = vatMode == "INCLUDED" ? itemAmount : subtotal + vatAmount;
         if (subtotal > MaximumAmount || total > MaximumAmount) throw Invalid("QUOTE_AMOUNT_INVALID", "견적 금액이 허용 범위를 초과했습니다.", "items");
         var now = DateTime.UtcNow;
         var revision = new QuoteRevision
@@ -583,7 +767,7 @@ public sealed class QuoteService(
             Summary = input.Summary.Trim(),
             Terms = NullIfEmpty(input.Terms),
             SubtotalAmount = subtotal,
-            VatAmount = input.VatAmount,
+            VatAmount = vatAmount,
             TotalAmount = total,
             CurrencyCode = "KRW",
             EstimatedDurationText = NullIfEmpty(input.EstimatedDurationText),
@@ -634,6 +818,8 @@ public sealed class QuoteService(
         if (input.Items is null || input.Items.Count == 0) throw Invalid("QUOTE_ITEMS_REQUIRED", "견적 항목을 한 개 이상 입력해 주세요.", "items");
         if (input.Items.Count > 100) throw Invalid("QUOTE_INVALID", "견적 항목은 100개 이하로 입력해 주세요.", "items");
         if (input.VatAmount < 0 || input.VatAmount > MaximumAmount) throw Invalid("QUOTE_AMOUNT_INVALID", "부가세 금액이 올바르지 않습니다.", "vatAmount");
+        if (input.VatMode is not null && input.VatMode.Trim().ToUpperInvariant() is not ("INCLUDED" or "EXCLUDED"))
+            throw Invalid("QUOTE_VAT_MODE_INVALID", "부가세 포함 또는 별도를 선택해 주세요.", "vatMode");
         var validUntil = input.ValidUntil.ToUniversalTime();
         if (validUntil <= DateTime.UtcNow || request.ExpiresAt is null || validUntil > request.ExpiresAt)
             throw Invalid("QUOTE_VALIDITY_INVALID", "견적 유효기간은 현재 이후이면서 요청 마감 이하여야 합니다.", "validUntil");
@@ -651,23 +837,32 @@ public sealed class QuoteService(
                 throw Invalid("QUOTE_ITEM_INVALID", "인테리어 상세 견적 항목의 길이를 확인해 주세요.", $"items.{index}");
             if (item.Quantity <= 0 || item.Quantity > MaximumAmount || item.UnitPriceAmount < 0 || item.UnitPriceAmount > MaximumAmount)
                 throw Invalid("QUOTE_AMOUNT_INVALID", "수량과 단가를 확인해 주세요.", $"items.{index}");
-            if (decimal.Round(item.Quantity, 4) != item.Quantity || decimal.Round(item.UnitPriceAmount, 4) != item.UnitPriceAmount)
-                throw Invalid("QUOTE_AMOUNT_INVALID", "수량과 단가는 소수점 4자리까지 입력할 수 있습니다.", $"items.{index}");
+            if (decimal.Truncate(item.Quantity) != item.Quantity)
+                throw Invalid("QUOTE_QUANTITY_INTEGER_REQUIRED", "수량은 1 이상의 정수로 입력해 주세요.", $"items.{index}.quantity");
+            if (decimal.Round(item.UnitPriceAmount, 4) != item.UnitPriceAmount)
+                throw Invalid("QUOTE_AMOUNT_INVALID", "단가는 소수점 4자리까지 입력할 수 있습니다.", $"items.{index}.unitPriceAmount");
         }
     }
 
     private async Task ValidateProviderEligibilityAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
     {
         var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId,
-            request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
+            request.AdministrativeAreaId, cancellationToken);
         if (!evaluation.IsEligible)
-            throw Forbidden(evaluation.ReasonCode ?? "PROVIDER_NOT_ELIGIBLE", "현재 이 요청에 견적을 제출하거나 채택될 수 없는 공급자 상태입니다.");
+            throw Forbidden(evaluation.ReasonCode ?? "PROVIDER_NOT_ELIGIBLE", "현재 이 요청에 견적을 제출하거나 채택될 수 없는 전문가 상태입니다.");
+    }
+
+    private async Task EnsureNotSelfRequestAsync(long providerUserId, long customerProfileId, CancellationToken cancellationToken)
+    {
+        if (await dbContext.CustomerProfiles.AsNoTracking().AnyAsync(
+                item => item.Id == customerProfileId && item.UserId == providerUserId, cancellationToken))
+            throw Forbidden("SELF_REQUEST_NOT_ALLOWED", "본인이 요청한 서비스에는 본인의 전문가 역할로 견적을 작성하거나 제출할 수 없습니다.");
     }
 
     private async Task<QuoteSubmissionReadinessResponse> BuildSubmissionReadinessAsync(long providerId, ServiceRequest request, CancellationToken cancellationToken)
     {
         var evaluation = await eligibilityService.EvaluateAsync(providerId, request.CategoryId,
-            request.AdministrativeAreaId ?? throw Conflict("REQUEST_AREA_REQUIRED", "서비스 지역이 없는 요청에는 견적을 제출할 수 없습니다."), cancellationToken);
+            request.AdministrativeAreaId, cancellationToken);
         var policy = await ResolveAcceptanceFeePolicyAsync(request, cancellationToken);
         var amount = FeeAmount(policy);
         var providerPublicId = await dbContext.ProviderProfiles.AsNoTracking().Where(item => item.Id == providerId)
@@ -706,7 +901,8 @@ public sealed class QuoteService(
         var row = await (
                 from dispatch in dbContext.RequestDispatches
                 join request in dbContext.ServiceRequests on dispatch.ServiceRequestId equals request.Id
-                where request.PublicId == requestPublicId && dispatch.ProviderProfileId == providerId && dispatch.StatusCode != "EXPIRED"
+                where request.PublicId == requestPublicId && dispatch.ProviderProfileId == providerId &&
+                      dispatch.StatusCode != "EXPIRED" && dispatch.StatusCode != "DECLINED"
                 select new OwnedDispatch(dispatch, request))
             .SingleOrDefaultAsync(cancellationToken);
         return row ?? throw Forbidden("REQUEST_NOT_DISPATCHED", "본인에게 배포된 요청에만 견적을 작성할 수 있습니다.");
@@ -858,7 +1054,7 @@ public sealed class QuoteService(
                 where user.PublicId == publicId && user.StatusCode == "ACTIVE"
                 select new ProviderIdentity(user.Id, provider.Id))
             .SingleOrDefaultAsync(cancellationToken);
-        return identity ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "공급자 프로필을 찾을 수 없습니다.");
+        return identity ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "전문가 프로필을 찾을 수 없습니다.");
     }
 
     private async Task<CustomerIdentity> GetCustomerIdentityAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
@@ -902,6 +1098,55 @@ public sealed class QuoteService(
     };
 
     private static decimal RoundMoney(decimal value) => decimal.Round(value, 4, MidpointRounding.AwayFromZero);
+
+    private static QuoteItemInput NormalizeTemplateItem(QuoteItemInput item) => new(
+        item.ItemName.Trim(), NullIfEmpty(item.Description), item.Quantity, NullIfEmpty(item.UnitText), item.UnitPriceAmount,
+        NullIfEmpty(item.WorkTradeText), NullIfEmpty(item.SpaceText), NullIfEmpty(item.ItemCategoryCode),
+        NullIfEmpty(item.MaterialSpecText), NullIfEmpty(item.LaborNoteText));
+
+    private static ProviderQuoteTemplateResponse ToTemplateResponse(ProviderQuoteTemplate template)
+    {
+        IReadOnlyList<QuoteItemInput> items;
+        try
+        {
+            items = JsonSerializer.Deserialize<List<QuoteItemInput>>(template.ItemsJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            items = [];
+        }
+        return new(template.PublicId, template.Name, template.Summary, template.Terms,
+            template.EstimatedDurationText, template.VatMode, items, template.UpdatedAt);
+    }
+
+    private static void ValidateTemplate(SaveQuoteTemplateInput input)
+    {
+        if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Trim().Length > 100)
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "기본폼 이름은 1~100자로 입력해 주세요.", "name");
+        if (string.IsNullOrWhiteSpace(input.Summary) || input.Summary.Trim().Length > 1000)
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "견적 요약은 1~1000자로 입력해 주세요.", "summary");
+        if (input.Terms?.Length > 20_000)
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "조건·설명이 너무 깁니다.", "terms");
+        if (input.EstimatedDurationText?.Length > 200)
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "예상 작업기간은 200자 이하로 입력해 주세요.", "estimatedDurationText");
+        if (input.VatMode.Trim().ToUpperInvariant() is not ("INCLUDED" or "EXCLUDED"))
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "부가세 포함 또는 별도를 선택해 주세요.", "vatMode");
+        if (input.Items is null || input.Items.Count is < 1 or > 100)
+            throw Invalid("QUOTE_TEMPLATE_INVALID", "견적 항목은 1~100개로 저장해 주세요.", "items");
+        for (var index = 0; index < input.Items.Count; index++)
+        {
+            var item = input.Items[index];
+            if (string.IsNullOrWhiteSpace(item.ItemName) || item.ItemName.Trim().Length > 200)
+                throw Invalid("QUOTE_TEMPLATE_INVALID", "모든 견적 항목명을 입력해 주세요.", $"items.{index}.itemName");
+            if (item.Description?.Length > 1000 || item.UnitText?.Length > 50 || item.WorkTradeText?.Length > 200 ||
+                item.SpaceText?.Length > 200 || item.ItemCategoryCode?.Length > 100 || item.MaterialSpecText?.Length > 2000 ||
+                item.LaborNoteText?.Length > 2000)
+                throw Invalid("QUOTE_TEMPLATE_INVALID", "견적 항목의 입력 길이를 확인해 주세요.", $"items.{index}");
+            if (item.Quantity <= 0 || decimal.Truncate(item.Quantity) != item.Quantity || item.UnitPriceAmount < 0 ||
+                item.Quantity > MaximumAmount || item.UnitPriceAmount > MaximumAmount)
+                throw Invalid("QUOTE_TEMPLATE_INVALID", "수량과 단가를 확인해 주세요.", $"items.{index}");
+        }
+    }
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static QuoteBusinessException NotFound() => new("QUOTE_NOT_FOUND", "견적을 찾을 수 없습니다.", StatusCodes.Status404NotFound);
     private static QuoteBusinessException Forbidden(string code, string message) => new(code, message, StatusCodes.Status403Forbidden);

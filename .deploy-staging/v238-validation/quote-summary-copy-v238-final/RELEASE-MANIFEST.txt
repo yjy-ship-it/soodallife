@@ -1,0 +1,11 @@
+﻿Release: V238 quote summary display
+PowerShell encoding: UTF-8 with BOM
+Database changed: false
+API changed: false
+Customer frontend changed: true
+Partner frontend changed: true
+Admin frontend changed: true
+Submitter placeholder: removed
+Quote summary fallback: item-based
+Quote terms fallback: customer-agreement-guidance
+Applied surfaces: received-quotes, work-detail, interior-quotes, quote-editor

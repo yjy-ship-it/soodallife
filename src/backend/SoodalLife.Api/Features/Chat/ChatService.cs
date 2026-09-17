@@ -23,7 +23,7 @@ public sealed class ChatService(
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> RoomLocks = new();
     private const int PageMaximum = 50;
-    private const long FileMaximum = 10 * 1024 * 1024;
+    private const long FileMaximum = SafeImageUploadPolicy.MaximumBytes;
 
     public async Task<ChatRoom> EnsureTransactionRoomAsync(TransactionRecord transaction, DateTime now, CancellationToken token)
     {
@@ -95,11 +95,46 @@ public sealed class ChatService(
         return await EnsureForResourceAsync(principal, ChatResourceTypes.Subscription, contractId, "DIRECT", token);
     }
 
+    public async Task<ChatRoomDetail> EnsureProviderConsultationAsync(ClaimsPrincipal principal, Guid providerId, CancellationToken token)
+    {
+        var identity = await Identity(principal, token);
+        var customer = await db.CustomerProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == identity.UserId, token)
+            ?? throw new ChatBusinessException("CUSTOMER_PROFILE_REQUIRED", "고객 계정으로 로그인해 주세요.", 403);
+        var provider = await db.ProviderProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.PublicId == providerId &&
+            x.ApprovalStatusCode == "APPROVED" && x.ActivityStatusCode == "ACTIVE", token) ?? throw NotFound();
+        if (await db.UserRelationshipBlocks.AsNoTracking().AnyAsync(x => x.CustomerProfileId == customer.Id &&
+            x.ProviderProfileId == provider.Id && x.StatusCode == "ACTIVE", token))
+            throw Conflict("USER_RELATIONSHIP_BLOCKED", "차단된 전문가에게는 채팅 상담을 신청할 수 없습니다.");
+        var resourceId = ConsultationResourceId(customer.PublicId, provider.PublicId);
+        var existed = await db.ChatRooms.AsNoTracking().AnyAsync(x => x.ResourceTypeCode == ChatResourceTypes.ProviderConsultation &&
+            x.ResourcePublicId == resourceId && x.RoomTypeCode == "DIRECT", token);
+        var now = DateTime.UtcNow;
+        var authorization = new ChatResourceAuthorization(ChatResourceTypes.ProviderConsultation, resourceId, "DIRECT",
+            customer.UserId, provider.UserId, $"{provider.BusinessName} 상담", $"CS-{resourceId.ToString("N")[..10].ToUpperInvariant()}", now, now, true);
+        var room = await EnsureResourceRoomAsync(authorization, now, token);
+        var eventType = "CUSTOMER_CONSULTATION_REQUESTED";
+        var outboxKey = $"provider-consultation-requested:{resourceId:N}";
+        if (!existed && await db.NotificationTemplates.AsNoTracking().AnyAsync(x => x.EventTypeCode == eventType && x.IsActive, token) &&
+            !await db.OutboxEvents.AnyAsync(x => x.IdempotencyKey == outboxKey, token))
+        {
+            db.OutboxEvents.Add(new OutboxEvent
+            {
+                AggregateType = "ChatRoom", AggregatePublicId = room.PublicId, EventType = eventType,
+                PayloadJson = JsonSerializer.Serialize(new { recipientUserId = provider.UserId, customer_name = customer.DisplayName,
+                    provider_name = provider.BusinessName, service_name = "광고 상담", roomId = room.PublicId,
+                    targetRoute = $"/provider/messages/{room.PublicId}" }),
+                StatusCode = "PENDING", OccurredAt = now, AvailableAt = now, IdempotencyKey = outboxKey, CreatedByUserId = identity.UserId,
+            });
+            await db.SaveChangesAsync(token);
+        }
+        return await Detail(room.PublicId, principal, token);
+    }
+
     public async Task<IReadOnlyList<ChatRoomListItem>> Mine(ClaimsPrincipal principal, string? resourceType, int page, int pageSize, CancellationToken token)
     {
         var identity = await Identity(principal, token);
         var normalizedType = string.IsNullOrWhiteSpace(resourceType) ? null : resourceType.Trim().ToUpperInvariant();
-        if (normalizedType is not null && normalizedType is not (ChatResourceTypes.Transaction or ChatResourceTypes.Subscription or ChatResourceTypes.Interior or ChatResourceTypes.AfterService))
+        if (normalizedType is not null && normalizedType is not (ChatResourceTypes.Transaction or ChatResourceTypes.Subscription or ChatResourceTypes.Interior or ChatResourceTypes.AfterService or ChatResourceTypes.ProviderConsultation))
             throw Bad("CHAT_RESOURCE_TYPE_INVALID", "지원하지 않는 채팅 업무 유형입니다.");
         var safePage = Math.Max(1, page); var safeSize = Math.Clamp(pageSize, 1, 200);
         var rows = (await AuthorizedRooms(identity.UserId, null, token, normalizedType, Math.Min(1000, safePage * safeSize)))
@@ -159,7 +194,7 @@ public sealed class ChatService(
         var access = await Access(roomId, identity.UserId, token);
         EnsureWritable(access.Room);
         var body = input.Body.Trim();
-        if (body.Length is < 1 or > 4000) throw Bad("CHAT_MESSAGE_BODY_INVALID", "메시지는 1자 이상 4,000자 이하로 입력해 주세요.");
+        if (body.Length is < 1 or > 4000) throw Bad("CHAT_MESSAGE_BODY_INVALID", "채팅 내용은 1자 이상 4,000자 이하로 입력해 주세요.");
         ValidateKey(input.IdempotencyKey);
         var existing = await db.ChatMessages.SingleOrDefaultAsync(x => x.IdempotencyKey == input.IdempotencyKey, token);
         if (existing is not null)
@@ -191,7 +226,7 @@ public sealed class ChatService(
         {
             PurposeCode = "CHAT_ATTACHMENT", StorageContainer = "development-private", StorageKey = storageKey,
             StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(storageKey)), OriginalFileName = validated.Name,
-            ContentType = validated.ContentType, SizeBytes = upload.Length, Sha256Hex = validated.Sha256,
+            ContentType = validated.ContentType, SizeBytes = validated.Bytes.LongLength, Sha256Hex = validated.Sha256,
             StatusCode = "PENDING", MalwareScanStatusCode = FilePrivacyCodes.NotIntegrated,
             PrivacyInspectionStatusCode = FilePrivacyCodes.NotIntegrated, SanitizationStatusCode = FilePrivacyCodes.NotIntegrated,
             UploadedByUserId = identity.UserId, CreatedAt = now,
@@ -200,7 +235,7 @@ public sealed class ChatService(
         await db.SaveChangesAsync(token);
         try
         {
-            await using var stream = upload.OpenReadStream();
+            await using var stream = new MemoryStream(validated.Bytes, writable: false);
             await storage.SaveAsync(storageKey, stream, token);
             stored.StatusCode = "ACTIVE";
             stored.ActivatedAt = now;
@@ -209,11 +244,120 @@ public sealed class ChatService(
             await Broadcast(access.Room.PublicId, message, token);
             return message;
         }
-        catch
+        catch (Exception exception)
         {
             await storage.DeleteIfExistsAsync(storageKey, token);
-            throw;
+            try
+            {
+                db.Files.Remove(stored);
+                await db.SaveChangesAsync(CancellationToken.None);
+            }
+            catch (Exception cleanupException)
+            {
+                logger.LogWarning(cleanupException, "Failed to remove incomplete chat attachment {FileId}.", stored.PublicId);
+            }
+            logger.LogError(exception, "Chat attachment storage failed for room {RoomId} and file {FileName}.", roomId, validated.Name);
+            throw new ChatBusinessException("CHAT_FILE_STORAGE_FAILED", "첨부파일을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.", 503);
         }
+    }
+
+    public async Task<ChatMessageResponse> SendFileData(Guid roomId, SendChatFileInput input, ClaimsPrincipal principal, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(input.Base64Data) || input.Base64Data.Length > 14 * 1024 * 1024)
+            throw Bad("CHAT_FILE_SIZE_INVALID", "10MB 이하의 파일을 선택해 주세요.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(input.Base64Data); }
+        catch (FormatException) { throw Bad("CHAT_FILE_ENCODING_INVALID", "첨부파일 전송 형식을 확인해 주세요."); }
+        if (bytes.LongLength is <= 0 or > FileMaximum)
+            throw Bad("CHAT_FILE_SIZE_INVALID", "10MB 이하의 파일을 선택해 주세요.");
+        await using var source = new MemoryStream(bytes, writable: false);
+        var upload = new FormFile(source, 0, bytes.LongLength, "file", input.FileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = input.ContentType,
+        };
+        return await SendFile(roomId, upload, input.IdempotencyKey, principal, token);
+    }
+
+    public async Task<ChatFileChunkResponse> SendFileChunk(Guid roomId, SendChatFileChunkInput input,
+        ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await Identity(principal, token);
+        var access = await Access(roomId, identity.UserId, token);
+        EnsureWritable(access.Room);
+        ValidateKey(input.IdempotencyKey);
+        if (input.UploadId == Guid.Empty || input.TotalChunks is < 1 or > 320 ||
+            input.ChunkIndex < 0 || input.ChunkIndex >= input.TotalChunks ||
+            string.IsNullOrWhiteSpace(input.Base64Chunk) || input.Base64Chunk.Length > 45_000)
+            throw Bad("CHAT_FILE_CHUNK_INVALID", "첨부파일 조각 정보를 확인해 주세요.");
+
+        byte[] chunk;
+        try { chunk = Convert.FromBase64String(input.Base64Chunk); }
+        catch (FormatException) { throw Bad("CHAT_FILE_CHUNK_INVALID", "첨부파일 조각을 읽지 못했습니다."); }
+        if (chunk.Length is < 1 or > 32_768)
+            throw Bad("CHAT_FILE_CHUNK_INVALID", "첨부파일 조각의 크기가 올바르지 않습니다.");
+
+        var chunkParent = $"chat-upload/{identity.UserId}/{access.Room.PublicId:N}";
+        var chunkPrefix = $"{chunkParent}/chunks-{input.UploadId:N}";
+        try { await storage.PrepareBoundedUploadDirectoryAsync(chunkParent, chunkPrefix, token); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new ChatBusinessException("CHAT_FILE_UPLOAD_LIMIT", "처리 중인 첨부파일이 많습니다. 잠시 후 다시 시도해 주세요.", 429);
+        }
+
+        var chunkKey = $"{chunkPrefix}/{input.ChunkIndex:D3}.part";
+        try
+        {
+            await using var content = new MemoryStream(chunk, writable: false);
+            await storage.SaveAsync(chunkKey, content, token);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                await using var existing = await storage.OpenReadAsync(chunkKey, token);
+                using var memory = new MemoryStream();
+                await existing.CopyToAsync(memory, token);
+                if (!memory.ToArray().AsSpan().SequenceEqual(chunk))
+                    throw Conflict("CHAT_FILE_CHUNK_CONFLICT", "같은 첨부파일의 전송 정보가 변경되었습니다. 파일을 다시 선택해 주세요.");
+            }
+            catch (ChatBusinessException) { throw; }
+            catch (Exception readException) when (readException is IOException or UnauthorizedAccessException)
+            {
+                throw new ChatBusinessException("CHAT_FILE_CHUNK_UNAVAILABLE", "첨부파일 조각을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.", 503);
+            }
+        }
+
+        if (input.ChunkIndex != input.TotalChunks - 1) return new(false, null);
+
+        using var assembled = new MemoryStream();
+        try
+        {
+            for (var index = 0; index < input.TotalChunks; index++)
+            {
+                await using var part = await storage.OpenReadAsync($"{chunkPrefix}/{index:D3}.part", token);
+                await part.CopyToAsync(assembled, token);
+                if (assembled.Length > FileMaximum)
+                    throw Bad("CHAT_FILE_SIZE_INVALID", "10MB 이하의 파일을 선택해 주세요.");
+            }
+        }
+        catch (ChatBusinessException) { throw; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw Conflict("CHAT_FILE_CHUNK_INCOMPLETE", "첨부파일 전송이 완료되지 않았습니다. 다시 보내 주세요.");
+        }
+
+        await using var source = new MemoryStream(assembled.ToArray(), writable: false);
+        var upload = new FormFile(source, 0, source.Length, "file", input.FileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = input.ContentType,
+        };
+        var message = await SendFile(roomId, upload, input.IdempotencyKey, principal, token);
+        try { await storage.DeleteDirectoryIfExistsAsync(chunkPrefix, CancellationToken.None); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return new(true, message);
     }
 
     public async Task MarkRead(Guid roomId, MarkChatReadInput input, ClaimsPrincipal principal, CancellationToken token)
@@ -281,7 +425,7 @@ public sealed class ChatService(
         var candidates = await (from room in db.ChatRooms.AsNoTracking()
                                 join participant in db.ChatParticipants.AsNoTracking() on room.Id equals participant.ChatRoomId
                                 where (!roomId.HasValue || room.PublicId == roomId.Value) && (resourceType == null || room.ResourceTypeCode == resourceType) && participant.UserId == userId &&
-                                      participant.StatusCode == "ACTIVE" && participant.AccessStartedAt <= now &&
+                                      participant.StatusCode == "ACTIVE" && (room.ResourceTypeCode == ChatResourceTypes.ProviderConsultation || participant.AccessStartedAt <= now) &&
                                       (participant.AccessEndedAt == null || participant.AccessEndedAt > now)
                                 orderby room.UpdatedAt descending
                                 select new { Room = room, Participant = participant }).Take(limit).ToListAsync(token);
@@ -376,20 +520,23 @@ public sealed class ChatService(
                 });
             }
             var recipient = await db.ChatParticipants.AsNoTracking().Where(x => x.ChatRoomId == access.Room.Id && x.UserId != userId && x.StatusCode == "ACTIVE")
-                .Select(x => new { x.UserId, x.ParticipantRoleCode }).SingleAsync(token);
-            db.OutboxEvents.Add(new OutboxEvent
+                .Select(x => new { x.UserId, x.ParticipantRoleCode }).SingleOrDefaultAsync(token);
+            if (recipient is not null)
             {
-                AggregateType = "ChatRoom", AggregatePublicId = access.Room.PublicId, EventType = "CHAT.MESSAGE.CREATED",
-                PayloadJson = JsonSerializer.Serialize(new
+                db.OutboxEvents.Add(new OutboxEvent
                 {
-                    recipientUserId = recipient.UserId, roomId = access.Room.PublicId, messageId = message.PublicId, messageType = type,
-                    resourceType = access.Room.ResourceTypeCode, resourceId = access.Room.ResourcePublicId,
-                    targetRoute = recipient.ParticipantRoleCode == "CUSTOMER"
-                        ? $"/customer/messages/{access.Room.PublicId}" : $"/provider/messages/{access.Room.PublicId}",
-                }),
-                StatusCode = "PENDING", OccurredAt = now, AvailableAt = now, IdempotencyKey = $"chat-message-created:{message.PublicId:N}",
-                CreatedByUserId = userId,
-            });
+                    AggregateType = "ChatRoom", AggregatePublicId = access.Room.PublicId, EventType = "CHAT.MESSAGE.CREATED",
+                    PayloadJson = JsonSerializer.Serialize(new
+                    {
+                        recipientUserId = recipient.UserId, roomId = access.Room.PublicId, messageId = message.PublicId, messageType = type,
+                        resourceType = access.Room.ResourceTypeCode, resourceId = access.Room.ResourcePublicId,
+                        targetRoute = recipient.ParticipantRoleCode == "CUSTOMER"
+                            ? $"/customer/messages/{access.Room.PublicId}" : $"/provider/messages/{access.Room.PublicId}",
+                    }),
+                    StatusCode = "PENDING", OccurredAt = now, AvailableAt = now, IdempotencyKey = $"chat-message-created:{message.PublicId:N}",
+                    CreatedByUserId = userId,
+                });
+            }
             await db.SaveChangesAsync(token);
             if (transaction is not null) await transaction.CommitAsync(token);
             return await Message(message, userId, token);
@@ -473,7 +620,7 @@ public sealed class ChatService(
 
     private static void EnsureWritable(ChatRoom room)
     {
-        if (room.StatusCode != "ACTIVE") throw Conflict("CHAT_ROOM_NOT_WRITABLE", "현재 채팅방에서는 새 메시지를 보낼 수 없습니다.");
+        if (room.StatusCode != "ACTIVE") throw Conflict("CHAT_ROOM_NOT_WRITABLE", "현재 채팅방에서는 새 채팅을 보낼 수 없습니다.");
     }
 
     private static void ValidateKey(string key)
@@ -483,31 +630,22 @@ public sealed class ChatService(
 
     private static async Task<ValidatedFile> ValidateFile(IFormFile file, CancellationToken token)
     {
-        if (file.Length is <= 0 or > FileMaximum) throw Bad("CHAT_FILE_SIZE_INVALID", "10MB 이하의 파일을 선택해 주세요.");
-        var name = Path.GetFileName(file.FileName);
-        if (string.IsNullOrWhiteSpace(name) || name != file.FileName || name.Length > 255) throw Bad("CHAT_FILE_NAME_INVALID", "안전한 파일명을 사용해 주세요.");
-        var extension = Path.GetExtension(name).ToLowerInvariant();
-        var expected = extension switch { ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png", ".pdf" => "application/pdf", _ => null };
-        if (expected is null || !string.Equals(file.ContentType, expected, StringComparison.OrdinalIgnoreCase))
-            throw Bad("CHAT_FILE_TYPE_INVALID", "JPG, PNG, PDF 파일만 첨부할 수 있습니다.");
-        await using var stream = file.OpenReadStream();
-        var header = new byte[8];
-        var read = await stream.ReadAsync(header.AsMemory(0, header.Length), token);
-        var signatureValid = expected switch
+        try
         {
-            "image/jpeg" => read >= 3 && header[0] == 0xff && header[1] == 0xd8 && header[2] == 0xff,
-            "image/png" => read >= 8 && header.SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
-            "application/pdf" => read >= 5 && Encoding.ASCII.GetString(header, 0, 5) == "%PDF-",
-            _ => false,
-        };
-        if (!signatureValid) throw Bad("CHAT_FILE_SIGNATURE_INVALID", "파일 내용과 형식이 일치하지 않습니다.");
-        stream.Position = 0;
-        var hash = await SHA256.HashDataAsync(stream, token);
-        return new(name, expected, extension == ".jpeg" ? ".jpg" : extension, Convert.ToHexString(hash).ToLowerInvariant());
+            var safe = await SafeImageUploadPolicy.ProcessAsync(file, token);
+            return new(safe.FileName, safe.ContentType, safe.Extension, safe.Sha256Hex, safe.Bytes);
+        }
+        catch (SafeImageUploadException error) { throw Bad(error.Code, error.Message); }
     }
 
     private static string SafeName(StoredFile file) => Path.GetFileName(file.OriginalFileName);
     private static string? Preview(ChatMessage? message) => message is null ? null : message.MessageTypeCode == "FILE" ? "파일을 보냈습니다." : message.Body?.Length > 80 ? message.Body[..80] : message.Body;
+    private static Guid ConsultationResourceId(Guid customerId, Guid providerId)
+    {
+        var value = Encoding.UTF8.GetBytes($"soodal-provider-consultation:{customerId:N}:{providerId:N}");
+        var hash = SHA256.HashData(value);
+        return new Guid(hash.AsSpan(0, 16));
+    }
     public static string Group(Guid roomId) => $"chat-room:{roomId:N}";
     private static ChatBusinessException NotFound() => new("CHAT_ROOM_NOT_FOUND", "채팅방을 찾을 수 없습니다.", 404);
     private static ChatBusinessException Bad(string code, string message) => new(code, message, 400);
@@ -515,7 +653,7 @@ public sealed class ChatService(
 
     private sealed record UserIdentity(long UserId);
     private sealed record RoomAccess(ChatRoom Room, ChatParticipant Participant);
-    private sealed record ValidatedFile(string Name, string ContentType, string Extension, string Sha256);
+    private sealed record ValidatedFile(string Name, string ContentType, string Extension, string Sha256, byte[] Bytes);
     private sealed record AuthorizedRoomRow(ChatRoom Room, ChatParticipant Participant, ChatResourceAuthorization Authorization,
         string CounterpartyRole, string CounterpartyName);
 }

@@ -1,0 +1,20 @@
+﻿Release: V236 work communication
+Database changed: false
+API changed: true
+Customer frontend changed: true
+Partner frontend changed: true
+Admin frontend changed: true
+PowerShell encoding: UTF-8 with BOM
+Status labels: Korean
+Administrative area display: province-and-district
+Accepted quote detail: expanded
+Provider self-label: hidden
+Completion evidence: before-and-after-separated
+Completion evidence preview: thumbnail
+Chat availability: transaction-wide
+Chat attachment safety: fail-closed-with-guidance
+Provider schedule: monthly-auto-calendar
+Kakao notification events: existing-outbox-config-required
+Proposal registration fee: on-hold-unchanged
+API App_Data preserved: true
+API appsettings preserved: true

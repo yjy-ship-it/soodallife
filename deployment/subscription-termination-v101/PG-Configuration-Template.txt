@@ -1,0 +1,9 @@
+Configure these values in the protected production configuration store used by the IIS API application.
+Do not place the live secret key in this deployment ZIP or in source control.
+
+SubscriptionPaymentGateway__ProviderCode=TOSS
+SubscriptionPaymentGateway__BaseUrl=https://api.tosspayments.com
+SubscriptionPaymentGateway__SecretKey=<TOSS_LIVE_SECRET_KEY>
+SubscriptionPaymentGateway__Enabled=true
+
+After applying protected configuration, recycle only the SoodalLife.Api application pool.

@@ -122,6 +122,12 @@ public sealed class WorkController(WorkService workService, TransactionAppointme
         CancellationToken token) => Execute(() => workService.UploadEvidenceAsync(User, transactionId, roleCode, description, file, token));
 
     [Authorize(Roles = RoleCodes.Provider)]
+    [HttpDelete("transactions/{transactionId:guid}/completion-evidence/{fileId:guid}")]
+    public Task<ActionResult<WorkCompletionRevisionResponse>> DeleteEvidence(
+        Guid transactionId, Guid fileId, CancellationToken token) =>
+        Execute(() => workService.DeleteEvidenceAsync(User, transactionId, fileId, token));
+
+    [Authorize(Roles = RoleCodes.Provider)]
     [HttpPost("transactions/{transactionId:guid}/completions/submit")]
     public Task<ActionResult<WorkCompletionRevisionResponse>> Submit(Guid transactionId, CancellationToken token) =>
         Execute(() => workService.SubmitCompletionAsync(User, transactionId, token));

@@ -74,3 +74,24 @@ public sealed class ReviewProviderReply
     public DateTime UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
 }
+
+public sealed class ReviewComment
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long ReviewId { get; set; }
+    public long? ParentCommentId { get; set; }
+    public long AuthorUserId { get; set; }
+    public string AuthorRoleCode { get; set; } = string.Empty;
+    public string AuthorDisplayName { get; set; } = string.Empty;
+    public string BodyText { get; set; } = string.Empty;
+    public string StatusCode { get; set; } = "ACTIVE";
+    public string IdempotencyKey { get; set; } = string.Empty;
+    public DateTime SubmittedAt { get; set; }
+    public DateTime? HiddenAt { get; set; }
+    public long? HiddenByUserId { get; set; }
+    public string? HiddenReason { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}

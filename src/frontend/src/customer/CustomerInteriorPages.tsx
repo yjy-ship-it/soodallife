@@ -19,6 +19,10 @@ import type {
   InteriorService,
 } from "./interiorTypes";
 import "./customerInterior.css";
+import "./customerInteriorVisuals.css";
+import { soodalConfirm, soodalPrompt } from '../components/soodalDialog'
+import { quoteSummaryText,quoteTermsText } from '../quotes/displayText'
+import { ServiceThumbnail, useServiceVisualSettings } from '../serviceVisuals/ServiceVisual'
 
 const money = (value: number, currency = "KRW") =>
   `${new Intl.NumberFormat("ko-KR").format(value)} ${currency === "KRW" ? "원" : currency}`;
@@ -31,6 +35,18 @@ const date = (value: string | null) =>
     : "—";
 const message = (reason: unknown) =>
   reason instanceof Error ? reason.message : "요청을 처리하지 못했습니다.";
+const statusLabels: Record<string, string> = {
+  DRAFT: "작성 중", OPEN: "접수", RECEIVED: "접수", SUBMITTED: "제출 완료",
+  PUBLISHED: "공개", MATCHING: "전문가 찾는 중", QUOTING: "견적 접수 중",
+  SELECTED: "전문가 선택", ACTIVE: "진행 중", IN_PROGRESS: "진행 중",
+  COMPLETED: "완료", CANCELLED: "취소", NOT_SCHEDULED: "실측 일정 미정",
+  PROPOSED: "일정 제안", SCHEDULED: "예정", CONFIRMED: "확정",
+  NOT_CREATED: "계약 전", CREATED: "작성 완료", CORRECTION_REQUIRED: "보완 필요",
+  PENDING: "대기", PAID: "지급 완료", NONE: "없음", PASSED: "통과",
+  FAILED: "미통과", REQUESTED: "요청", APPROVED: "승인", ACCEPTED: "승인",
+  REJECTED: "반려", UNDER_REVIEW: "검토 중", RESOLVED: "해결 완료", CLOSED: "종료",
+};
+const statusLabel = (value: string | null | undefined) => value ? statusLabels[value] ?? "상태 확인 중" : "없음";
 const online = () => {
   if (!navigator.onLine)
     throw new Error("변경 작업은 온라인에서만 처리할 수 있습니다.");
@@ -42,6 +58,7 @@ function InteriorLayout({
   children,
 }: PropsWithChildren<{ title: string; description: string }>) {
   const path = window.location.pathname;
+  const visualSettings = useServiceVisualSettings();
   const nav = [
     ["/interior", "인테리어 홈"],
     ["/customer/interior/projects", "내 프로젝트"],
@@ -49,8 +66,9 @@ function InteriorLayout({
   ];
   return (
     <CustomerAppLayout>
-      <section className="interiorHero">
-        <p>SOODAL INTERIOR</p>
+      <section className={`interiorHero${visualSettings.bannersEnabled ? " hasFeatureBanner" : ""}`}>
+        {visualSettings.bannersEnabled && <img src="/service-visuals/feature-banners/interior.webp" alt="" aria-hidden="true" />}
+        <p>수달 인테리어</p>
         <h1>{title}</h1>
         <span>{description}</span>
       </section>
@@ -76,22 +94,27 @@ export function CustomerInteriorHomePage() {
   const { user } = useAuthentication();
   const customer = user?.roles.includes("CUSTOMER") ?? false;
   const [services, setServices] = useState<InteriorService[]>([]);
+  const [serviceQuery, setServiceQuery] = useState("");
   const [home, setHome] = useState<InteriorHome | null>(null);
+  const [requests,setRequests]=useState<InteriorRequestCandidate[]>([]);
   const [error, setError] = useState("");
+  const normalizedServiceQuery = serviceQuery.trim().toLocaleLowerCase("ko-KR");
+  const visibleServices = normalizedServiceQuery
+    ? services.filter((item) => `${item.code} ${item.categoryPath}`.toLocaleLowerCase("ko-KR").includes(normalizedServiceQuery))
+    : services;
   useEffect(() => {
     interiorApi
       .services()
       .then(setServices)
       .catch((reason) => setError(message(reason)));
     if (customer)
-      interiorApi
-        .home()
-        .then(setHome)
+      Promise.all([interiorApi.home(),interiorApi.candidates()])
+        .then(([dashboard,candidates])=>{setHome(dashboard);setRequests(candidates)})
         .catch((reason) => setError(message(reason)));
   }, [customer]);
   const start = (id?: string) => {
     const target = id
-      ? `/customer/requests/new?service=${id}`
+      ? `/customer/requests/new?service=${id}&domain=INTERIOR`
       : "/customer/interior/projects/new";
     navigate(customer ? target : createLoginPath(target));
   };
@@ -106,7 +129,7 @@ export function CustomerInteriorHomePage() {
           <h2>공간과 요구사항을 알려주세요</h2>
           <p>
             요청을 공개해 실측과 견적을 준비합니다. 상세주소와 연락처는 실측
-            공급자 확정 전까지 공개되지 않습니다.
+            전문가 확정 전까지 공개되지 않습니다.
           </p>
           <button onClick={() => start()}>상담 시작</button>
         </div>
@@ -141,19 +164,38 @@ export function CustomerInteriorHomePage() {
           </button>
         </section>
       )}
-      <section className="interiorSection">
+      {customer&&<section className="interiorSection interiorRequestHistory"><header><div><h2>내 인테리어 요청</h2><span>상담 요청을 등록한 직후부터 이곳에서 확인할 수 있습니다.</span></div><button onClick={()=>navigate('/customer/interior/projects/new')}>전체 요청 보기</button></header><div className="interiorCandidateList">{requests.slice(0,4).map(item=><article key={item.id}><span>수달 인테리어 · {item.areaName}</span><h3>{item.title}</h3><small>{date(item.createdAt)} · {item.projectCreated?'프로젝트 연결됨':'전문가 제안 대기'}</small><button onClick={()=>navigate(item.projectCreated?'/customer/interior/projects':`/customer/requests/${item.id}`)}>요청 내용 보기</button></article>)}{requests.length===0&&<p className="interiorEmpty">등록한 수달 인테리어 요청이 없습니다.</p>}</div></section>}
+      <section className="interiorSection interiorTargetServices">
         <header>
-          <h2>대상 서비스</h2>
-          <span>운영 중인 INT 계열 카테고리만 표시합니다.</span>
+          <div>
+            <h2>대상 서비스</h2>
+            <span>운영 중인 INT 계열 카테고리만 표시합니다.</span>
+          </div>
+          <strong>{normalizedServiceQuery ? `검색 결과 ${visibleServices.length}개` : `전체 ${services.length}개`}</strong>
         </header>
+        <label className="interiorServiceSearch">
+          <span>대상 서비스 검색</span>
+          <input
+            type="search"
+            value={serviceQuery}
+            onChange={(event) => setServiceQuery(event.target.value)}
+            placeholder="서비스명·코드·카테고리 검색"
+            autoComplete="off"
+          />
+          {serviceQuery && <button type="button" onClick={() => setServiceQuery("")} aria-label="검색어 지우기">지우기</button>}
+        </label>
         <div className="interiorServices">
-          {services.map((item) => (
+          {visibleServices.map((item) => (
             <button onClick={() => start(item.id)} key={item.id}>
-              <small>{item.code}</small>
-              <strong>{item.categoryPath.split(" > ").at(-1)}</strong>
-              <span>{item.categoryPath}</span>
+              <ServiceThumbnail code={item.code} name={item.categoryPath} className="interiorServiceThumbnail" />
+              <span className="interiorServiceCopy">
+                <small>{item.code}</small>
+                <strong>{item.categoryPath.split(" > ").at(-1)}</strong>
+                <span>{item.categoryPath}</span>
+              </span>
             </button>
           ))}
+          {services.length > 0 && visibleServices.length === 0 && <p className="interiorServiceSearchEmpty">검색어와 일치하는 대상 서비스가 없습니다.</p>}
         </div>
       </section>
       <section className="interiorPolicy">
@@ -173,27 +215,27 @@ function ProjectCard({ item }: { item: InteriorProjectList }) {
       className="interiorProjectCard"
       onClick={() => navigate(`/customer/interior/projects/${item.id}`)}
     >
-      <span>
-        {item.projectNumber} · {item.areaName}
-      </span>
-      <strong>{item.serviceName}</strong>
+      <div className="interiorProjectLead">
+        <ServiceThumbnail name={item.serviceName} />
+        <div><span>{item.projectNumber} · {item.areaName}</span><strong>{item.serviceName}</strong></div>
+      </div>
       <b>{item.statusDisplay}</b>
       <dl>
         <div>
           <dt>실측</dt>
-          <dd>{item.siteVisitStatus}</dd>
+          <dd>{statusLabel(item.siteVisitStatus)}</dd>
         </div>
         <div>
           <dt>계약</dt>
-          <dd>{item.contractStatus}</dd>
+          <dd>{statusLabel(item.contractStatus)}</dd>
         </div>
         <div>
           <dt>변경</dt>
-          <dd>{item.changeStatus}</dd>
+          <dd>{statusLabel(item.changeStatus)}</dd>
         </div>
         <div>
           <dt>검사</dt>
-          <dd>{item.inspectionStatus}</dd>
+          <dd>{statusLabel(item.inspectionStatus)}</dd>
         </div>
       </dl>
       <div className="stageMini">
@@ -275,7 +317,7 @@ export function NewCustomerInteriorProjectPage() {
         <h2>새 요청이 필요한가요?</h2>
         <p>
           공간 유형, 시·도/시·군·구, 예산, 희망 일정, 요구사항과 사진은 기존
-          동적 요청서에서 입력합니다. 상세주소는 선택된 공급자에게 공개할
+          동적 요청서에서 입력합니다. 상세주소는 선택된 전문가에게 공개할
           단계에서 별도로 확인합니다.
         </p>
         <button onClick={() => navigate("/services/search?q=인테리어")}>
@@ -290,7 +332,7 @@ export function NewCustomerInteriorProjectPage() {
             </span>
             <h3>{item.title}</h3>
             <small>
-              {item.statusCode} · {date(item.createdAt)}
+              {statusLabel(item.statusCode)} · {date(item.createdAt)}
             </small>
             {item.projectCreated ? (
               <>
@@ -300,7 +342,7 @@ export function NewCustomerInteriorProjectPage() {
             ) : item.statusCode === "DRAFT" ? (
               <>
                 <p className="interiorCandidateHelp">작성 중인 요청입니다. 이어서 작성한 뒤 마지막 단계에서 요청을 공개하면 프로젝트를 시작할 수 있습니다.</p>
-                <button onClick={() => navigate(`/customer/requests/new?draft=${item.id}`)}>이어서 작성</button>
+                <button onClick={() => navigate(`/customer/requests/new?draft=${item.id}&domain=INTERIOR`)}>이어서 작성</button>
               </>
             ) : item.statusCode === "CANCELLED" ? (
               <>
@@ -394,8 +436,7 @@ function PendingFiles({
           )}
           <strong>{file.fileName}</strong>
           <small>
-            {(file.sizeBytes / 1024 / 1024).toFixed(1)}MB · 비공개 · 검사
-            NOT_INTEGRATED
+            {(file.sizeBytes / 1024 / 1024).toFixed(1)}MB · 비공개 · 파일 안전 검사 준비 중
           </small>
           <button type="button" className="secondary" onClick={() => onRemove(file)}>
             첨부에서 제외
@@ -434,7 +475,7 @@ function ProviderSelectionAction({
   const [open, setOpen] = useState(false);
   if (quote.selected)
     return (
-      <p className="providerSelectionMark">최종 선택한 공급자 · 계약 준비 중</p>
+      <p className="providerSelectionMark">최종 선택한 전문가 · 계약 준비 중</p>
     );
   if (!quote.canSelect) return null;
   return (
@@ -444,7 +485,7 @@ function ProviderSelectionAction({
         disabled={busy}
         onClick={() => setOpen(true)}
       >
-        이 공급자로 최종 선택
+        이 전문가로 최종 선택
       </button>
       {open && (
         <div
@@ -457,7 +498,7 @@ function ProviderSelectionAction({
             aria-labelledby="provider-selection-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <span>최종 시공 공급자 선택</span>
+            <span>최종 시공 전문가 선택</span>
             <h3 id="provider-selection-title">
               {quote.providerName}을 선택할까요?
             </h3>
@@ -465,8 +506,7 @@ function ProviderSelectionAction({
               <div>
                 <dt>견적</dt>
                 <dd>
-                  {money(quote.totalAmount, quote.currencyCode)} · Version{" "}
-                  {quote.revisionNo}
+                  {money(quote.totalAmount, quote.currencyCode)} · {quote.revisionNo}차 견적
                 </dd>
               </div>
               <div>
@@ -478,7 +518,7 @@ function ProviderSelectionAction({
                 <dd>{date(quote.availableStartAt)}</dd>
               </div>
               <div>
-                <dt>Trust·리뷰</dt>
+                <dt>신뢰도·후기</dt>
                 <dd>
                   {quote.trustDisplay} · 공개 리뷰 {quote.publicReviewCount}
                 </dd>
@@ -487,14 +527,14 @@ function ProviderSelectionAction({
                 <dt>설계</dt>
                 <dd>
                   {quote.designVersion
-                    ? `Version ${quote.designVersion} · ${quote.designStatus ?? "상태 확인 중"}`
+                    ? `${quote.designVersion}차 · ${statusLabel(quote.designStatus)}`
                     : "연결 설계 없음"}
                 </dd>
               </div>
             </dl>
             <p>{quote.summary}</p>
             <small>
-              공급자 선택은 계약 체결이 아닙니다. 선택 후 확정 견적을 기준으로
+              전문가 선택은 계약 체결이 아닙니다. 선택 후 확정 견적을 기준으로
               계약 내용을 별도로 확인하고 동의합니다. 선택하면 다른 후보로
               변경할 수 없습니다.
             </small>
@@ -700,20 +740,33 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
       {error && <p className="interiorError">{error}</p>}
       {item.providerSelection && (
         <article className="providerSelectionSummary">
-          <span>최종 시공 공급자 선택 완료</span>
+          <span>최종 시공 전문가 선택 완료</span>
           <h2>{item.providerSelection.providerName}</h2>
           <strong>
             {money(
               item.providerSelection.totalAmount,
               item.providerSelection.currencyCode,
             )}{" "}
-            · 견적 Version {item.providerSelection.revisionNo}
+            · 견적 {item.providerSelection.revisionNo}차
           </strong>
           <p>{item.providerSelection.summary}</p>
           <small>
             선택 {date(item.providerSelection.selectedAt)} · 계약은 아직
             체결되지 않았으며 별도 계약 확인·동의가 필요합니다.
           </small>
+          {item.contractDeadline && (
+            <p className="contractDeadlineNotice">
+              {item.contractDeadline.isPaused
+                ? "보완 요청 또는 분쟁 처리 중이어서 자동 만료가 일시 중지되었습니다."
+                : `${item.contractDeadline.phaseCode === "PROVIDER_SUBMISSION" ? "전문가 계약자료 제출" : "고객 계약 확인"} 기한: ${date(item.contractDeadline.dueAt)}`}
+            </p>
+          )}
+          {!item.contract?.effectiveAt && (
+            <div className="providerSelectionActions">
+              <button disabled={busy!==""} onClick={async ()=>{if(await soodalConfirm("전문가 선택을 해제하고 예약 수수료를 반환하시겠습니까?"))void act("release-provider",()=>interiorApi.releaseProvider(id,false))}}>{busy==="release-provider"?"해제 중…":"전문가 선택 해제"}</button>
+              <button className="danger" disabled={busy!==""} onClick={async ()=>{if(await soodalConfirm("프로젝트를 취소하고 예약 수수료를 반환하시겠습니까?"))void act("cancel-project",()=>interiorApi.releaseProvider(id,true))}}>{busy==="cancel-project"?"취소 중…":"프로젝트 취소"}</button>
+            </div>
+          )}
         </article>
       )}
       <Section id="summary" title="프로젝트 요약">
@@ -727,15 +780,15 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <strong>{item.areaName}</strong>
           </article>
           <article>
-            <span>실측 당시 Trust</span>
+            <span>실측 당시 신뢰도</span>
             <strong>{item.siteVisitTrustSnapshot ?? "신규·평가중"}</strong>
           </article>
           <article>
-            <span>계약 당시 Trust</span>
+            <span>계약 당시 신뢰도</span>
             <strong>{item.contractorTrustSnapshot ?? "신규·평가중"}</strong>
           </article>
         </div>
-        <h3>{item.requestTitle}</h3>
+        <div className="interiorSummaryService"><ServiceThumbnail name={item.serviceName} /><div><span>하위 서비스</span><strong>{item.serviceName}</strong><h3>{item.requestTitle}</h3></div></div>
         <p>{item.requestDescription ?? "추가 설명 없음"}</p>
         <small>
           상세주소는 본인 프로젝트에서만 보입니다:{" "}
@@ -757,6 +810,16 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <p>
               {date(visit.scheduledStartAt)} ~ {date(visit.scheduledEndAt)}
             </p>
+            <dl>
+              <div>
+                <dt>실측 비용</dt>
+                <dd>{visit.proposedVisitFee ? money(visit.proposedVisitFee, "KRW") : "무료"}</dd>
+              </div>
+              <div>
+                <dt>제안 조건</dt>
+                <dd>{visit.proposalTerms ?? "별도 조건 없음"}</dd>
+              </div>
+            </dl>
             {visit.canSelect && (
               <div className="siteVisitSelection">
                 <label>
@@ -770,7 +833,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                   />
                 </label>
                 <small>
-                  일정 선택 후 이 주소와 연락처는 선택된 실측 공급자에게만
+                  일정 선택 후 이 주소와 연락처는 선택된 실측 전문가에게만
                   공개됩니다. 다른 후보에게는 공개되지 않습니다.
                 </small>
                 <button
@@ -834,7 +897,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
       </Section>
       <Section id="quotes" title="견적·설계 비교">
         <p className="interiorHint">
-          가격이나 Trust만으로 자동 추천하지 않습니다. 공종·자재·기간·조건을
+          가격이나 신뢰도만으로 자동 추천하지 않습니다. 공종·자재·기간·조건을
           함께 확인하세요.
         </p>
         <div className="quoteCompare">
@@ -850,7 +913,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                 {quote.duration ?? "기간 미정"} · {quote.trustDisplay} · 리뷰{" "}
                 {quote.publicReviewCount}
               </small>
-              <p>{quote.summary}</p>
+              <p>{quoteSummaryText(quote.summary,quote.items.map(line=>({itemName:line.name})))}</p>
               <table>
                 <thead>
                   <tr>
@@ -874,13 +937,13 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                   ))}
                 </tbody>
               </table>
-              <p>{quote.terms ?? "추가조건 없음"}</p>
+              <p>{quoteTermsText(quote.terms)}</p>
               <small>
                 제안 {date(quote.submittedAt)} · 시작 가능{" "}
                 {date(quote.availableStartAt)} · 유효 {date(quote.validUntil)} ·
                 설계{" "}
                 {quote.designVersion
-                  ? `Version ${quote.designVersion} (${quote.designStatus ?? "상태 확인 중"})`
+                  ? `${quote.designVersion}차 (${statusLabel(quote.designStatus)})`
                   : "연결 없음"}
               </small>
               <ProviderSelectionAction
@@ -899,11 +962,11 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             </article>
           ))}
         </div>
-        <h3>설계 Version</h3>
+        <h3>설계 차수</h3>
         {item.designs.map((design) => (
           <article className="interiorRecord" key={design.id}>
             <b>
-              Version {design.versionNo} · {design.statusCode}
+              {design.versionNo}차 · {statusLabel(design.statusCode)}
             </b>
             <h3>{design.title}</h3>
             <p>{design.description ?? "설명 없음"}</p>
@@ -917,7 +980,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <article className="interiorContract">
               <header>
                 <div>
-                  <span>계약 Version {item.contract.version}</span>
+                  <span>계약 {item.contract.version}차</span>
                   <h3>{item.contract.providerName}</h3>
                 </div>
                 <strong>
@@ -925,6 +988,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                 </strong>
               </header>
               <dl>
+                <div><dt>계약 체결일</dt><dd>{item.contract.contractSignedDate}</dd></div>
                 <div>
                   <dt>공사기간</dt>
                   <dd>
@@ -937,7 +1001,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                   <dd>{date(item.contract.customerAgreedAt)}</dd>
                 </div>
                 <div>
-                  <dt>공급자 동의</dt>
+                  <dt>전문가 동의</dt>
                   <dd>{date(item.contract.providerAgreedAt)}</dd>
                 </div>
                 <div>
@@ -945,30 +1009,22 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                   <dd>{date(item.contract.effectiveAt)}</dd>
                 </div>
               </dl>
+              <p className="interiorHint">수달 라이프는 계약 당사자가 아닙니다. 고객과 전문가가 직접 체결한 계약서와 아래 관리정보가 일치하는지 확인해 주세요.</p>
+              <Files items={item.contract.documents} />
+              {item.contract.customerMismatchReason && <p className="interiorError">재등록 요청: {item.contract.customerMismatchReason}</p>}
               <details>
                 <summary>계약 범위·일정·보증 확인</summary>
                 <pre>{item.contract.scope}</pre>
                 <pre>{item.contract.schedule}</pre>
                 <pre>{item.contract.warranty ?? "보증 조건 미입력"}</pre>
               </details>
-              {!item.contract.customerAgreedAt && (
-                <button
-                  disabled={busy === "agree"}
-                  onClick={() =>
-                    void act("agree", () =>
-                      interiorApi.agree(id, item.contract!.id),
-                    )
-                  }
-                >
-                  계약 내용 확인 및 동의
-                </button>
-              )}
+              {!item.contract.customerAgreedAt && item.contract.statusCode !== 'CORRECTION_REQUIRED' && <div className="interiorActions"><button disabled={busy === "agree"} onClick={() => void act("agree", () => interiorApi.reviewContract(id,item.contract!.id,true,null))}>내가 체결한 계약서와 일치합니다</button><button className="danger" disabled={busy === "agree"} onClick={async () => {const reason=await soodalPrompt('다른 계약서이거나 실제 계약과 다른 내용을 입력해 주세요.');if(reason?.trim())void act("agree",()=>interiorApi.reviewContract(id,item.contract!.id,false,reason.trim()))}}>계약자료 재등록 요청</button></div>}
             </article>
             <div className="contractVersions">
               {item.contract.versions.map((version) => (
                 <details key={version.versionNo}>
                   <summary>
-                    계약 Version {version.versionNo} ·{" "}
+                    계약 {version.versionNo}차 ·{" "}
                     {money(version.amount, version.currencyCode)}
                   </summary>
                   <pre>{version.scope}</pre>
@@ -979,7 +1035,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             </div>
             <h3>지급계획</h3>
             <p className="interiorHint">
-              실제 대금은 고객과 공급자 사이에서 직접 이동하며 아래는 확인
+              실제 대금은 고객과 전문가 사이에서 직접 이동하며 아래는 확인
               이력입니다.
             </p>
             {item.contract.paymentPlans.map((plan) => (
@@ -992,7 +1048,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                     {money(plan.amount, item.contract!.currencyCode)}
                   </strong>
                   <small>
-                    예정일 {plan.dueDate ?? "미정"} · {plan.statusCode}
+                    예정일 {plan.dueDate ?? "미정"} · {statusLabel(plan.statusCode)}
                   </small>
                 </div>
                 {plan.confirmations.map((value) => (
@@ -1006,12 +1062,12 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                 ))}
                 <button
                   disabled={busy === plan.id}
-                  onClick={() => {
+                  onClick={async () => {
                     const note =
-                      window.prompt("직접 지급 확인 메모를 입력하세요.") ?? "";
+                      await soodalPrompt("직접 지급 확인 메모를 입력하세요.") ?? "";
                     if (
                       note ||
-                      window.confirm("메모 없이 직접 지급 사실을 확인할까요?")
+                      await soodalConfirm("메모 없이 직접 지급 사실을 확인할까요?")
                     )
                       void act(plan.id, () =>
                         interiorApi.confirmPayment(
@@ -1030,8 +1086,8 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
           </>
         ) : (
           <p className="interiorEmpty">
-            계약이 아직 준비되지 않았습니다. 최종 시공 공급자 선택과 계약 작성은
-            현재 운영 Workflow에서 처리됩니다.
+            계약이 아직 준비되지 않았습니다. 최종 시공 전문가 선택과 계약 작성은
+            현재 운영 절차에서 처리됩니다.
           </p>
         )}
       </Section>
@@ -1041,7 +1097,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <header>
               <div>
                 <span>
-                  {stage.sequenceNo}단계 · {stage.statusCode}
+                  {stage.sequenceNo}단계 · {statusLabel(stage.statusCode)}
                 </span>
                 <h3>{stage.name}</h3>
               </div>
@@ -1065,7 +1121,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             {stage.inspections.map((check) => (
               <div className="inspection" key={check.id}>
                 <b>
-                  검사 {check.statusCode} · {date(check.inspectedAt)}
+                  검사 {statusLabel(check.statusCode)} · {date(check.inspectedAt)}
                 </b>
                 <p>{check.result}</p>
                 {check.correction && <p>보완: {check.correction}</p>}
@@ -1082,7 +1138,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <header>
               <div>
                 <span>
-                  변경 {change.changeNo} · {change.statusCode}
+                  변경 {change.changeNo} · {statusLabel(change.statusCode)}
                 </span>
                 <h3>{change.reason}</h3>
               </div>
@@ -1122,7 +1178,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
           </article>
         ))}
       </Section>
-      <Section id="completion" title="완료·ServiceHistory">
+      <Section id="completion" title="완료·서비스 이력">
         {item.completion ? (
           <article className="interiorRecord">
             <b>최종 완료일 {item.completion.completedDate}</b>
@@ -1132,7 +1188,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
                 "완료 Snapshot이 보존되었습니다."}
             </p>
             <small>
-              최종 계약 Version {item.contract?.version ?? "—"} · 단계 검사
+              최종 계약 {item.contract?.version ?? "—"}차 · 단계 검사
               결과는 공정 섹션에서 확인
             </small>
             {item.reviewAvailable && item.reviewTransactionId ? (
@@ -1145,7 +1201,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
               </button>
             ) : (
               <p>
-                인테리어 다공급자 리뷰 정책은 미확정이므로 별도 리뷰를 생성하지
+                인테리어 다전문가 리뷰 정책은 미확정이므로 별도 리뷰를 생성하지
                 않습니다.
               </p>
             )}
@@ -1158,7 +1214,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
         {item.defects.map((value) => (
           <article className="interiorRecord" key={value.id}>
             <b>
-              {value.statusCode} · {date(value.receivedAt)}
+              {statusLabel(value.statusCode)} · {date(value.receivedAt)}
             </b>
             <h3>{value.subject}</h3>
             <p>
@@ -1208,7 +1264,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
             <input
               type="number"
               min="1"
-              placeholder="관련 계약 Version"
+              placeholder="관련 계약 차수"
               value={defect.contractVersion}
               onChange={(event) =>
                 setDefect({ ...defect, contractVersion: event.target.value })
@@ -1249,7 +1305,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
         {item.disputes.map((value) => (
           <article className="interiorRecord" key={value.id}>
             <b>
-              {value.statusCode} · {date(value.receivedAt)}
+              {statusLabel(value.statusCode)} · {date(value.receivedAt)}
             </b>
             <h3>{value.subject}</h3>
             <p>{value.description}</p>
@@ -1261,7 +1317,7 @@ export function CustomerInteriorProjectPage({ id }: { id: string }) {
         {item.contract && (
           <form className="interiorForm" onSubmit={submitDispute}>
             <h3>분쟁 접수</h3>
-            <p>접수만으로 공급자 귀책 또는 Trust 변경으로 처리되지 않습니다.</p>
+            <p>접수만으로 전문가 귀책 또는 신뢰도 변경으로 처리되지 않습니다.</p>
             <input
               required
               placeholder="제목"

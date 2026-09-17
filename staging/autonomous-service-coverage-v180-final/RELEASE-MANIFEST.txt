@@ -1,0 +1,12 @@
+SOODAL LIFE V180 AUTONOMOUS SERVICE COVERAGE
+Release date: 2026-09-01
+Database schema/data changed: true
+API changed: true
+Customer app changed: true
+Partner app changed: true
+Admin app changed: true
+Verification: backend build passed; frontend production build passed; focused API tests 4/4 passed.
+Key artifacts:
+- SoodalLife.Api.dll | 22936576 bytes | SHA-256 FCF6D3479B6988FB736ADB4338FF2E4DEBD1A9E66E783FAA7655011C99848499
+- index-C0vpmtdL.js | 1324173 bytes | SHA-256 081655322492FB5EAF2EDB6750A268D690CB7026A53B62AECDD87FD191EA3FED
+- index-K17GM2Xb.css | 324392 bytes | SHA-256 B757A41A0868A3E0FD4591B647B700A803E3AC2424D58CED3E571EFC90703FB9

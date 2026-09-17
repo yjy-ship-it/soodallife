@@ -69,7 +69,7 @@ export function AdminLayout({ pathname, children }: AdminLayoutProps) {
             <button className="adminLogout" type="button" onClick={handleLogout}>로그아웃</button>
           </div>
         </header>
-        <main className="adminMain">{children}<AdminDirectPaymentStatus /></main>
+        <main className="adminMain" data-route-focus tabIndex={-1}>{children}<AdminDirectPaymentStatus /></main>
         <ServiceFooter variant="admin" />
       </div>
     </div>

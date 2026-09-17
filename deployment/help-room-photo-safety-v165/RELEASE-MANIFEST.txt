@@ -1,0 +1,22 @@
+SOODAL LIFE V165 - Help Room Local Photo Safety
+Base migration: AddHelpRoomProviderAdviceLimitsV164
+Migration: AddHelpRoomPhotoSafetyV165
+
+LOCAL SAFETY PIPELINE
+- allow JPEG and PNG only
+- verify binary structure, segment/chunk bounds and PNG CRC
+- enforce 5MB, 12000px-per-side and 40-megapixel limits
+- remove JPEG APP/EXIF/GPS/comment metadata and PNG ancillary metadata
+- discard trailing polyglot data
+- store only the sanitized copy under a generated private name
+- mark CLEAN/SAFE/COMPLETED only after local structural sanitization succeeds
+- block duplicate safe images inside the same help post
+
+MODERATION
+- member report moves a photo to QUARANTINED immediately
+- admins review a safe copy and either reactivate or delete it
+- admin route: /admin/help-room-photos
+
+BOUNDARY
+- no claim of external antivirus, nudity/violence AI, OCR redaction, face or plate blurring
+- advanced content recognition can be added later without weakening this fail-closed baseline

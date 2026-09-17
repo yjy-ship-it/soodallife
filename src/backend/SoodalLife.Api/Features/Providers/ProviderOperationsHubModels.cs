@@ -11,6 +11,7 @@ public sealed record ProviderHubWorkItem(
     string Status,
     string PriorityGroup,
     DateTime? ScheduledAt,
+    DateTime? ActionDueAt,
     string Badge,
     string Route,
     string NextAction,
@@ -73,6 +74,21 @@ public sealed record ProviderHubApprovalSummary(
     IReadOnlyList<string> NextActions,
     string Route);
 
+public sealed record ProviderHubOperationalHealth(
+    int DeadlineApproachingCount,
+    int OverdueCount,
+    int ScheduleConflictCount,
+    int PaymentActionCount,
+    int ReviewReplyCount,
+    int ExpiringEvidenceCount,
+    int ServiceConfigurationIssueCount,
+    ProviderHubScheduleItem? NextSchedule);
+
+public sealed record ProviderRequestStatusResponse(
+    DateTime GeneratedAt,
+    IReadOnlyList<ProviderHubWorkItem> Items,
+    ProviderHubWalletSummary Wallet);
+
 public sealed record ProviderOperationsHubResponse(
     DateTime GeneratedAt,
     IReadOnlyList<ProviderHubMetricGroup> Summary,
@@ -81,4 +97,5 @@ public sealed record ProviderOperationsHubResponse(
     IReadOnlyList<ProviderHubChatItem> RecentChats,
     ProviderHubEmergencySummary Emergency,
     ProviderHubWalletSummary Wallet,
-    ProviderHubApprovalSummary Approval);
+    ProviderHubApprovalSummary Approval,
+    ProviderHubOperationalHealth OperationalHealth);

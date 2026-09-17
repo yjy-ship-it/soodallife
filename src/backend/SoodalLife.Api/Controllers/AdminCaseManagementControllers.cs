@@ -10,6 +10,7 @@ namespace SoodalLife.Api.Controllers;
 public sealed class AdminCaseMastersController(AdminCaseManagementService service):CaseAdminController
 {
     [HttpGet("report-types")]public Task<ActionResult> ReportTypes(CancellationToken token)=>Run(async()=>await service.GetReportTypesAsync(token));
+    [HttpPost("report-types/initialize")]public Task<ActionResult> InitializeReportTypes(CancellationToken token)=>Run(async()=>await service.InitializeDefaultReportTypesAsync(Actor(),token));
     [HttpPost("report-types")]public Task<ActionResult> CreateReportType(CaseMasterRequest request,CancellationToken token)=>Run(async()=>await service.SaveReportTypeAsync(null,request,Actor(),token));
     [HttpPut("report-types/{id:guid}")]public Task<ActionResult> UpdateReportType(Guid id,CaseMasterRequest request,CancellationToken token)=>Run(async()=>await service.SaveReportTypeAsync(id,request,Actor(),token));
     [HttpGet("sanction-types")]public Task<ActionResult> SanctionTypes(CancellationToken token)=>Run(async()=>await service.GetSanctionTypesAsync(token));

@@ -22,6 +22,165 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdminReauthenticationSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("PurposeCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("purpose_code");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<byte[]>("TokenHash")
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .HasColumnName("token_hash")
+                        .IsFixedLength();
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasFilter("[token_hash] IS NOT NULL");
+
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.ToTable("admin_reauthentication_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdminSecurityProfile", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DetailRoleCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("detail_role_code");
+
+                    b.Property<int>("FailedMfaAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failed_mfa_attempts");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("locked_until");
+
+                    b.Property<DateTime?>("MfaConfirmedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("mfa_confirmed_at");
+
+                    b.Property<bool>("MfaEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("mfa_enabled");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("TotpSecretProtected")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("totp_secret_protected");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DetailRoleCode");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("admin_security_profiles", (string)null);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdministrativeArea", b =>
                 {
                     b.Property<long>("Id")
@@ -746,11 +905,24 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                             Id = 2L,
                             Code = "PROVIDER_HOME",
                             CreatedAt = new DateTime(2026, 8, 10, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "공급자 역할 홈 화면",
+                            Description = "전문가 역할 홈 화면",
                             IsActive = true,
-                            Name = "공급자 홈",
+                            Name = "전문가 홈",
                             PublicId = new Guid("11a10000-0000-0000-0000-000000000002"),
                             RouteHint = "/provider",
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 10, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            Code = "CUSTOMER_LIVE_ACTIVITY_FEED",
+                            CreatedAt = new DateTime(2026, 8, 10, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "전국에서 지금 진행 중인 서비스 목록 사이에 광고임을 명확히 표시하여 노출",
+                            IsActive = true,
+                            Name = "고객 실시간 서비스 목록",
+                            PublicId = new Guid("11a10000-0000-0000-0000-000000000003"),
+                            RouteHint = "/customer#live-activity",
                             RowVersion = new byte[0],
                             UpdatedAt = new DateTime(2026, 8, 10, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
@@ -1175,6 +1347,102 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("after_service_files", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AnalyticsEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("int")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<string>("EventTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("event_type_code");
+
+                    b.Property<string>("HttpMethod")
+                        .HasMaxLength(10)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(10)")
+                        .HasColumnName("http_method");
+
+                    b.Property<string>("MetadataJson")
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("metadata_json");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("OutcomeCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("outcome_code");
+
+                    b.Property<Guid?>("ProviderPublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("provider_public_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("RouteTemplate")
+                        .HasMaxLength(300)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(300)")
+                        .HasColumnName("route_template");
+
+                    b.Property<Guid?>("SourcePublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("source_public_id");
+
+                    b.Property<string>("SourceTypeCode")
+                        .HasMaxLength(60)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(60)")
+                        .HasColumnName("source_type_code");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("int")
+                        .HasColumnName("status_code");
+
+                    b.Property<long?>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("VisitorId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("visitor_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderPublicId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EventTypeCode", "OccurredAt");
+
+                    b.HasIndex("VisitorId", "OccurredAt");
+
+                    b.ToTable("analytics_events", (string)null);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AuditLog", b =>
@@ -2071,6 +2339,15 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(1000)")
                         .HasColumnName("completion_evidence_rule_text");
 
+                    b.Property<string>("CoverageTypeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("LOCAL_ONLY")
+                        .HasColumnName("coverage_type_code");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(7)
@@ -2271,6 +2548,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("category_operation_policies", null, t =>
                         {
                             t.HasCheckConstraint("CK_category_operation_policies_counts", "[max_quote_count] > 0 AND [quote_validity_minutes] > 0 AND [provider_response_deadline_minutes] > 0 AND [required_completion_photo_count] >= 0 AND [default_warranty_days] >= 0");
+
+                            t.HasCheckConstraint("CK_category_operation_policies_coverage_type", "[coverage_type_code] IN ('LOCAL_ONLY','NATIONWIDE_REMOTE','NATIONWIDE_DELIVERY','NATIONWIDE_NETWORK','FLEXIBLE')");
 
                             t.HasCheckConstraint("CK_category_operation_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
                         });
@@ -3404,6 +3683,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_chat_participants_status", "[status_code] IN ('ACTIVE','ENDED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ChatRoom", b =>
@@ -3481,12 +3762,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("chat_rooms", null, t =>
                         {
-                            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION','SUBSCRIPTION','INTERIOR','AFTER_SERVICE')");
+                            t.HasCheckConstraint("CK_chat_rooms_resource_type", "[resource_type] IN ('TRANSACTION','SUBSCRIPTION','INTERIOR','AFTER_SERVICE','PROVIDER_CONSULTATION')");
 
                             t.HasCheckConstraint("CK_chat_rooms_room_type", "[room_type] IN ('DIRECT','PRIMARY_CONTRACTOR','SITE_SURVEY')");
 
                             t.HasCheckConstraint("CK_chat_rooms_status", "[status_code] IN ('ACTIVE','READ_ONLY','CLOSED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CompletionEvidenceFile", b =>
@@ -3923,6 +4206,160 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("customer_profiles", (string)null);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalAreaInterest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AdministrativeAreaId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("administrative_area_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long>("CustomerProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("customer_profile_id");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("SourceCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("source_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministrativeAreaId", "IsActive");
+
+                    b.HasIndex("CustomerProfileId", "AdministrativeAreaId")
+                        .IsUnique();
+
+                    b.ToTable("customer_proposal_area_interests", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalCategoryInterest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CategoryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long>("CustomerProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("customer_profile_id");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("SourceCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("source_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "IsActive");
+
+                    b.HasIndex("CustomerProfileId", "CategoryId")
+                        .IsUnique();
+
+                    b.ToTable("customer_proposal_category_interests", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalSignal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CategoryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("category_id");
+
+                    b.Property<long>("CustomerProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("customer_profile_id");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("SignalTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("signal_type_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("CustomerProfileId", "CategoryId", "ExpiresAt");
+
+                    b.ToTable("customer_proposal_signals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_customer_proposal_signal_type", "[signal_type_code] IN ('SERVICE_DETAIL','SERVICE_SEARCH','SESSION_CATEGORY')");
+                        });
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerWithdrawalRequest", b =>
                 {
                     b.Property<long>("Id")
@@ -4030,6 +4467,171 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DataRetentionExecution", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("CandidateCount")
+                        .HasColumnType("int")
+                        .HasColumnName("candidate_count");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("completed_at");
+
+                    b.Property<bool>("DryRun")
+                        .HasColumnType("bit")
+                        .HasColumnName("dry_run");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("error_code");
+
+                    b.Property<long?>("ExecutedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("executed_by_user_id");
+
+                    b.Property<long>("PolicyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("policy_id");
+
+                    b.Property<int>("ProcessedCount")
+                        .HasColumnType("int")
+                        .HasColumnName("processed_count");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SkippedLegalHoldCount")
+                        .HasColumnType("int")
+                        .HasColumnName("skipped_legal_hold_count");
+
+                    b.Property<DateTime>("StartedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("started_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExecutedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("PolicyId", "StartedAt");
+
+                    b.ToTable("data_retention_executions", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DataRetentionPolicy", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("action_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DomainCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("domain_code");
+
+                    b.Property<bool>("DryRun")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("dry_run");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_enabled");
+
+                    b.Property<int>("LegalHoldDays")
+                        .HasColumnType("int")
+                        .HasColumnName("legal_hold_days");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("RetentionDays")
+                        .HasColumnType("int")
+                        .HasColumnName("retention_days");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DomainCode")
+                        .IsUnique();
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("data_retention_policies", (string)null);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DispatchCandidate", b =>
                 {
                     b.Property<long>("Id")
@@ -4112,7 +4714,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("dispatch_candidates", null, t =>
                         {
-                            t.HasCheckConstraint("CK_dispatch_candidates_status", "[status_code] IN ('ELIGIBLE','INELIGIBLE','DISPATCHED','EXPIRED')");
+                            t.HasCheckConstraint("CK_dispatch_candidates_status", "[status_code] IN ('ELIGIBLE','INELIGIBLE','DISPATCHED','DECLINED','EXPIRED')");
                         });
                 });
 
@@ -4696,6 +5298,162 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("dispute_resolutions", (string)null);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.EmergencyDispatchAgreement", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AdditionalFeeText")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("additional_fee_text");
+
+                    b.Property<DateTime?>("ArrivedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("arrived_at");
+
+                    b.Property<decimal>("BaseDispatchFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("base_dispatch_fee_amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<decimal>("NoShowFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("no_show_fee_amount");
+
+                    b.Property<DateTime?>("NoShowReportedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("no_show_reported_at");
+
+                    b.Property<long?>("NoShowReportedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("no_show_reported_by_user_id");
+
+                    b.Property<string>("NoShowStatusCode")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("no_show_status_code");
+
+                    b.Property<int>("NoShowWaitMinutes")
+                        .HasColumnType("int")
+                        .HasColumnName("no_show_wait_minutes");
+
+                    b.Property<DateTime?>("NoShowWaitUntil")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("no_show_wait_until");
+
+                    b.Property<DateTime?>("PaymentConfirmedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("payment_confirmed_at");
+
+                    b.Property<string>("PaymentInstructionProtected")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("payment_instruction_protected");
+
+                    b.Property<string>("PaymentModeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("payment_mode_code");
+
+                    b.Property<DateTime?>("PaymentReportedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("payment_reported_at");
+
+                    b.Property<string>("PaymentStatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("payment_status_code");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTime>("TermsAcceptedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("terms_accepted_at");
+
+                    b.Property<long>("TransactionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("transaction_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<bool>("WorkFeeSeparate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("work_fee_separate");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("NoShowReportedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("TransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("emergency_dispatch_agreements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_emergency_agreement_no_show", "[no_show_status_code] IS NULL OR [no_show_status_code] IN ('WAITING','CUSTOMER_NO_SHOW','PROVIDER_NO_SHOW','DISPUTED')");
+
+                            t.HasCheckConstraint("CK_emergency_agreement_payment_mode", "[payment_mode_code] IN ('NO_FEE','ON_SITE','TRANSFER_REPORTED','TRANSFER_CONFIRMED')");
+
+                            t.HasCheckConstraint("CK_emergency_agreement_payment_status", "[payment_status_code] IN ('NOT_REQUIRED','ON_SITE_PENDING','AWAITING_TRANSFER','REPORTED','CONFIRMED','REJECTED')");
+                        });
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.EmergencyProgressEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -4756,7 +5514,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("emergency_progress_events", null, t =>
                         {
-                            t.HasCheckConstraint("CK_emergency_progress_events_type", "[event_type_code] IN ('DISPATCH_CONFIRMED','DEPARTED','EN_ROUTE','ARRIVED')");
+                            t.HasCheckConstraint("CK_emergency_progress_events_type", "[event_type_code] IN ('DISPATCH_CONFIRMED','PAYMENT_REPORTED','PAYMENT_CONFIRMED','PAYMENT_REJECTED','DEPARTED','ARRIVED','COMPLETED','NO_SHOW_WAITING','CUSTOMER_NO_SHOW','PROVIDER_NO_SHOW','NO_SHOW_DISPUTED')");
                         });
                 });
 
@@ -4768,6 +5526,17 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AdditionalFeeText")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("additional_fee_text");
+
+                    b.Property<decimal>("BaseDispatchFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("base_dispatch_fee_amount");
 
                     b.Property<string>("ConditionsText")
                         .HasMaxLength(1000)
@@ -4806,6 +5575,26 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("idempotency_key");
+
+                    b.Property<decimal>("NoShowFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("no_show_fee_amount");
+
+                    b.Property<int>("NoShowWaitMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(10)
+                        .HasColumnName("no_show_wait_minutes");
+
+                    b.Property<string>("PaymentModeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("ON_SITE")
+                        .HasColumnName("payment_mode_code");
 
                     b.Property<long>("ProviderProfileId")
                         .HasColumnType("bigint")
@@ -4859,6 +5648,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.Property<long?>("UpdatedByUserId")
                         .HasColumnType("bigint")
                         .HasColumnName("updated_by_user_id");
+
+                    b.Property<bool>("WorkFeeSeparate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("work_fee_separate");
 
                     b.HasKey("Id");
 
@@ -4923,6 +5718,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(19,4)")
                         .HasColumnName("fee_amount");
 
+                    b.Property<bool>("IsVatIncluded")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_vat_included");
+
                     b.Property<long>("LedgerEntryId")
                         .HasColumnType("bigint")
                         .HasColumnName("ledger_entry_id");
@@ -4951,6 +5752,13 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
 
+                    b.Property<decimal>("SupplyAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("supply_amount");
+
                     b.Property<long>("TransactionId")
                         .HasColumnType("bigint")
                         .HasColumnName("transaction_id");
@@ -4965,6 +5773,13 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.Property<long?>("UpdatedByUserId")
                         .HasColumnType("bigint")
                         .HasColumnName("updated_by_user_id");
+
+                    b.Property<decimal>("VatAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("vat_amount");
 
                     b.Property<long>("WalletId")
                         .HasColumnType("bigint")
@@ -5000,6 +5815,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_fee_charges_restore_status", "[restore_status_code] IN ('NOT_RESTORED','RESTORED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.FeePolicy", b =>
@@ -5275,6 +6092,388 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPost", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AdministrativeAreaId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("administrative_area_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("body");
+
+                    b.Property<long>("CategoryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("category_id");
+
+                    b.Property<long?>("ConvertedServiceRequestId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("converted_service_request_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<long>("CustomerUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("customer_user_id");
+
+                    b.Property<string>("IntentCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("intent_code");
+
+                    b.Property<string>("IntentReason")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("intent_reason");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("PurposeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("purpose_code");
+
+                    b.Property<string>("RegionDisclosureCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("HIDDEN")
+                        .HasColumnName("region_disclosure_code");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministrativeAreaId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ConvertedServiceRequestId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("StatusCode", "CreatedAt")
+                        .IsDescending(false, true);
+
+                    b.ToTable("help_posts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_help_posts_intent", "[intent_code] IN ('ADVICE','QUOTE_RECOMMENDED','DANGEROUS')");
+
+                            t.HasCheckConstraint("CK_help_posts_region", "[region_disclosure_code] IN ('HIDDEN','SIGUNGU')");
+
+                            t.HasCheckConstraint("CK_help_posts_status", "[status_code] IN ('PUBLISHED','RESOLVED','CONVERTED','HIDDEN')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPostFile", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("display_order");
+
+                    b.Property<long>("FileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_id");
+
+                    b.Property<long>("HelpPostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("help_post_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("HelpPostId", "DisplayOrder");
+
+                    b.HasIndex("HelpPostId", "FileId")
+                        .IsUnique();
+
+                    b.ToTable("help_post_files", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPostResolution", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<long>("HelpPostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("help_post_id");
+
+                    b.Property<long?>("HelpfulEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("helpful_entry_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ResolutionCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("resolution_code");
+
+                    b.Property<long>("ResolvedByCustomerUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("resolved_by_customer_user_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(3000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(3000)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HelpPostId")
+                        .IsUnique();
+
+                    b.HasIndex("HelpfulEntryId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("ResolvedByCustomerUserId");
+
+                    b.ToTable("help_post_resolutions", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpRoomEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AuthorRoleCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("author_role_code");
+
+                    b.Property<long>("AuthorUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("CauseText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("cause_text");
+
+                    b.Property<string>("CheckText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("check_text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DiyStepsText")
+                        .HasMaxLength(3000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(3000)")
+                        .HasColumnName("diy_steps_text");
+
+                    b.Property<string>("EntryTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("entry_type_code");
+
+                    b.Property<long>("HelpPostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("help_post_id");
+
+                    b.Property<string>("NextStepText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("next_step_text");
+
+                    b.Property<long?>("ProviderProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_profile_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<bool>("RequiresProfessional")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_professional");
+
+                    b.Property<string>("RiskText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("risk_text");
+
+                    b.Property<string>("SafetyCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("safety_code");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorUserId");
+
+                    b.HasIndex("ProviderProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("HelpPostId", "CreatedAt");
+
+                    b.HasIndex("HelpPostId", "ProviderProfileId", "CreatedAt");
+
+                    b.ToTable("help_room_entries", (string)null);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.InteriorContract", b =>
                 {
                     b.Property<long>("Id")
@@ -5288,6 +6487,10 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)")
                         .HasColumnName("contract_amount");
+
+                    b.Property<DateOnly>("ContractSignedDate")
+                        .HasColumnType("date")
+                        .HasColumnName("contract_signed_date");
 
                     b.Property<int>("ContractVersion")
                         .ValueGeneratedOnAdd()
@@ -5319,6 +6522,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2(7)")
                         .HasColumnName("customer_agreed_at");
 
+                    b.Property<string>("CustomerMismatchReason")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("customer_mismatch_reason");
+
                     b.Property<long>("CustomerProfileId")
                         .HasColumnType("bigint")
                         .HasColumnName("customer_profile_id");
@@ -5345,6 +6554,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2(7)")
                         .HasColumnName("provider_agreed_at");
 
+                    b.Property<string>("ProviderDeclarationText")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("provider_declaration_text");
+
                     b.Property<long>("ProviderProfileId")
                         .HasColumnType("bigint")
                         .HasColumnName("provider_profile_id");
@@ -5363,6 +6578,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("quote_snapshot_json");
+
+                    b.Property<DateTime>("RegisteredByProviderAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("registered_by_provider_at");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -5617,6 +6837,63 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("interior_contract_change_files", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.InteriorContractDocument", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("display_order");
+
+                    b.Property<long>("FileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_id");
+
+                    b.Property<long>("InteriorContractId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("interior_contract_id");
+
+                    b.Property<bool>("IsCurrent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_current");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("InteriorContractId", "FileId")
+                        .IsUnique();
+
+                    b.ToTable("interior_contract_documents", (string)null);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.InteriorContractVersion", b =>
@@ -6113,6 +7390,38 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("admin_completed_by_user_id");
 
+                    b.Property<DateTime?>("ContractActionDueAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("contract_action_due_at");
+
+                    b.Property<DateTime?>("ContractExpiredAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("contract_expired_at");
+
+                    b.Property<string>("ContractExpiryPauseReasonCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("contract_expiry_pause_reason_code");
+
+                    b.Property<DateTime?>("ContractExpiryPausedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("contract_expiry_paused_at");
+
+                    b.Property<string>("ContractExpiryPhaseCode")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("contract_expiry_phase_code");
+
+                    b.Property<DateTime?>("ContractExpiryReminderSentAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("contract_expiry_reminder_sent_at");
+
                     b.Property<DateTime?>("ContractorSelectedAt")
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
@@ -6174,6 +7483,39 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasDefaultValue("PENDING_SELECTION")
                         .HasColumnName("fee_assessment_status_code");
 
+                    b.Property<DateTime?>("FeeCapturedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("fee_captured_at");
+
+                    b.Property<long?>("FeeReleaseLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fee_release_ledger_entry_id");
+
+                    b.Property<string>("FeeReleaseReasonCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("fee_release_reason_code");
+
+                    b.Property<DateTime?>("FeeReleasedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("fee_released_at");
+
+                    b.Property<long?>("FeeReservationLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fee_reservation_ledger_entry_id");
+
+                    b.Property<long?>("FeeReservationWalletId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fee_reservation_wallet_id");
+
+                    b.Property<DateTime?>("FeeReservedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("fee_reserved_at");
+
                     b.Property<DateOnly?>("ProjectStartDate")
                         .HasColumnType("date")
                         .HasColumnName("project_start_date");
@@ -6201,6 +7543,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("public_id");
+
+                    b.Property<decimal?>("ReservedFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("reserved_fee_amount");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -6257,6 +7604,9 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AdminCompletedByUserId");
 
+                    b.HasIndex("ContractActionDueAt")
+                        .HasFilter("[contract_action_due_at] IS NOT NULL");
+
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("CurrentContractId");
@@ -6266,6 +7616,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerCompletionAcknowledgedByUserId");
 
                     b.HasIndex("CustomerProfileId");
+
+                    b.HasIndex("FeeReleaseLedgerEntryId");
+
+                    b.HasIndex("FeeReservationLedgerEntryId");
+
+                    b.HasIndex("FeeReservationWalletId");
 
                     b.HasIndex("ProviderCompletionSubmittedByUserId");
 
@@ -6287,7 +7643,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("interior_projects", null, t =>
                         {
-                            t.HasCheckConstraint("CK_interior_projects_fee", "[fee_assessment_status_code] IN ('POLICY_PENDING','PENDING_SELECTION','NOT_APPLICABLE','ASSESSED')");
+                            t.HasCheckConstraint("CK_interior_projects_fee", "[fee_assessment_status_code] IN ('POLICY_PENDING','PENDING_SELECTION','NOT_APPLICABLE','RESERVED_PENDING_CONTRACT','RELEASED','ASSESSED')");
 
                             t.HasCheckConstraint("CK_interior_projects_status", "[status_code] IN ('CONSULTATION','SITE_VISIT_SELECTION','SITE_VISIT_SCHEDULED','SITE_VISIT_COMPLETED','ESTIMATE_IN_PROGRESS','ESTIMATE_READY','CONTRACT_PENDING','CONTRACTED','CONSTRUCTION','INSPECTION','COMPLETED','DEFECT_MANAGEMENT','CANCELLED')");
                         });
@@ -8152,6 +9508,332 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationBroadcast", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AudienceCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("audience_code");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(3000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(3000)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<long?>("CancelledByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cancelled_by_user_id");
+
+                    b.Property<string>("ChannelsJson")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(1000)")
+                        .HasColumnName("channels_json");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<long?>("ConfirmedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("confirmed_by_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<int>("DeliveriesCreatedCount")
+                        .HasColumnType("int")
+                        .HasColumnName("deliveries_created_count");
+
+                    b.Property<int>("EstimatedAudienceCount")
+                        .HasColumnType("int")
+                        .HasColumnName("estimated_audience_count");
+
+                    b.Property<string>("KindCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("kind_code");
+
+                    b.Property<long?>("LastProcessedUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_processed_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("name");
+
+                    b.Property<long?>("NotificationId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("notification_id");
+
+                    b.Property<DateTime?>("PreviewedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("previewed_at");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("RecipientsProcessedCount")
+                        .HasColumnType("int")
+                        .HasColumnName("recipients_processed_count");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("scheduled_at");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(300)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CancelledByUserId");
+
+                    b.HasIndex("ConfirmedByUserId");
+
+                    b.HasIndex("CreatedAt")
+                        .IsDescending();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("NotificationId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("StatusCode", "ScheduledAt");
+
+                    b.ToTable("notification_broadcasts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_notification_broadcast_audience", "[audience_code] IN ('CUSTOMER','PROVIDER','ALL')");
+
+                            t.HasCheckConstraint("CK_notification_broadcast_channels", "ISJSON([channels_json])=1");
+
+                            t.HasCheckConstraint("CK_notification_broadcast_kind", "[kind_code] IN ('BUSINESS_NOTICE','MARKETING')");
+
+                            t.HasCheckConstraint("CK_notification_broadcast_status", "[status_code] IN ('DRAFT','QUEUED','PREPARING','SENDING','COMPLETED','CANCELLED')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationChannelSetting", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("BaseRetrySeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30)
+                        .HasColumnName("base_retry_seconds");
+
+                    b.Property<int>("BatchSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50)
+                        .HasColumnName("batch_size");
+
+                    b.Property<string>("ChannelCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("channel_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("display_name");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_enabled");
+
+                    b.Property<int>("MaxAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(5)
+                        .HasColumnName("max_attempts");
+
+                    b.Property<int>("MaxRetrySeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(900)
+                        .HasColumnName("max_retry_seconds");
+
+                    b.Property<string>("OperationModeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("DISABLED")
+                        .HasColumnName("operation_mode_code");
+
+                    b.Property<string>("ProviderCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("provider_code");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ReplyTo")
+                        .HasMaxLength(300)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(300)")
+                        .HasColumnName("reply_to");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<int>("SendWindowEndHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(24)
+                        .HasColumnName("send_window_end_hour");
+
+                    b.Property<int>("SendWindowStartHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("send_window_start_hour");
+
+                    b.Property<string>("SenderIdentity")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("sender_identity");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelCode")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.ToTable("notification_channel_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_notification_channel_settings_attempts", "[batch_size] BETWEEN 1 AND 500 AND [max_attempts] BETWEEN 1 AND 20 AND [base_retry_seconds] BETWEEN 5 AND 86400 AND [max_retry_seconds] >= [base_retry_seconds]");
+
+                            t.HasCheckConstraint("CK_notification_channel_settings_channel", "[channel_code] IN ('WEB','KAKAO','SMS','EMAIL','PUSH')");
+
+                            t.HasCheckConstraint("CK_notification_channel_settings_mode", "[operation_mode_code] IN ('DISABLED','TEST','PRODUCTION')");
+
+                            t.HasCheckConstraint("CK_notification_channel_settings_window", "[send_window_start_hour] BETWEEN 0 AND 23 AND [send_window_end_hour] BETWEEN 1 AND 24");
+                        });
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationDelivery", b =>
                 {
                     b.Property<long>("Id")
@@ -8469,6 +10151,26 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("ConsentSourceCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("MY_SOODAL")
+                        .HasColumnName("consent_source_code");
+
+                    b.Property<string>("ConsentVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("consent_version");
+
+                    b.Property<DateTime?>("ConsentedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("consented_at");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(7)
@@ -8494,6 +10196,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true)
                         .HasColumnName("kakao_enabled");
+
+                    b.Property<bool>("NightMarketingEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("night_marketing_enabled");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uniqueidentifier")
@@ -8535,6 +10243,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("web_enabled");
 
+                    b.Property<DateTime?>("WithdrawnAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("withdrawn_at");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PublicId")
@@ -8543,7 +10256,85 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "EventGroupCode")
                         .IsUnique();
 
-                    b.ToTable("notification_preferences", (string)null);
+                    b.ToTable("notification_preferences", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_notification_preferences_event_group", "[event_group_code] IN ('BUSINESS','MARKETING')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationPreferenceEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ChannelSnapshotJson")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("channel_snapshot_json");
+
+                    b.Property<string>("ConsentVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("consent_version");
+
+                    b.Property<string>("EventGroupCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("event_group_code");
+
+                    b.Property<string>("EventTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("event_type_code");
+
+                    b.Property<long>("NotificationPreferenceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("notification_preference_id");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("SourceCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("source_code");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotificationPreferenceId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "OccurredAt")
+                        .IsDescending(false, true);
+
+                    b.ToTable("notification_preference_events", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_notification_preference_events_snapshot", "ISJSON([channel_snapshot_json]) = 1");
+                        });
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationRecipient", b =>
@@ -8901,6 +10692,82 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_outbox_events_status", "[status_code] IN ('PENDING','PROCESSING','PUBLISHED','FAILED','DEAD')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.OutboxRetryRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptSnapshot")
+                        .HasColumnType("int")
+                        .HasColumnName("attempt_snapshot");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(160)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<long>("OutboxEventId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("outbox_event_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("requested_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long>("RequestedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("OutboxEventId", "AttemptSnapshot")
+                        .IsUnique();
+
+                    b.ToTable("outbox_retry_requests", (string)null);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.PasswordResetRequest", b =>
@@ -8987,6 +10854,688 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingApplication", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("approved_at");
+
+                    b.Property<DateTime?>("AutoRenewDisabledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("auto_renew_disabled_at");
+
+                    b.Property<bool>("AutoRenewEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("auto_renew_enabled");
+
+                    b.Property<string>("AutoRenewStatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("OFF")
+                        .HasColumnName("auto_renew_status_code");
+
+                    b.Property<decimal>("BaseFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("base_fee_amount");
+
+                    b.Property<long>("CampaignId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("campaign_id");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<long?>("CaptureLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("capture_ledger_entry_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("char(3)")
+                        .HasColumnName("currency_code")
+                        .IsFixedLength();
+
+                    b.Property<int>("DistrictTargetCount")
+                        .HasColumnType("int")
+                        .HasColumnName("district_target_count");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int")
+                        .HasColumnName("duration_days");
+
+                    b.Property<decimal>("FeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("fee_amount");
+
+                    b.Property<string>("FeeStatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("fee_status_code");
+
+                    b.Property<DateTime?>("LastRenewedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("last_renewed_at");
+
+                    b.Property<DateTime?>("NextRenewalAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("next_renewal_at");
+
+                    b.Property<long>("ProviderProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_profile_id");
+
+                    b.Property<int>("ProvinceTargetCount")
+                        .HasColumnType("int")
+                        .HasColumnName("province_target_count");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("published_at");
+
+                    b.Property<long>("RatePolicyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("rate_policy_id");
+
+                    b.Property<decimal>("RegionalFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("regional_fee_amount");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<long?>("ReleaseLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("release_ledger_entry_id");
+
+                    b.Property<DateTime?>("RenewalConsentAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("renewal_consent_at");
+
+                    b.Property<decimal?>("RenewalConsentFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("renewal_consent_fee_amount");
+
+                    b.Property<string>("RenewalConsentPolicyFingerprint")
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("renewal_consent_policy_fingerprint");
+
+                    b.Property<bool>("RenewalConsentRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("renewal_consent_required");
+
+                    b.Property<int>("RenewalCycleNo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("renewal_cycle_no");
+
+                    b.Property<DateTime?>("RenewalNoticeSentAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("renewal_notice_sent_at");
+
+                    b.Property<long>("ReserveLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reserve_ledger_entry_id");
+
+                    b.Property<DateTime?>("ResubmittedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("resubmitted_at");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("SupplementNote")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("supplement_note");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("WalletId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("wallet_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique();
+
+                    b.HasIndex("CaptureLedgerEntryId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("RatePolicyId");
+
+                    b.HasIndex("ReleaseLedgerEntryId");
+
+                    b.HasIndex("ReserveLedgerEntryId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WalletId");
+
+                    b.HasIndex("StatusCode", "UpdatedAt");
+
+                    b.HasIndex("AutoRenewEnabled", "AutoRenewStatusCode", "NextRenewalAt");
+
+                    b.HasIndex("ProviderProfileId", "StatusCode", "SubmittedAt");
+
+                    b.ToTable("provider_advertising_applications", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_ad_app_amount", "[fee_amount] > 0 AND [base_fee_amount] >= 0 AND [regional_fee_amount] >= 0 AND [province_target_count] >= 0 AND [district_target_count] >= 0");
+
+                            t.HasCheckConstraint("CK_provider_ad_app_auto_renew_status", "[auto_renew_status_code] IN ('OFF','PENDING_PUBLICATION','ACTIVE','CONSENT_REQUIRED','PAUSED_INSUFFICIENT','CANCELLED')");
+
+                            t.HasCheckConstraint("CK_provider_ad_app_fee_status", "[fee_status_code] IN ('RESERVED','CAPTURED','RELEASED')");
+
+                            t.HasCheckConstraint("CK_provider_ad_app_renewal_cycle", "[renewal_cycle_no] >= 0");
+
+                            t.HasCheckConstraint("CK_provider_ad_app_status", "[status_code] IN ('SUBMITTED','REJECTED','RESUBMITTED','APPROVED','PUBLISHED','CANCELLED')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingRatePolicy", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("char(3)")
+                        .HasColumnName("currency_code")
+                        .IsFixedLength();
+
+                    b.Property<decimal>("DistrictUnitAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(2000m)
+                        .HasColumnName("district_unit_amount");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int")
+                        .HasColumnName("duration_days");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_from");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_to");
+
+                    b.Property<decimal>("FixedAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("fixed_amount");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<long>("PlacementId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("placement_id");
+
+                    b.Property<decimal>("ProvinceUnitAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(10000m)
+                        .HasColumnName("province_unit_amount");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<decimal>("RegionalFeeCapAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(30000m)
+                        .HasColumnName("regional_fee_cap_amount");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("IsActive", "EffectiveFrom", "EffectiveTo");
+
+                    b.HasIndex("PlacementId", "DurationDays", "EffectiveFrom")
+                        .IsUnique();
+
+                    b.ToTable("provider_advertising_rate_policies", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_ad_rate_amount", "[fixed_amount] > 0 AND [province_unit_amount] >= 0 AND [district_unit_amount] >= 0 AND [regional_fee_cap_amount] >= 0");
+
+                            t.HasCheckConstraint("CK_provider_ad_rate_duration", "[duration_days] IN (7,14,30)");
+
+                            t.HasCheckConstraint("CK_provider_ad_rate_period", "[effective_to] IS NULL OR [effective_to] >= [effective_from]");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 7,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 35000m,
+                            IsActive = true,
+                            PlacementId = 1L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000001"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 2L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 14,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 60000m,
+                            IsActive = true,
+                            PlacementId = 1L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000002"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 3L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 30,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 110000m,
+                            IsActive = true,
+                            PlacementId = 1L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000003"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 4L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 7,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 21000m,
+                            IsActive = true,
+                            PlacementId = 2L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000004"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 5L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 14,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 36000m,
+                            IsActive = true,
+                            PlacementId = 2L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000005"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 6L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 30,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 66000m,
+                            IsActive = true,
+                            PlacementId = 2L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000006"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 7L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 7,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 28000m,
+                            IsActive = true,
+                            PlacementId = 3L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000007"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 8L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 14,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 48000m,
+                            IsActive = true,
+                            PlacementId = 3L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000008"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 9L,
+                            CreatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "KRW",
+                            DistrictUnitAmount = 2000m,
+                            DurationDays = 30,
+                            EffectiveFrom = new DateOnly(2026, 8, 19),
+                            FixedAmount = 88000m,
+                            IsActive = true,
+                            PlacementId = 3L,
+                            ProvinceUnitAmount = 10000m,
+                            PublicId = new Guid("11a20000-0000-0000-0000-000000000009"),
+                            RegionalFeeCapAmount = 30000m,
+                            RowVersion = new byte[0],
+                            UpdatedAt = new DateTime(2026, 8, 19, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingRenewalHistory", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("BaseFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("base_fee_amount");
+
+                    b.Property<long?>("CaptureLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("capture_ledger_entry_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("char(3)")
+                        .HasColumnName("currency_code")
+                        .IsFixedLength();
+
+                    b.Property<int>("CycleNo")
+                        .HasColumnType("int")
+                        .HasColumnName("cycle_no");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("failure_reason");
+
+                    b.Property<decimal>("FeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("fee_amount");
+
+                    b.Property<DateTime?>("NoticeSentAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("notice_sent_at");
+
+                    b.Property<string>("PolicyFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("policy_fingerprint");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("processed_at");
+
+                    b.Property<long>("ProviderAdvertisingApplicationId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_advertising_application_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<decimal>("RegionalFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("regional_fee_amount");
+
+                    b.Property<long?>("ReserveLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reserve_ledger_entry_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaptureLedgerEntryId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("ReserveLedgerEntryId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("ProviderAdvertisingApplicationId", "CycleNo")
+                        .IsUnique();
+
+                    b.HasIndex("StatusCode", "DueAt");
+
+                    b.ToTable("provider_advertising_renewal_history", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_ad_renewal_amount", "[fee_amount] > 0 AND [base_fee_amount] >= 0 AND [regional_fee_amount] >= 0");
+
+                            t.HasCheckConstraint("CK_provider_ad_renewal_cycle", "[cycle_no] > 0");
+
+                            t.HasCheckConstraint("CK_provider_ad_renewal_status", "[status_code] IN ('PENDING','NOTICE_SENT','RENEWED','PAUSED_INSUFFICIENT','CONSENT_REQUIRED','CANCELLED')");
+                        });
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderApprovalEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -9054,7 +11603,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("provider_approval_events", null, t =>
                         {
-                            t.HasCheckConstraint("CK_provider_approval_events_action", "[action_code] IN ('APPROVE','REJECT','SUSPEND','RESUME')");
+                            t.HasCheckConstraint("CK_provider_approval_events_action", "[action_code] IN ('APPROVE','REJECT','SUSPEND','RESUME','RESUBMIT')");
 
                             t.HasCheckConstraint("CK_provider_approval_events_from_status", "[from_status_code] IS NULL OR [from_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
 
@@ -9397,6 +11946,17 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AdditionalFeeText")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("additional_fee_text");
+
+                    b.Property<decimal>("BaseDispatchFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("base_dispatch_fee_amount");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(7)
@@ -9413,6 +11973,32 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false)
                         .HasColumnName("is_enabled");
+
+                    b.Property<decimal>("NoShowFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("no_show_fee_amount");
+
+                    b.Property<int>("NoShowWaitMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(10)
+                        .HasColumnName("no_show_wait_minutes");
+
+                    b.Property<string>("PaymentInstructionProtected")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("payment_instruction_protected");
+
+                    b.Property<string>("PaymentModeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("ON_SITE")
+                        .HasColumnName("payment_mode_code");
 
                     b.Property<long>("ProviderEmergencySettingId")
                         .HasColumnType("bigint")
@@ -9444,6 +12030,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("updated_by_user_id");
 
+                    b.Property<bool>("WorkFeeSeparate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("work_fee_separate");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
@@ -9458,7 +12050,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProviderEmergencySettingId", "IsEnabled");
 
-                    b.ToTable("provider_emergency_service_settings", (string)null);
+                    b.ToTable("provider_emergency_service_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_emergency_service_amounts", "[base_dispatch_fee_amount] >= 0 AND [no_show_fee_amount] >= 0 AND [no_show_fee_amount] <= [base_dispatch_fee_amount]");
+
+                            t.HasCheckConstraint("CK_provider_emergency_service_payment_mode", "[payment_mode_code] IN ('NO_FEE','ON_SITE','TRANSFER_REPORTED','TRANSFER_CONFIRMED')");
+
+                            t.HasCheckConstraint("CK_provider_emergency_service_wait", "[no_show_wait_minutes] BETWEEN 5 AND 60");
+                        });
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderEmergencySetting", b =>
@@ -9787,8 +12386,22 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(1000)")
                         .HasColumnName("introduction");
 
+                    b.Property<short?>("PrivacyProtectionVersion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("privacy_protection_version");
+
+                    b.Property<string>("ProviderTypeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("BUSINESS")
+                        .HasColumnName("provider_type_code");
+
                     b.Property<string>("PublicAddress")
                         .HasMaxLength(500)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("public_address");
 
@@ -9800,11 +12413,17 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PublicEmail")
                         .HasMaxLength(320)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(320)")
                         .HasColumnName("public_email");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("PublicIntroductionHtml")
                         .HasMaxLength(8000)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(8000)")
                         .HasColumnName("public_introduction_html");
 
@@ -9816,10 +12435,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PublicPhone")
                         .HasMaxLength(30)
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(30)")
                         .HasColumnName("public_phone");
 
                     b.Property<string>("PublicPhotoUrlsJson")
+                        .IsUnicode(true)
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("public_photo_urls_json");
 
@@ -9828,14 +12449,6 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(1000)")
                         .HasColumnName("public_website_url");
-
-                    b.Property<short?>("PrivacyProtectionVersion")
-                        .HasColumnType("smallint")
-                        .HasColumnName("privacy_protection_version");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("public_id");
 
                     b.Property<string>("RepresentativeName")
                         .HasMaxLength(100)
@@ -9886,6 +12499,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
+                    b.HasIndex("ProviderTypeCode");
+
                     b.HasIndex("PublicId")
                         .IsUnique();
 
@@ -9902,7 +12517,503 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_provider_profiles_activity_status", "[activity_status_code] IN ('ACTIVE','INACTIVE')");
 
                             t.HasCheckConstraint("CK_provider_profiles_approval_status", "[approval_status_code] IN ('PENDING','APPROVED','REJECTED','SUSPENDED')");
+
+                            t.HasCheckConstraint("CK_provider_profiles_provider_type", "[provider_type_code] IN ('BUSINESS','INDIVIDUAL')");
                         });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalApplication", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AppliedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("applied_at");
+
+                    b.Property<long>("CampaignId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("campaign_id");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<long?>("CaptureLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("capture_ledger_entry_id");
+
+                    b.Property<decimal>("CapturedFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("captured_fee_amount");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<long>("CustomerProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("customer_profile_id");
+
+                    b.Property<DateTime?>("DeclinedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("declined_at");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaptureLedgerEntryId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("CampaignId", "CustomerProfileId")
+                        .IsUnique();
+
+                    b.HasIndex("CampaignId", "StatusCode");
+
+                    b.ToTable("provider_proposal_applications", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_proposal_application_status", "[status_code] IN ('APPLIED','CONFIRMED','CANCELLED','DECLINED')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalArea", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AdministrativeAreaId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("administrative_area_id");
+
+                    b.Property<long>("CampaignId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("campaign_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdministrativeAreaId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CampaignId", "AdministrativeAreaId")
+                        .IsUnique();
+
+                    b.ToTable("provider_proposal_areas", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalCampaign", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CancellationPolicyText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("cancellation_policy_text");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<decimal>("CapturedFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("captured_fee_amount");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTime?>("ClosingNotificationQueuedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("closing_notification_queued_at");
+
+                    b.Property<int>("ConfirmedParticipants")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("confirmed_participants");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("EndAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("end_at");
+
+                    b.Property<decimal>("FeePerParticipant")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("fee_per_participant");
+
+                    b.Property<string>("FeeStatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("fee_status_code");
+
+                    b.Property<int>("MaximumParticipants")
+                        .HasColumnType("int")
+                        .HasColumnName("maximum_participants");
+
+                    b.Property<DateTime?>("MidpointNotificationQueuedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("midpoint_notification_queued_at");
+
+                    b.Property<string>("MinimumFailurePolicyCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("minimum_failure_policy_code");
+
+                    b.Property<int>("MinimumParticipants")
+                        .HasColumnType("int")
+                        .HasColumnName("minimum_participants");
+
+                    b.Property<decimal?>("NormalPriceAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("normal_price_amount");
+
+                    b.Property<decimal>("OfferPriceAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("offer_price_amount");
+
+                    b.Property<string>("ProposalTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("proposal_type_code");
+
+                    b.Property<long>("ProviderProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_profile_id");
+
+                    b.Property<long>("ProviderServiceCategoryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_service_category_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<DateTime?>("PublishedNotificationQueuedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("published_notification_queued_at");
+
+                    b.Property<long?>("ReleaseLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("release_ledger_entry_id");
+
+                    b.Property<long>("ReserveLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reserve_ledger_entry_id");
+
+                    b.Property<decimal>("ReservedFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("reserved_fee_amount");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("ScopeCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("scope_code");
+
+                    b.Property<DateTime?>("ServiceAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("service_at");
+
+                    b.Property<DateTime>("StartAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("start_at");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(3000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(3000)")
+                        .HasColumnName("summary");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("WalletId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("wallet_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("ReleaseLedgerEntryId");
+
+                    b.HasIndex("ReserveLedgerEntryId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WalletId");
+
+                    b.HasIndex("ProviderProfileId", "StatusCode");
+
+                    b.HasIndex("ProviderServiceCategoryId", "StatusCode");
+
+                    b.HasIndex("StatusCode", "StartAt", "EndAt");
+
+                    b.ToTable("provider_proposal_campaigns", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_proposal_amounts", "[offer_price_amount] >= 0 AND ([normal_price_amount] IS NULL OR [normal_price_amount] >= [offer_price_amount]) AND [fee_per_participant] > 0 AND [reserved_fee_amount] >= 0 AND [captured_fee_amount] >= 0");
+
+                            t.HasCheckConstraint("CK_provider_proposal_fee_status", "[fee_status_code] IN ('RESERVED','PARTIALLY_CAPTURED','CAPTURED','RELEASED','RESTORED')");
+
+                            t.HasCheckConstraint("CK_provider_proposal_participants", "[minimum_participants] > 0 AND [maximum_participants] >= [minimum_participants] AND [confirmed_participants] >= 0 AND [confirmed_participants] <= [maximum_participants]");
+
+                            t.HasCheckConstraint("CK_provider_proposal_period", "[end_at] > [start_at]");
+
+                            t.HasCheckConstraint("CK_provider_proposal_scope", "[scope_code] IN ('LOCAL','NATIONWIDE')");
+
+                            t.HasCheckConstraint("CK_provider_proposal_status", "[status_code] IN ('PUBLISHED','MINIMUM_MET','FULL','EXPIRED','CANCELLED')");
+
+                            t.HasCheckConstraint("CK_provider_proposal_type", "[proposal_type_code] IN ('DISCOUNT_SERVICE','GROUP_BUY','GROUP_LESSON')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderQuoteTemplate", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("EstimatedDurationText")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("estimated_duration_text");
+
+                    b.Property<string>("ItemsJson")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("items_json");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("name");
+
+                    b.Property<long>("ProviderProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_profile_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("summary");
+
+                    b.Property<string>("Terms")
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("terms");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<string>("VatMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(10)")
+                        .HasDefaultValue("EXCLUDED")
+                        .HasColumnName("vat_mode");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProviderProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("ProviderProfileId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("provider_quote_templates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_provider_quote_templates_vat_mode", "[vat_mode] IN ('INCLUDED','EXCLUDED')");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderRequirementDefinition", b =>
@@ -10364,6 +13475,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
                         .HasColumnName("deactivated_at");
+
+                    b.Property<bool>("IsNationwide")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_nationwide");
 
                     b.Property<long>("ProviderProfileId")
                         .HasColumnType("bigint")
@@ -10972,6 +14089,67 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_wallets_status", "[status_code] IN ('ACTIVE','FROZEN','CLOSED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.PublicActivityEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("EventTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("event_type_code");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<long>("ServiceRequestId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_request_id");
+
+                    b.Property<long>("SourceEntityId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("source_entity_id");
+
+                    b.Property<string>("SourceTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("source_type_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("OccurredAt", "EventTypeCode", "ServiceRequestId")
+                        .IsDescending(true, false, false);
+
+                    b.HasIndex("SourceTypeCode", "SourceEntityId", "EventTypeCode")
+                        .IsUnique();
+
+                    b.ToTable("public_activity_events", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_public_activity_events_type", "[event_type_code] IN ('REQUEST_OPENED','QUOTE_RECEIVED','PROVIDER_SELECTED','WORK_STARTED','WORK_COMPLETED','REVIEW_PUBLISHED')");
+                        });
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QualificationPolicy", b =>
@@ -11241,6 +14419,174 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_quotes_status", "[status_code] IN ('DRAFT','SUBMITTED','ACCEPTED','NOT_SELECTED','WITHDRAWN','EXPIRED','INVALIDATED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QuoteFeeReservation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("amount");
+
+                    b.Property<long?>("CaptureLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("capture_ledger_entry_id");
+
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("captured_at");
+
+                    b.Property<long>("CategoryFeePolicyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("category_fee_policy_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("char(3)")
+                        .HasDefaultValue("KRW")
+                        .HasColumnName("currency_code")
+                        .IsFixedLength();
+
+                    b.Property<decimal>("ExpectedSupplyAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("expected_supply_amount");
+
+                    b.Property<decimal>("ExpectedVatAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("expected_vat_amount");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("QuoteId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("quote_id");
+
+                    b.Property<long?>("ReleaseLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("release_ledger_entry_id");
+
+                    b.Property<string>("ReleaseReasonCode")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("release_reason_code");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("released_at");
+
+                    b.Property<long>("ReserveLedgerEntryId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reserve_ledger_entry_id");
+
+                    b.Property<DateTime>("ReservedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("reserved_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("RESERVED")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("WalletId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("wallet_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaptureLedgerEntryId")
+                        .IsUnique()
+                        .HasFilter("[capture_ledger_entry_id] IS NOT NULL");
+
+                    b.HasIndex("CategoryFeePolicyId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("QuoteId")
+                        .IsUnique();
+
+                    b.HasIndex("ReleaseLedgerEntryId")
+                        .IsUnique()
+                        .HasFilter("[release_ledger_entry_id] IS NOT NULL");
+
+                    b.HasIndex("ReserveLedgerEntryId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("WalletId");
+
+                    b.HasIndex("StatusCode", "ReservedAt");
+
+                    b.ToTable("quote_fee_reservations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_quote_fee_reservations_amount", "[amount] > 0");
+
+                            t.HasCheckConstraint("CK_quote_fee_reservations_status", "[status_code] IN ('RESERVED','CAPTURED','RELEASED')");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QuoteItem", b =>
@@ -11347,6 +14693,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_quote_items_quantity", "[quantity] > 0");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QuoteRevision", b =>
@@ -11481,6 +14829,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsDescending(false, true);
 
                     b.ToTable("quote_revisions", (string)null);
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.Report", b =>
@@ -12188,7 +15538,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("request_dispatches", null, t =>
                         {
-                            t.HasCheckConstraint("CK_request_dispatches_status", "[status_code] IN ('AVAILABLE','VIEWED','RESPONDED','EXPIRED')");
+                            t.HasCheckConstraint("CK_request_dispatches_status", "[status_code] IN ('AVAILABLE','VIEWED','RESPONDED','DECLINED','EXPIRED')");
                         });
                 });
 
@@ -12318,6 +15668,131 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_reviews_verification", "[verification_status_code] IN ('VERIFIED_TRANSACTION','VERIFIED_SUBSCRIPTION_VISIT')");
 
                             t.HasCheckConstraint("CK_reviews_visibility", "[visibility_status_code] IN ('PUBLIC','HIDDEN')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ReviewComment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AuthorDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("author_display_name");
+
+                    b.Property<string>("AuthorRoleCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("author_role_code");
+
+                    b.Property<long>("AuthorUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("body_text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime?>("HiddenAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("hidden_at");
+
+                    b.Property<long?>("HiddenByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("hidden_by_user_id");
+
+                    b.Property<string>("HiddenReason")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("hidden_reason");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<long?>("ParentCommentId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("parent_comment_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("ReviewId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("review_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("status_code");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorUserId");
+
+                    b.HasIndex("HiddenByUserId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("ParentCommentId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("ReviewId", "SubmittedAt");
+
+                    b.ToTable("review_comments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_review_comments_author_role", "[author_role_code] IN ('CUSTOMER','PROVIDER')");
+
+                            t.HasCheckConstraint("CK_review_comments_status", "[status_code] IN ('ACTIVE','HIDDEN')");
                         });
                 });
 
@@ -13709,6 +17184,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("external_code");
 
+                    b.Property<bool>("IsSearchIndexable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_search_indexable");
+
                     b.Property<string>("LevelCode")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -13737,6 +17218,30 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
+
+                    b.Property<string>("SearchKeywordsText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("search_keywords_text");
+
+                    b.Property<string>("SearchSlug")
+                        .HasMaxLength(220)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(220)")
+                        .HasColumnName("search_slug");
+
+                    b.Property<string>("SeoDescription")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("seo_description");
+
+                    b.Property<string>("SeoTitle")
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("seo_title");
 
                     b.Property<int>("SortOrder")
                         .ValueGeneratedOnAdd()
@@ -13784,6 +17289,10 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
+
+                    b.HasIndex("SearchSlug")
+                        .IsUnique()
+                        .HasFilter("[search_slug] IS NOT NULL");
 
                     b.HasIndex("SourceRecordId")
                         .IsUnique()
@@ -14043,6 +17552,29 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<bool>("AbuseCountExcluded")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("abuse_count_excluded");
+
+                    b.Property<string>("AbuseExclusionReason")
+                        .HasMaxLength(500)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("abuse_exclusion_reason");
+
+                    b.Property<string>("AbuseFingerprint")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .HasColumnName("abuse_fingerprint")
+                        .IsFixedLength();
+
+                    b.Property<short?>("AbusePolicyVersion")
+                        .HasColumnType("smallint")
+                        .HasColumnName("abuse_policy_version");
+
                     b.Property<DateTime?>("AcceptedAt")
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
@@ -14086,6 +17618,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("customer_profile_id");
 
+                    b.Property<DateTime?>("CustomerQuotesViewedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("customer_quotes_viewed_at");
+
                     b.Property<string>("Description")
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(max)")
@@ -14096,6 +17633,15 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("detail_address");
+
+                    b.Property<string>("DetailAddressDisclosureCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("AFTER_SELECTION")
+                        .HasColumnName("detail_address_disclosure_code");
 
                     b.Property<byte[]>("DetailAddressEncrypted")
                         .HasColumnType("varbinary(max)")
@@ -14205,6 +17751,10 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerProfileId", "CreatedAt")
                         .IsDescending(false, true);
 
+                    b.HasIndex("CustomerProfileId", "AbuseFingerprint", "OpenedAt");
+
+                    b.HasIndex("CustomerProfileId", "CategoryId", "OpenedAt");
+
                     b.HasIndex("CategoryId", "AdministrativeAreaId", "StatusCode", "OpenedAt");
 
                     b.ToTable("service_requests", null, t =>
@@ -14213,6 +17763,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_service_requests_status", "[status_code] IN ('DRAFT','OPEN','ACCEPTED','EXPIRED','CANCELLED')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ServiceRequestFile", b =>
@@ -14288,6 +17840,276 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("service_request_files", null, t =>
                         {
                             t.HasCheckConstraint("CK_service_request_files_purpose", "[purpose_code] IN ('REQUEST_REFERENCE','DYNAMIC_FIELD')");
+                        });
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.SiteVisitEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("ActorUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("EventTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("event_type_code");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("SiteVisitProposalId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("site_visit_proposal_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("SiteVisitProposalId", "OccurredAt");
+
+                    b.ToTable("site_visit_events", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.SiteVisitProposal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<DateTime?>("ArrivedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("arrived_at");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<bool>("DeductFromWorkAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("deduct_from_work_amount");
+
+                    b.Property<DateTime?>("DepartedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("departed_at");
+
+                    b.Property<int>("EstimatedDurationMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30)
+                        .HasColumnName("estimated_duration_minutes");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<DateTime?>("NoShowReportedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("no_show_reported_at");
+
+                    b.Property<string>("NoShowStatusCode")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("no_show_status_code");
+
+                    b.Property<int>("NoShowWaitMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(10)
+                        .HasColumnName("no_show_wait_minutes");
+
+                    b.Property<DateTime?>("PaymentConfirmedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("payment_confirmed_at");
+
+                    b.Property<string>("PaymentInstructionProtected")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("payment_instruction_protected");
+
+                    b.Property<string>("PaymentModeCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("NO_FEE")
+                        .HasColumnName("payment_mode_code");
+
+                    b.Property<DateTime?>("PaymentReportedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("payment_reported_at");
+
+                    b.Property<string>("PaymentStatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("NOT_REQUIRED")
+                        .HasColumnName("payment_status_code");
+
+                    b.Property<long>("ProviderProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_profile_id");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("RequestDispatchId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("request_dispatch_id");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTime>("ScheduledAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("scheduled_at");
+
+                    b.Property<long>("ServiceRequestId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("service_request_id");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("PROPOSED")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("TermsText")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("terms_text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<decimal>("VisitFeeAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasColumnName("visit_fee_amount");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestDispatchId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("ServiceRequestId", "StatusCode");
+
+                    b.ToTable("site_visit_proposals", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_site_visit_amount", "[visit_fee_amount] >= 0");
+
+                            t.HasCheckConstraint("CK_site_visit_duration", "[estimated_duration_minutes] BETWEEN 10 AND 480");
+
+                            t.HasCheckConstraint("CK_site_visit_payment_mode", "[payment_mode_code] IN ('NO_FEE','ON_SITE','TRANSFER_REPORTED','TRANSFER_CONFIRMED')");
+
+                            t.HasCheckConstraint("CK_site_visit_payment_status", "[payment_status_code] IN ('NOT_REQUIRED','ON_SITE_PENDING','AWAITING_TRANSFER','REPORTED','CONFIRMED','REJECTED')");
+
+                            t.HasCheckConstraint("CK_site_visit_status", "[status_code] IN ('PROPOSED','ACCEPTED','DEPARTED','ARRIVED','COMPLETED','REJECTED','CANCELLED','EXPIRED','NO_SHOW','DISPUTED')");
+
+                            t.HasCheckConstraint("CK_site_visit_wait", "[no_show_wait_minutes] BETWEEN 5 AND 60");
                         });
                 });
 
@@ -14478,7 +18300,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_files_privacy_inspection_status", "[privacy_inspection_status_code] IS NULL OR [privacy_inspection_status_code] IN ('NOT_INTEGRATED','PENDING','PROCESSING','SAFE','SENSITIVE_DETECTED','FAILED')");
 
-                            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO')");
+                            t.HasCheckConstraint("CK_files_purpose", "[purpose_code] IN ('PROVIDER_DOCUMENT','REQUEST_ANSWER','COMPLETION_EVIDENCE','AFTER_SERVICE','DISPUTE_EVIDENCE','REVIEW','REPORT_EVIDENCE','SANCTION_APPEAL_EVIDENCE','PROVIDER_PUBLIC_LOGO','PROVIDER_PUBLIC_PHOTO','CHAT_ATTACHMENT','HELP_ROOM_PHOTO','DIRECT_PAYMENT_EVIDENCE')");
 
                             t.HasCheckConstraint("CK_files_sanitization_status", "[sanitization_status_code] IS NULL OR [sanitization_status_code] IN ('NOT_INTEGRATED','NOT_REQUIRED','PENDING','PROCESSING','COMPLETED','FAILED')");
 
@@ -14683,6 +18505,10 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<int?>("BillingAnchorDay")
+                        .HasColumnType("int")
+                        .HasColumnName("billing_anchor_day");
+
                     b.Property<string>("BillingStatusCode")
                         .HasMaxLength(30)
                         .IsUnicode(false)
@@ -14734,6 +18560,23 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("fee_policy_snapshot_json");
 
+                    b.Property<DateTime?>("GatewayTerminatedAt")
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("gateway_terminated_at");
+
+                    b.Property<string>("GatewayTerminationFailureReason")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("gateway_termination_failure_reason");
+
+                    b.Property<string>("GatewayTerminationStatusCode")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("gateway_termination_status_code");
+
                     b.Property<DateTime?>("NextBillingAt")
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
@@ -14743,6 +18586,10 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
                         .HasColumnName("pause_started_at");
+
+                    b.Property<long?>("PaymentMethodId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("payment_method_id");
 
                     b.Property<string>("PriceSnapshotJson")
                         .IsRequired()
@@ -14844,6 +18691,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
+                    b.HasIndex("PaymentMethodId");
+
                     b.HasIndex("PublicId")
                         .IsUnique();
 
@@ -14863,7 +18712,9 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                     b.ToTable("subscription_contracts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_subscription_contracts_status", "[status_code] IN ('ACTIVE','PAUSED','TERMINATION_REQUESTED','TERMINATED')");
+                            t.HasCheckConstraint("CK_subscription_contracts_billing_anchor_day", "[billing_anchor_day] IS NULL OR [billing_anchor_day] BETWEEN 1 AND 31");
+
+                            t.HasCheckConstraint("CK_subscription_contracts_status", "[status_code] IN ('PAYMENT_PENDING','ACTIVE','PAUSED','TERMINATION_REQUESTED','TERMINATED')");
                         });
                 });
 
@@ -15082,9 +18933,9 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnName("disabled_at");
 
                     b.Property<string>("ExternalTokenReference")
-                        .HasMaxLength(300)
+                        .HasMaxLength(1000)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(300)")
+                        .HasColumnType("varchar(1000)")
                         .HasColumnName("external_token_reference");
 
                     b.Property<bool>("IsDefault")
@@ -15242,6 +19093,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(1000)")
                         .HasColumnName("failure_reason");
+
+                    b.Property<int>("GatewayAttemptNo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1)
+                        .HasColumnName("gateway_attempt_no");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
@@ -15646,6 +19503,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2(7)")
                         .HasColumnName("approved_at");
 
+                    b.Property<string>("CalculationJson")
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("calculation_json");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasPrecision(7)
                         .HasColumnType("datetime2(7)")
@@ -15662,6 +19524,24 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<string>("ExternalRefundReference")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("external_refund_reference");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("failure_reason");
+
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -15676,6 +19556,13 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.Property<long?>("ProcessedByUserId")
                         .HasColumnType("bigint")
                         .HasColumnName("processed_by_user_id");
+
+                    b.Property<decimal>("ProviderAdjustmentAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("provider_adjustment_amount");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uniqueidentifier")
@@ -15762,7 +19649,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_subscription_refund_adjustments_amount", "[requested_amount] > 0 AND ([approved_amount] IS NULL OR [approved_amount] >= 0)");
 
-                            t.HasCheckConstraint("CK_subscription_refund_adjustments_status", "[status_code] IN ('REQUESTED','APPROVED','PROCESSING','COMPLETED','REJECTED','CANCELLED','FAILED')");
+                            t.HasCheckConstraint("CK_subscription_refund_adjustments_status", "[status_code] IN ('REQUESTED','WAITING_CASES','MANUAL_REQUIRED','APPROVED','PROCESSING','COMPLETED','REJECTED','CANCELLED','FAILED')");
 
                             t.HasCheckConstraint("CK_subscription_refund_adjustments_type", "[type_code] IN ('REFUND','ADJUSTMENT')");
                         });
@@ -17380,6 +21267,8 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_transactions_warranty_days", "[warranty_days_snapshot] >= 0");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.TrustPolicy", b =>
@@ -17519,7 +21408,7 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                             PolicyVersion = "v1.0-draft",
                             PublicId = new Guid("f84f8728-8e1e-4ef8-a7ee-4bea94548ff0"),
                             RowVersion = new byte[0],
-                            RulesJson = "{\"minimumCompletedTransactions\":3,\"minimumVerifiedReviews\":3,\"components\":[{\"code\":\"EVIDENCE\",\"weight\":15,\"ruleType\":\"EVIDENCE_COMPLETENESS\",\"settings\":{\"approvalRatio\":0.25,\"serviceApprovalRatio\":0.25,\"requiredVerificationRatio\":0.4,\"notExpiredRatio\":0.1}},{\"code\":\"TRANSACTION\",\"weight\":30,\"ruleType\":\"TRANSACTION_COMPLETION_RATE\",\"settings\":{\"completionRateRatio\":0.8,\"completionEvidenceRatio\":0.2}},{\"code\":\"REVIEW\",\"weight\":30,\"ruleType\":\"VERIFIED_PUBLIC_RATING_AVERAGE\",\"settings\":{}},{\"code\":\"AFTER_SERVICE\",\"weight\":10,\"ruleType\":\"FINALIZED_AFTER_SERVICE_OUTCOME\",\"settings\":{\"resolvedValue\":1.0,\"unresolvedValue\":0.0,\"recurrencePenalty\":0.25,\"disputeConversionPenalty\":0.25}},{\"code\":\"DISPUTE\",\"weight\":10,\"ruleType\":\"STRUCTURED_LIABILITY_MAPPING\",\"settings\":{\"liabilityScores\":{}}},{\"code\":\"SANCTION\",\"weight\":5,\"ruleType\":\"DECIDED_SANCTION_MAPPING\",\"settings\":{\"sanctionScores\":{}}}]}",
+                            RulesJson = "{\"minimumCompletedTransactions\":3,\"minimumVerifiedReviews\":3,\"components\":[{\"code\":\"EVIDENCE\",\"weight\":15,\"ruleType\":\"EVIDENCE_COMPLETENESS\",\"settings\":{\"approvalRatio\":0.25,\"serviceApprovalRatio\":0.25,\"requiredVerificationRatio\":0.4,\"notExpiredRatio\":0.1}},{\"code\":\"TRANSACTION\",\"weight\":30,\"ruleType\":\"TRANSACTION_COMPLETION_RATE\",\"settings\":{\"completionRateRatio\":0.8,\"completionEvidenceRatio\":0.2}},{\"code\":\"REVIEW\",\"weight\":30,\"ruleType\":\"VERIFIED_PUBLIC_RATING_AVERAGE\",\"settings\":{}},{\"code\":\"AFTER_SERVICE\",\"weight\":10,\"ruleType\":\"FINALIZED_AFTER_SERVICE_OUTCOME\",\"settings\":{\"noCaseValue\":1.0,\"resolvedValue\":1.0,\"unresolvedValue\":0.0,\"recurrencePenalty\":0.25,\"disputeConversionPenalty\":0.25}},{\"code\":\"DISPUTE\",\"weight\":10,\"ruleType\":\"STRUCTURED_LIABILITY_MAPPING\",\"settings\":{\"noDisputeScore\":100,\"liabilityScores\":{\"NO_PROVIDER_LIABILITY\":100,\"CUSTOMER_LIABILITY\":100,\"MUTUAL_MINOR\":70,\"PROVIDER_PARTIAL\":50,\"PROVIDER_FULL\":0}}},{\"code\":\"SANCTION\",\"weight\":5,\"ruleType\":\"DECIDED_SANCTION_MAPPING\",\"settings\":{\"noSanctionScore\":100,\"sanctionScores\":{\"NOTICE\":80,\"FORMAL_WARNING\":60,\"SERVICE_RESTRICTION\":30,\"SUSPENSION\":0}}}]}",
                             ScopeTypeCode = "GLOBAL",
                             StatusCode = "DRAFT",
                             TargetTypeCode = "PROVIDER",
@@ -18113,6 +22002,230 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("user_roles", (string)null);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.UserSuggestion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AdminReply")
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("admin_reply");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("app_version");
+
+                    b.Property<long?>("AssignedAdminUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("assigned_admin_user_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("body");
+
+                    b.Property<byte[]>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .HasColumnName("content_hash")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("CreatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("device_info");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<string>("PageUrl")
+                        .HasMaxLength(1000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("page_url");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ReleaseVersion")
+                        .HasMaxLength(100)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("release_version");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("StatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("status_code");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("TypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("type_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<long?>("UpdatedByUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("VisibilityCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("PRIVATE")
+                        .HasColumnName("visibility_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedAdminUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .IsDescending(false, true);
+
+                    b.HasIndex("UserId", "ContentHash", "CreatedAt");
+
+                    b.ToTable("user_suggestions", (string)null);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.UserSuggestionEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("action_code");
+
+                    b.Property<long>("ActorUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("FromStatusCode")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("from_status_code");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(7)
+                        .HasColumnType("datetime2(7)")
+                        .HasColumnName("occurred_at")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ToStatusCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasColumnName("to_status_code");
+
+                    b.Property<long>("UserSuggestionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_suggestion_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("UserSuggestionId", "OccurredAt");
+
+                    b.ToTable("user_suggestion_events", (string)null);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.WalletChargeRequest", b =>
                 {
                     b.Property<long>("Id")
@@ -18331,9 +22444,32 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("reference_type");
 
+                    b.Property<decimal>("SupplyAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("supply_amount");
+
+                    b.Property<string>("TaxTreatmentCode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("DEPOSIT")
+                        .HasColumnName("tax_treatment_code");
+
                     b.Property<long?>("TransactionId")
                         .HasColumnType("bigint")
                         .HasColumnName("transaction_id");
+
+                    b.Property<decimal>("VatAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("vat_amount");
 
                     b.Property<long>("WalletId")
                         .HasColumnType("bigint")
@@ -18362,8 +22498,12 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_wallet_ledger_balance", "[balance_after] >= 0");
 
-                            t.HasCheckConstraint("CK_wallet_ledger_entry_type", "[entry_type_code] IN ('CHARGE','USE','RESTORE','REFUND','ADJUST')");
+                            t.HasCheckConstraint("CK_wallet_ledger_entry_type", "[entry_type_code] IN ('CHARGE','RESERVE','RELEASE','USE','RESTORE','REFUND','ADJUST')");
+
+                            t.HasCheckConstraint("CK_wallet_ledger_tax_treatment", "[tax_treatment_code] IN ('DEPOSIT','EXPECTED_VAT_INCLUDED','EXPECTED_REVERSED','TAXABLE_VAT_INCLUDED','TAX_REVERSED','NON_TAXABLE','LEGACY_UNSPLIT')");
                         });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.WalletRefundRequest", b =>
@@ -18719,6 +22859,34 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdminReauthenticationSession", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdminSecurityProfile", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AdministrativeArea", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -18959,6 +23127,14 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("FileId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AnalyticsEvent", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.AuditLog", b =>
@@ -19441,6 +23617,51 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalAreaInterest", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.AdministrativeArea", null)
+                        .WithMany()
+                        .HasForeignKey("AdministrativeAreaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.CustomerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalCategoryInterest", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.CustomerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerProposalSignal", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.CustomerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.CustomerWithdrawalRequest", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -19453,6 +23674,33 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DataRetentionExecution", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ExecutedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.DataRetentionPolicy", null)
+                        .WithMany()
+                        .HasForeignKey("PolicyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DataRetentionPolicy", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.DispatchCandidate", b =>
@@ -19612,6 +23860,30 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.EmergencyDispatchAgreement", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("NoShowReportedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.TransactionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.EmergencyProgressEvent", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -19739,6 +24011,96 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPost", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.AdministrativeArea", null)
+                        .WithMany()
+                        .HasForeignKey("AdministrativeAreaId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ConvertedServiceRequestId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPostFile", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.StoredFile", null)
+                        .WithMany()
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.HelpPost", null)
+                        .WithMany()
+                        .HasForeignKey("HelpPostId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpPostResolution", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.HelpPost", null)
+                        .WithMany()
+                        .HasForeignKey("HelpPostId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.HelpRoomEntry", null)
+                        .WithMany()
+                        .HasForeignKey("HelpfulEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedByCustomerUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.HelpRoomEntry", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.HelpPost", null)
+                        .WithMany()
+                        .HasForeignKey("HelpPostId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.InteriorContract", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -19817,6 +24179,26 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.HasOne("SoodalLife.Api.Domain.Entities.StoredFile", null)
                         .WithMany()
                         .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.InteriorContractDocument", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.StoredFile", null)
+                        .WithMany()
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.InteriorContract", null)
+                        .WithMany()
+                        .HasForeignKey("InteriorContractId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
@@ -19975,6 +24357,21 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CustomerProfileId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("FeeReleaseLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("FeeReservationLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderWallet", null)
+                        .WithMany()
+                        .HasForeignKey("FeeReservationWalletId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
                         .WithMany()
@@ -20437,6 +24834,47 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationBroadcast", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ConfirmedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.Notification", null)
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationChannelSetting", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationDelivery", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.Notification", null)
@@ -20493,6 +24931,21 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationPreferenceEvent", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.NotificationPreference", null)
+                        .WithMany()
+                        .HasForeignKey("NotificationPreferenceId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.NotificationRecipient", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.Notification", null)
@@ -20529,11 +24982,127 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.OutboxRetryRequest", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.OutboxEvent", null)
+                        .WithMany()
+                        .HasForeignKey("OutboxEventId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.PasswordResetRequest", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingApplication", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.AdvertisingCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CaptureLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderAdvertisingRatePolicy", null)
+                        .WithMany()
+                        .HasForeignKey("RatePolicyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReleaseLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReserveLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderWallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingRatePolicy", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.AdvertisingPlacement", null)
+                        .WithMany()
+                        .HasForeignKey("PlacementId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderAdvertisingRenewalHistory", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CaptureLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderAdvertisingApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderAdvertisingApplicationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReserveLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
@@ -20729,6 +25298,117 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalApplication", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProposalCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CaptureLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.CustomerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalArea", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.AdministrativeArea", null)
+                        .WithMany()
+                        .HasForeignKey("AdministrativeAreaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProposalCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderProposalCampaign", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderServiceCategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReleaseLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReserveLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderWallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderQuoteTemplate", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ProviderRequirementDefinition", b =>
@@ -20946,6 +25626,15 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.PublicActivityEvent", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QualificationPolicy", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -20994,6 +25683,53 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QuoteFeeReservation", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CaptureLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.CategoryFeePolicy", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryFeePolicyId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.Quote", null)
+                        .WithMany()
+                        .HasForeignKey("QuoteId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReleaseLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.WalletLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReserveLedgerEntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderWallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.QuoteItem", b =>
@@ -21228,6 +25964,31 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ReviewComment", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("HiddenByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ReviewComment", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.ReviewFile", b =>
@@ -21636,6 +26397,52 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.SiteVisitEvent", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.SiteVisitProposal", null)
+                        .WithMany()
+                        .HasForeignKey("SiteVisitProposalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.SiteVisitProposal", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.RequestDispatch", null)
+                        .WithMany()
+                        .HasForeignKey("RequestDispatchId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.ServiceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("SoodalLife.Api.Domain.Entities.StoredFile", b =>
                 {
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
@@ -21706,6 +26513,11 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CustomerProfileId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.SubscriptionPaymentMethod", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentMethodId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SoodalLife.Api.Domain.Entities.ProviderProfile", null)
                         .WithMany()
@@ -22375,6 +27187,45 @@ namespace SoodalLife.Api.Infrastructure.Persistence.Migrations
                     b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.UserSuggestion", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedAdminUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoodalLife.Api.Domain.Entities.UserSuggestionEvent", b =>
+                {
+                    b.HasOne("SoodalLife.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SoodalLife.Api.Domain.Entities.UserSuggestion", null)
+                        .WithMany()
+                        .HasForeignKey("UserSuggestionId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });

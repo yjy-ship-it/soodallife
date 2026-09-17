@@ -7,9 +7,10 @@ const labels: Record<string, string> = {
   TERMINATION_REQUESTED: '해지 처리 중', POLICY_PENDING: '정책 확정 전', RECEIVED: '접수 확인 필요',
   PROVIDER_CONFIRMED: '접수 확인 완료', VISIT_SCHEDULED: '방문 예정', RESOLVED: '해결', UNRESOLVED_CLOSED: '미해결 종료',
   DISPUTED: '분쟁 진행', DEPARTED: '출발', EN_ROUTE: '이동 중', ARRIVED: '현장 도착', CANCELLED: '취소',
+  WAITING_REPLY:'답변 대기', DRAFT:'작성 중', FULL:'모집 완료', PUBLISHED:'모집 중', MINIMUM_MET:'최소 인원 충족',
 }
 
-export const providerStatusLabel = (code: string) => labels[code] ?? code.replaceAll('_', ' ')
+export const providerStatusLabel = (code: string) => labels[code] ?? '상태 확인'
 
 const safeProviderRoute = /^\/provider(?:\/(?:matched-requests|quotes|work|schedule|progress|inbox|messages|care|interior|emergency|after-services|disputes|wallet|notifications|onboarding|services|areas|documents|approval)(?:\/[0-9a-f-]+)*)?(?:\?(?:group|domain)=[A-Z_]+)?$/i
 

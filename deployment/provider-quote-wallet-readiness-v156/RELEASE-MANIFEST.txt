@@ -1,0 +1,7 @@
+Release: provider-quote-wallet-readiness-v156
+Version: V156
+DatabaseChanged: false
+ApiChanged: false
+Frontends: customer, partner, admin
+BuildValidation: npm run build
+PaymentSafety: Toss Payments charge actions disabled until payment-start API integration

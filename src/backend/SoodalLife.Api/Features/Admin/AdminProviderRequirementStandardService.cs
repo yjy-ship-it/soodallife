@@ -8,6 +8,31 @@ namespace SoodalLife.Api.Features.Admin;
 
 public sealed class AdminProviderRequirementStandardService(SoodalLifeDbContext dbContext)
 {
+    private static readonly (string Code, string Name)[] DefaultTypes =
+    [
+        ("LICENSE", "면허"), ("INSURANCE", "보험"), ("SAFETY", "안전"),
+        ("QUALIFICATION", "자격"), ("EVIDENCE_VALIDITY", "증빙 유효성")
+    ];
+    private static readonly (string Type, string Code, string Name, string Description)[] DefaultDefinitions =
+    [
+        ("QUALIFICATION", "BUSINESS_REGISTRATION_VERIFICATION", "사업자등록 확인", "사업자등록 상태와 제출 정보의 일치 여부를 확인합니다."),
+        ("QUALIFICATION", "IDENTITY_AND_REPRESENTATIVE_VERIFICATION", "본인·대표자 확인", "전문가 본인 또는 법인 대표자 정보를 확인합니다."),
+        ("LICENSE", "PROFESSIONAL_LICENSE_VERIFICATION", "관련 자격·면허 확인", "서비스 수행에 필요한 자격증·면허·등록증의 유효 여부를 확인합니다."),
+        ("INSURANCE", "LIABILITY_INSURANCE_VERIFICATION", "배상책임보험 확인", "서비스 수행 중 사고에 대비한 배상책임보험 가입과 유효기간을 확인합니다."),
+        ("SAFETY", "SAFETY_EDUCATION_VERIFICATION", "안전교육 이수 확인", "업무에 필요한 안전교육 이수 여부와 유효기간을 확인합니다."),
+        ("EVIDENCE_VALIDITY", "EVIDENCE_EXPIRY_VERIFICATION", "증빙 유효기간 확인", "제출 증빙이 심사일과 서비스 수행기간 동안 유효한지 확인합니다.")
+    ];
+    private static readonly (string Code, string Name, bool SupportsExpiry)[] DefaultDocuments =
+    [
+        ("BUSINESS_REGISTRATION_CERTIFICATE", "사업자등록증", false),
+        ("IDENTITY_VERIFICATION_DOCUMENT", "본인·대표자 확인서류", false),
+        ("PROFESSIONAL_LICENSE_CERTIFICATE", "자격증·면허증·등록증", true),
+        ("LIABILITY_INSURANCE_CERTIFICATE", "배상책임보험 가입증명서", true),
+        ("SAFETY_EDUCATION_CERTIFICATE", "안전교육 이수증", true),
+        ("CAREER_CERTIFICATE", "경력증명서", false),
+        ("TAX_PAYMENT_CERTIFICATE", "국세·지방세 납세증명서", true),
+        ("BANK_ACCOUNT_COPY", "정산계좌 통장사본", false)
+    ];
     public async Task<AdminProviderRequirementStandardsResponse> GetAsync(CancellationToken cancellationToken) => new(
         await dbContext.ProviderRequirementTypes.AsNoTracking().OrderBy(item => item.Name)
             .Select(item => new AdminProviderRequirementTypeResponse(item.Code, item.Name, item.IsActive)).ToListAsync(cancellationToken),
@@ -94,6 +119,34 @@ public sealed class AdminProviderRequirementStandardService(SoodalLifeDbContext 
         AddAudit(actor, "PROVIDER_DOCUMENT_TYPE_UPDATED", "PROVIDER_DOCUMENT_TYPE", entity.PublicId, before, JsonSerializer.Serialize(request));
         await dbContext.SaveChangesAsync(cancellationToken);
         return ToResponse(entity);
+    }
+
+    public async Task<AdminProviderRequirementDefaultsResponse> ApplyDefaultsAsync(Guid actorPublicId, CancellationToken cancellationToken)
+    {
+        var actor = await GetActorAsync(actorPublicId, cancellationToken); var now = DateTime.UtcNow;
+        var existingTypes = await dbContext.ProviderRequirementTypes.Select(x => x.Code).ToListAsync(cancellationToken);
+        var existingDefinitions = await dbContext.ProviderRequirementDefinitions.Select(x => x.RequirementCode).ToListAsync(cancellationToken);
+        var existingDocuments = await dbContext.ProviderDocumentTypes.Select(x => x.Code).ToListAsync(cancellationToken);
+        var createdTypes = 0; var createdDefinitions = 0; var createdDocuments = 0;
+        foreach (var item in DefaultTypes.Where(x => !existingTypes.Contains(x.Code)))
+        {
+            dbContext.ProviderRequirementTypes.Add(new ProviderRequirementType { Code = item.Code, Name = item.Name, IsActive = true }); createdTypes++;
+        }
+        foreach (var item in DefaultDefinitions.Where(x => !existingDefinitions.Contains(x.Code)))
+        {
+            dbContext.ProviderRequirementDefinitions.Add(new ProviderRequirementDefinition { RequirementTypeCode = item.Type, RequirementCode = item.Code,
+                Name = item.Name, Description = item.Description, IsActive = true, CreatedAt = now, CreatedByUserId = actor, UpdatedAt = now, UpdatedByUserId = actor }); createdDefinitions++;
+        }
+        foreach (var item in DefaultDocuments.Where(x => !existingDocuments.Contains(x.Code)))
+        {
+            dbContext.ProviderDocumentTypes.Add(new ProviderDocumentType { Code = item.Code, Name = item.Name, SupportsExpiry = item.SupportsExpiry,
+                IsActive = true, CreatedAt = now, CreatedByUserId = actor, UpdatedAt = now, UpdatedByUserId = actor }); createdDocuments++;
+        }
+        var result = new AdminProviderRequirementDefaultsResponse(createdTypes, createdDefinitions, createdDocuments,
+            DefaultTypes.Length - createdTypes, DefaultDefinitions.Length - createdDefinitions, DefaultDocuments.Length - createdDocuments);
+        AddAudit(actor, "PROVIDER_REQUIREMENT_DEFAULTS_APPLIED", "PROVIDER_REQUIREMENT_STANDARD", Guid.Empty, null, JsonSerializer.Serialize(result));
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return result;
     }
 
     private async Task EnsureActiveTypeAsync(string code, CancellationToken cancellationToken)

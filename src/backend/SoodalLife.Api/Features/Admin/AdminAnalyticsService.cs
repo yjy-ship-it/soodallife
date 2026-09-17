@@ -193,7 +193,7 @@ public sealed class AdminAnalyticsService(SoodalLifeDbContext db)
         List<AdminAnalyticsMetricResponse> subscriptionMetrics =
         [
             M("subscription_requests", "구독 요청", await subscriptionRequests.LongCountAsync(token)),
-            M("subscription_applications", "공급자 신청", await subscriptionApplications.LongCountAsync(token)),
+            M("subscription_applications", "전문가 신청", await subscriptionApplications.LongCountAsync(token)),
             M("subscription_contracts", "계약", await subscriptionContracts.LongCountAsync(token)),
             M("subscription_active", "활성 계약", await subscriptionContracts.LongCountAsync(x => x.StatusCode == "ACTIVE", token)),
             M("subscription_paused", "정지 계약", await subscriptionContracts.LongCountAsync(x => x.StatusCode == "PAUSED", token)),
@@ -258,22 +258,32 @@ public sealed class AdminAnalyticsService(SoodalLifeDbContext db)
         var delayedInteriors = (long)(interiorMetrics.Single(x => x.Code == "interior_delayed").Value ?? 0m);
         var failedDeliveries = await deliveries.LongCountAsync(x => x.StatusCode == "FAILED", token);
         var pendingReports = reportStatuses.Where(x => x.Status is "RECEIVED" or "UNDER_REVIEW" or "EVIDENCE_REQUESTED").Sum(x => x.Count);
+        var analyticsEvents=db.AnalyticsEvents.AsNoTracking().Where(x=>x.OccurredAt>=start&&x.OccurredAt<end);
+        var discoveryVisitors=await analyticsEvents.Where(x=>x.EventTypeCode=="SERVICE_DISCOVERY_VIEWED").Select(x=>x.VisitorId).Distinct().LongCountAsync(token);
+        var requestVisitors=await analyticsEvents.Where(x=>x.EventTypeCode=="SERVICE_REQUEST_CREATED").Select(x=>x.VisitorId).Distinct().LongCountAsync(token);
+        var quoteViews=await analyticsEvents.LongCountAsync(x=>x.EventTypeCode=="QUOTE_VIEWED",token);
+        var apiRequests=analyticsEvents.Where(x=>x.EventTypeCode=="API_REQUEST");var apiRequestCount=await apiRequests.LongCountAsync(token);var apiErrors=await apiRequests.LongCountAsync(x=>x.StatusCode>=500,token);var apiAverage=apiRequestCount==0?(decimal?)null:(decimal?)await apiRequests.AverageAsync(x=>x.DurationMs??0,token);
+        var quoteResponsePairs=await(from request in requests join quote in quotes.Where(x=>x.SubmittedAt!=null) on request.Id equals quote.ServiceRequestId select new{request.CreatedAt,SubmittedAt=quote.SubmittedAt!.Value}).ToListAsync(token);
+        var firstResponseHours=quoteResponsePairs.Count==0?(decimal?)null:(decimal)quoteResponsePairs.GroupBy(x=>x.CreatedAt).Select(g=>(g.Min(x=>x.SubmittedAt)-g.Key).TotalHours).Average();
+        var quoteSlaRate=quoteResponsePairs.Count==0?(decimal?)null:(decimal)quoteResponsePairs.GroupBy(x=>x.CreatedAt).Count(g=>(g.Min(x=>x.SubmittedAt)-g.Key)<=TimeSpan.FromHours(24))/quoteResponsePairs.GroupBy(x=>x.CreatedAt).Count()*100;
+        var eventMetrics=new List<AdminAnalyticsMetricResponse>{M("service_discovery_visitors","서비스 탐색 방문자",discoveryVisitors,"명"),MN("request_conversion_rate","탐색→요청 전환율",discoveryVisitors==0?null:Math.Round((decimal)requestVisitors/discoveryVisitors*100,2),"%","익명 방문자 쿠키와 로그인 사용자를 중복 제거"),M("quote_views","견적 열람 이벤트",quoteViews),MN("first_quote_hours","첫 견적 평균 도착시간",firstResponseHours is null?null:Math.Round(firstResponseHours.Value,1),"시간"),MN("quote_response_sla","24시간 내 첫 견적률",quoteSlaRate is null?null:Math.Round(quoteSlaRate.Value,1),"%"),MN("api_error_rate","API 5xx 오류율",apiRequestCount==0?null:Math.Round((decimal)apiErrors/apiRequestCount*100,2),"%"),MN("api_average_ms","API 평균 응답시간",apiAverage is null?null:Math.Round(apiAverage.Value,1),"ms")};
 
         var sections = new List<AdminAnalyticsSectionResponse>
         {
-            S("members", "회원", M("customers_total", "전체 고객", totalCustomers, "명"), M("customers_active", "활성 고객", activeCustomers, "명"), M("customers_new", "기간 내 신규 고객", newCustomers, "명", previousNewCustomers), M("providers_total", "전체 공급자", totalProviders, "곳"), M("providers_approved", "승인 공급자", approvedProviders, "곳"), M("providers_pending", "승인대기 공급자", pendingProviders, "곳"), M("providers_inactive", "정지·비활성 공급자", inactiveProviders, "곳"), M("providers_new", "기간 내 신규 공급자", newProviders, "곳", previousNewProviders)),
+            S("members", "회원", M("customers_total", "전체 고객", totalCustomers, "명"), M("customers_active", "활성 고객", activeCustomers, "명"), M("customers_new", "기간 내 신규 고객", newCustomers, "명", previousNewCustomers), M("providers_total", "전체 전문가", totalProviders, "곳"), M("providers_approved", "승인 전문가", approvedProviders, "곳"), M("providers_pending", "승인대기 전문가", pendingProviders, "곳"), M("providers_inactive", "정지·비활성 전문가", inactiveProviders, "곳"), M("providers_new", "기간 내 신규 전문가", newProviders, "곳", previousNewProviders)),
             S("requests", "서비스 요청", [M("requests_total", "신규 요청", requestCount, previous: previousRequestCount), ..StatusMetrics("request", requestStatuses)]),
             S("quotes", "견적", M("quotes_submitted", "제출 견적", submittedQuotes), M("quotes_average", "요청당 평균 견적", averageQuotes, "건"), M("quotes_accepted", "채택 견적", acceptedQuotes), M("quotes_not_selected", "미채택 견적", notSelectedQuotes), M("quote_acceptance_rate", "견적 채택률", acceptanceRate, "%", note: "제출시각이 있는 견적 중 ACCEPTED 비율")),
             S("transactions", "거래", M("transactions_created", "생성 거래", transactionCount, previous: previousTransactionCount), M("transactions_in_progress", "진행 거래", Sum(transactionStatuses, InProgressTransactions)), M("transactions_completed", "완료 거래", Sum(transactionStatuses, "COMPLETED")), M("transactions_cancelled", "취소 거래", Sum(transactionStatuses, "CANCELLED")), M("transactions_disputed", "분쟁 거래", Sum(transactionStatuses, "DISPUTED")), M("transactions_agreed_amount", "확정 약정금액", agreedAmount, "원", note: "거래의 AgreedAmount 합계이며 본사 매출이 아님")),
-            S("wallet", "Wallet·수수료", M("wallet_balance", "현재 잔액", currentWalletBalance, "원"), M("wallet_charge", "충전", Positive(ledgerTotals, "CHARGE"), "원"), M("wallet_use", "차감", Abs(ledgerTotals, "USE"), "원"), M("wallet_refund", "환불", Abs(ledgerTotals, "REFUND"), "원"), M("wallet_adjust", "조정", SumAmount(ledgerTotals, "ADJUST"), "원"), M("fee_charged", "수수료 발생액", feeChargedAmount, "원", previousFeeAmount), M("fee_restored", "복원액", Math.Abs(restoredAmount), "원")),
+            S("wallet", "Wallet·수수료", M("wallet_balance", "현재 잔액", currentWalletBalance, "원"), M("wallet_charge", "결제", Positive(ledgerTotals, "CHARGE"), "원"), M("wallet_use", "차감", Abs(ledgerTotals, "USE"), "원"), M("wallet_refund", "환불", Abs(ledgerTotals, "REFUND"), "원"), M("wallet_adjust", "조정", SumAmount(ledgerTotals, "ADJUST"), "원"), M("fee_charged", "수수료 발생액", feeChargedAmount, "원", previousFeeAmount), M("fee_restored", "복원액", Math.Abs(restoredAmount), "원")),
             S("reviews", "리뷰", [M("reviews_total", "전체 리뷰", reviewCount), M("reviews_public", "공개 리뷰", publicReviews), M("reviews_hidden", "숨김 리뷰", hiddenReviews), M("reviews_verified", "검증된 거래·회차 리뷰", verifiedReviews), ..ratingAverages, new("overall_rating", "임의 종합평점", null, "점", null, null, "종합평점 산식 미확정")]),
-            S("after_service", "A/S", M("after_service_received", "접수", afterServiceCount), M("after_service_in_progress", "진행", Sum(afterServiceStatuses, OpenAfterService)), M("after_service_resolved", "해결", Sum(afterServiceStatuses, "RESOLVED")), M("after_service_unresolved", "미해결", unresolvedAfterService), M("after_service_dispute", "분쟁전환", convertedAfterService, note: "A/S 접수 자체를 공급자 귀책으로 해석하지 않음")),
+            S("after_service", "A/S", M("after_service_received", "접수", afterServiceCount), M("after_service_in_progress", "진행", Sum(afterServiceStatuses, OpenAfterService)), M("after_service_resolved", "해결", Sum(afterServiceStatuses, "RESOLVED")), M("after_service_unresolved", "미해결", unresolvedAfterService), M("after_service_dispute", "분쟁전환", convertedAfterService, note: "A/S 접수 자체를 전문가 귀책으로 해석하지 않음")),
             S("disputes", "분쟁", [M("disputes_received", "접수", disputeStatuses.Sum(x => x.Count)), M("disputes_reviewing", "검토 중", Sum(disputeStatuses, ["OPEN", "UNDER_REVIEW", "WAITING_CUSTOMER", "WAITING_PROVIDER"])), M("disputes_closed", "해결·종결", Sum(disputeStatuses, ["RESOLVED", "CLOSED"])), ..liabilityTotals, new("dispute_liability_warning", "분쟁 발생=귀책", null, "", null, null, "구조화된 최종 판정과 분리")]),
             S("reports_sanctions", "신고·제재", [..StatusMetrics("report", reportStatuses), ..StatusMetrics("sanction", sanctionStatuses), ..StatusMetrics("appeal", appealStatuses)]),
             S("trust", "Trust", [..StatusMetrics("trust", trustStatuses), ..trustGrades.Select(x => M("trust_grade_" + x.Status, "등급 " + x.Status, x.Count, "곳")), ..policyStatuses.Select(x => M("trust_policy_" + x.Status, "정책 " + x.Status, x.Count)), M("trust_simulations", "Simulation", simulations)]),
             new("subscriptions", "수달 케어·정기구독", subscriptionMetrics),
             new("interior", "인테리어", interiorMetrics),
             new("notifications", "알림", notificationMetrics),
+            new("funnel_sla", "전환·열람·SLA", eventMetrics),
         };
 
         var kpis = new List<AdminAnalyticsMetricResponse>
@@ -285,10 +295,10 @@ public sealed class AdminAnalyticsService(SoodalLifeDbContext db)
         };
         var attention = new List<AdminAnalyticsAttentionResponse>
         {
-            A("pending_providers", "승인대기 공급자", pendingProviders, "WARNING", "/admin/providers", "심사 대기"),
+            A("pending_providers", "승인대기 전문가", pendingProviders, "WARNING", "/admin/providers", "심사 대기"),
             A("pending_reports", "처리대기 신고", pendingReports, "WARNING", "/admin/reports", "신고 발생 자체는 제재·귀책이 아님"),
             A("unresolved_disputes", "미해결 분쟁", unresolvedDisputes, "CRITICAL", "/admin/disputes", "최종 귀책판정 전 사건 포함"),
-            A("unresolved_after_service", "미해결 A/S", unresolvedAfterService, "WARNING", "/admin/disputes", "A/S 접수 자체는 공급자 귀책이 아님"),
+            A("unresolved_after_service", "미해결 A/S", unresolvedAfterService, "WARNING", "/admin/disputes", "A/S 접수 자체는 전문가 귀책이 아님"),
             A("failed_payments", "실패 결제 Workflow", failedPayments, "CRITICAL", "/admin/subscriptions", "실제 PG 매출과 구분"),
             A("hold_settlements", "HOLD·정책대기 정산", holdSettlements, "CRITICAL", "/admin/subscriptions", "정산 확정 전"),
             A("delayed_interiors", "지연 인테리어", delayedInteriors, "WARNING", "/admin/interior", "예정 완료일 경과"),
@@ -300,12 +310,11 @@ public sealed class AdminAnalyticsService(SoodalLifeDbContext db)
             kpis, trend, requestsByCategory, requestsByRegion, sections, attention,
             categories.Select(x => new AdminAnalyticsFilterOptionResponse(x.PublicId, CategoryLabel(x.LevelCode, x.Name), ParentName(categories, x.ParentId))).ToArray(),
             areas.Select(x => new AdminAnalyticsFilterOptionResponse(x.PublicId, x.Name)).ToArray(),
+            await providers.OrderBy(x=>x.BusinessName).Take(1000).Select(x=>new AdminAnalyticsFilterOptionResponse(x.PublicId,x.BusinessName)).ToArrayAsync(token),
             [
-                "방문→요청 시작 전환율: 방문·세션 이벤트 없음",
                 "AI 자동작성 수용률·추천 정확도: AI 평가 이벤트 없음",
-                "첫 견적시간·견적 열람률: 열람 이벤트 기준 부족",
-                "일정·금액 준수율·SLA·재접수율: 확정 정책 및 판정 이벤트 부족",
-                "가용성·API 오류율·응답시간·배치 실패: 운영 모니터링 데이터가 업무 DB에 없음",
+                "일정·금액 준수율·재접수율: 업무별 확정 판정 정책 보완 필요",
+                "서버 가용성: 단일 인스턴스 내부 지표 외 외부 가용성 감시는 인프라 연동 필요",
                 "인테리어 수수료 매출: FeeAssessmentStatusCode=POLICY_PENDING 제외",
                 "외부 알림 성공률: 카카오·SMS·Email·Push 미연동",
                 "리뷰 종합평점: 산식 미확정",
@@ -390,6 +399,7 @@ public sealed class AdminAnalyticsService(SoodalLifeDbContext db)
     private static string CategoryLabel(string level, string name) => level switch { "MAJOR" => $"대분류 · {name}", "MIDDLE" => $"중분류 · {name}", _ => name };
     private static AdminAnalyticsSectionResponse S(string code, string title, params AdminAnalyticsMetricResponse[] metrics) => new(code, title, metrics);
     private static AdminAnalyticsMetricResponse M(string code, string label, decimal value, string unit = "건", decimal? previous = null, string? note = null) => new(code, label, value, unit, previous, Change(value, previous), note);
+    private static AdminAnalyticsMetricResponse MN(string code,string label,decimal? value,string unit,string? note=null)=>new(code,label,value,unit,null,null,note);
     private static decimal? Change(decimal value, decimal? previous) => previous is > 0 ? Math.Round((value - previous.Value) / previous.Value * 100m, 1) : null;
     private static AdminAnalyticsAttentionResponse A(string code, string label, long count, string severity, string path, string description) => new(code, label, count, severity, path, description);
     private static long Sum(IEnumerable<StatusTotal> values, params string[] statuses) => values.Where(x => statuses.Contains(x.Status)).Sum(x => x.Count);

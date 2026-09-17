@@ -24,12 +24,12 @@ async function parseError(response: Response): Promise<AuthenticationApiError> {
   }
 }
 
-export async function login(loginOrEmail: string, password: string): Promise<AuthenticatedUser> {
+export async function login(loginOrEmail: string, password: string, mfaCode?: string, rememberMe = false): Promise<AuthenticatedUser> {
   const response = await fetch('/api/v1/auth/login', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ loginOrEmail, password }),
+    body: JSON.stringify({ loginOrEmail, password, mfaCode: mfaCode || null, rememberMe }),
   })
 
   if (!response.ok) {
@@ -40,7 +40,14 @@ export async function login(loginOrEmail: string, password: string): Promise<Aut
 }
 
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
-  const response = await fetch('/api/v1/me', { credentials: 'include' })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 8000)
+  let response: Response
+  try {
+    response = await fetch('/api/v1/me', { credentials: 'include', signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeout)
+  }
   if (response.status === 401) {
     return null
   }

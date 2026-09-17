@@ -14,6 +14,11 @@ internal sealed class ServiceCategoryConfiguration() : EntityConfiguration<Servi
         Mapping.String(b, nameof(ServiceCategory.ExternalCode), "external_code", 50, nullable: true, unicode: false);
         Mapping.String(b, nameof(ServiceCategory.SourceRecordId), "source_record_id", 50, nullable: true, unicode: false);
         Mapping.String(b, nameof(ServiceCategory.Name), "name", 200);
+        Mapping.String(b, nameof(ServiceCategory.SearchKeywordsText), "search_keywords_text", 2000, nullable: true);
+        Mapping.String(b, nameof(ServiceCategory.SearchSlug), "search_slug", 220, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ServiceCategory.SeoTitle), "seo_title", 200, nullable: true);
+        Mapping.String(b, nameof(ServiceCategory.SeoDescription), "seo_description", 500, nullable: true);
+        Mapping.Bool(b, nameof(ServiceCategory.IsSearchIndexable), "is_search_indexable", true);
         Mapping.String(b, nameof(ServiceCategory.StatusCode), "status_code", 20, unicode: false, defaultValue: "ACTIVE");
         Mapping.Int(b, nameof(ServiceCategory.SortOrder), "sort_order", 0);
         Mapping.FullAudit(b);
@@ -22,6 +27,7 @@ internal sealed class ServiceCategoryConfiguration() : EntityConfiguration<Servi
         b.HasIndex(x => x.LevelCode);
         b.HasIndex(x => x.ExternalCode).IsUnique().HasFilter("[external_code] IS NOT NULL");
         b.HasIndex(x => x.SourceRecordId).IsUnique().HasFilter("[source_record_id] IS NOT NULL");
+        b.HasIndex(x => x.SearchSlug).IsUnique().HasFilter("[search_slug] IS NOT NULL");
         b.HasIndex(x => new { x.ParentId, x.Name }).IsUnique().HasFilter(null);
         b.HasIndex(x => new { x.ParentId, x.StatusCode, x.SortOrder });
         b.ToTable("service_categories", t =>
@@ -189,6 +195,7 @@ internal sealed class CategoryOperationPolicyConfiguration() : EntityConfigurati
         Mapping.String(b, nameof(CategoryOperationPolicy.PolicyVersion), "policy_version", 30, unicode: false);
         Mapping.String(b, nameof(CategoryOperationPolicy.RequestMethodText), "request_method_text", 300);
         Mapping.String(b, nameof(CategoryOperationPolicy.OnsiteRequirementText), "onsite_requirement_text", 30);
+        Mapping.String(b, nameof(CategoryOperationPolicy.CoverageTypeCode), "coverage_type_code", 30, unicode: false, defaultValue: "LOCAL_ONLY");
         Mapping.Bool(b, nameof(CategoryOperationPolicy.IsEmergencyAllowed), "is_emergency_allowed", false);
         Mapping.String(b, nameof(CategoryOperationPolicy.SubscriptionOptionText), "subscription_option_text", 30);
         Mapping.Short(b, nameof(CategoryOperationPolicy.MaxQuoteCount), "max_quote_count");
@@ -222,6 +229,7 @@ internal sealed class CategoryOperationPolicyConfiguration() : EntityConfigurati
         {
             t.HasCheckConstraint("CK_category_operation_policies_period", "[effective_to] IS NULL OR [effective_to] > [effective_from]");
             t.HasCheckConstraint("CK_category_operation_policies_counts", "[max_quote_count] > 0 AND [quote_validity_minutes] > 0 AND [provider_response_deadline_minutes] > 0 AND [required_completion_photo_count] >= 0 AND [default_warranty_days] >= 0");
+            t.HasCheckConstraint("CK_category_operation_policies_coverage_type", "[coverage_type_code] IN ('LOCAL_ONLY','NATIONWIDE_REMOTE','NATIONWIDE_DELIVERY','NATIONWIDE_NETWORK','FLEXIBLE')");
         });
     }
 }

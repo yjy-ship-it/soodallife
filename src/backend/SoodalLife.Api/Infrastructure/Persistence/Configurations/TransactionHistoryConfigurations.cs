@@ -60,6 +60,7 @@ internal sealed class TransactionRecordConfiguration() : EntityConfiguration<Tra
         b.HasIndex(x => new { x.ProviderProfileId, x.StatusCode, x.CreatedAt }).IsDescending(false, false, true);
         b.ToTable("transactions", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_transactions_status", "[status_code] IN ('CREATED','IN_PROGRESS','COMPLETION_SUBMITTED','REVISION_REQUESTED','COMPLETED','DISPUTED','CANCELLED')");
             t.HasCheckConstraint("CK_transactions_quote_json", "ISJSON([quote_snapshot_json]) = 1");
             t.HasCheckConstraint("CK_transactions_category_policy_json", "ISJSON([category_policy_snapshot_json]) = 1");
@@ -527,6 +528,7 @@ internal sealed class OutboxEventConfiguration() : EntityConfiguration<OutboxEve
         b.HasIndex(x => new { x.StatusCode, x.AvailableAt, x.Id });
         b.ToTable("outbox_events", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_outbox_events_status", "[status_code] IN ('PENDING','PROCESSING','PUBLISHED','FAILED','DEAD')");
             t.HasCheckConstraint("CK_outbox_events_payload_json", "ISJSON([payload_json]) = 1");
         });

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SoodalLife.Api.Features.Providers;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Matching;
@@ -17,11 +18,13 @@ public sealed record ProviderTradingEligibility(
 
 public sealed class ProviderTradingEligibilityService(SoodalLifeDbContext db)
 {
+    private static readonly string[] ExitLockStatuses = ["REQUESTED", "UNDER_REVIEW", "REFUND_REQUIRED", "BLOCKED_BY_ACTIVE_WORK", "READY_TO_COMPLETE"];
     public async Task<ProviderTradingEligibility> EvaluateAsync(
         long providerProfileId,
         long categoryId,
-        long administrativeAreaId,
-        CancellationToken cancellationToken)
+        long? administrativeAreaId,
+        CancellationToken cancellationToken,
+        bool allowNationwide = true)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var provider = await db.ProviderProfiles.AsNoTracking()
@@ -42,13 +45,19 @@ public sealed class ProviderTradingEligibilityService(SoodalLifeDbContext db)
 
         var userAndRoleActive = provider.UserActive && provider.RoleActive;
         var providerApproved = provider.ApprovalStatusCode == "APPROVED" && provider.ActivityStatusCode == "ACTIVE";
+        var exitLocked = await db.ProviderExitRequests.AsNoTracking().AnyAsync(item => item.ProviderProfileId == providerProfileId && ExitLockStatuses.Contains(item.StatusCode), cancellationToken);
         var service = await db.ProviderServiceCategories.AsNoTracking().SingleOrDefaultAsync(item =>
             item.ProviderProfileId == providerProfileId && item.CategoryId == categoryId && item.StatusCode == "ACTIVE", cancellationToken);
         var serviceRegistered = service is not null;
-        var serviceApproved = service is not null && await db.ProviderServiceApprovals.AsNoTracking().AnyAsync(item =>
-            item.ProviderServiceCategoryId == service.Id && item.ApprovalStatusCode == "APPROVED", cancellationToken);
-        var areaMatched = service is not null && await db.ProviderServiceAreas.AsNoTracking().AnyAsync(item =>
-            item.ProviderServiceCategoryId == service.Id && item.AdministrativeAreaId == administrativeAreaId && item.StatusCode == "ACTIVE", cancellationToken);
+        var coverageTypeCode = await db.CategoryOperationPolicies.AsNoTracking()
+            .Where(policy => policy.CategoryId == categoryId && policy.IsActive && policy.EffectiveFrom <= today &&
+                (policy.EffectiveTo == null || policy.EffectiveTo > today))
+            .OrderByDescending(policy => policy.EffectiveFrom)
+            .Select(policy => policy.CoverageTypeCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        var areaMatched = service is not null && ((allowNationwide && service.IsNationwide) ||
+            administrativeAreaId.HasValue && await db.ProviderServiceAreas.AsNoTracking().AnyAsync(item =>
+                item.ProviderServiceCategoryId == service.Id && item.AdministrativeAreaId == administrativeAreaId.Value && item.StatusCode == "ACTIVE", cancellationToken));
 
         var operationPolicyIds = await db.CategoryOperationPolicies.AsNoTracking()
             .Where(policy => policy.CategoryId == categoryId && policy.IsActive && policy.EffectiveFrom <= today &&
@@ -57,10 +66,17 @@ public sealed class ProviderTradingEligibilityService(SoodalLifeDbContext db)
         var assignments = await db.CategoryProviderRequirementAssignments.AsNoTracking()
             .Where(item => operationPolicyIds.Contains(item.CategoryOperationPolicyId) && item.IsActive)
             .ToListAsync(cancellationToken);
-        var requirementsConfigured = assignments.Count > 0;
+        var autonomousNationwide = service is not null && service.IsNationwide &&
+            ProviderCoveragePolicy.AllowsNationwide(coverageTypeCode) &&
+            assignments.All(item => !item.IsRequired || !item.VerificationRequired);
+        var serviceApproved = autonomousNationwide || service is not null && await db.ProviderServiceApprovals.AsNoTracking().AnyAsync(item =>
+            item.ProviderServiceCategoryId == service.Id && item.ApprovalStatusCode == "APPROVED", cancellationToken);
+        // An empty assignment set means that the category intentionally requires no evidence.
+        // It must not be treated as an administrator configuration error.
+        var requirementsConfigured = true;
         var required = assignments.Where(item => item.IsRequired).ToArray();
-        var evidenceValid = requirementsConfigured && service is not null;
-        if (evidenceValid)
+        var evidenceValid = autonomousNationwide || service is not null;
+        if (evidenceValid && !autonomousNationwide)
         {
             var assignmentIds = required.Select(item => item.Id).ToArray();
             var verifications = await db.ProviderServiceRequirementVerifications.AsNoTracking()
@@ -75,7 +91,8 @@ public sealed class ProviderTradingEligibilityService(SoodalLifeDbContext db)
             });
         }
 
-        var reason = !userAndRoleActive ? "PROVIDER_USER_OR_ROLE_INACTIVE"
+        var reason = exitLocked ? "PROVIDER_EXIT_IN_PROGRESS"
+            : !userAndRoleActive ? "PROVIDER_USER_OR_ROLE_INACTIVE"
             : !providerApproved ? "PROVIDER_NOT_APPROVED_ACTIVE"
             : !serviceRegistered ? "SERVICE_CATEGORY_MISMATCH"
             : !serviceApproved ? "SERVICE_NOT_APPROVED"

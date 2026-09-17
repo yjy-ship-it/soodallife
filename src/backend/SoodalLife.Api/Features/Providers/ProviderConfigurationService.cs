@@ -1,21 +1,29 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SoodalLife.Api.Domain.Entities;
+using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Features.Work;
+using SoodalLife.Api.Features.Matching;
 using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Providers;
 
-public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, IPrivateFileStorage fileStorage)
+public sealed class ProviderConfigurationService(
+    SoodalLifeDbContext dbContext,
+    IPrivateFileStorage fileStorage,
+    RequestMatchingService matchingService,
+    ILogger<ProviderConfigurationService> logger)
 {
     public async Task<ProviderProfileResponse> GetProfileAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
     {
         var identity = await GetIdentityAsync(principal, cancellationToken);
         var rejection = await dbContext.ProviderApprovalEvents.AsNoTracking()
-            .Where(x => x.ProviderProfileId == identity.Profile.Id && x.ToStatusCode == "REJECTED")
+            .Where(x => identity.Profile.ApprovalStatusCode == "REJECTED" && x.ProviderProfileId == identity.Profile.Id && x.ToStatusCode == "REJECTED")
             .OrderByDescending(x => x.DecidedAt).Select(x => x.Reason).FirstOrDefaultAsync(cancellationToken);
         return MapProfile(identity, rejection);
     }
@@ -24,16 +32,26 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
     {
         var identity = await GetIdentityAsync(principal, token);
         ApplyConcurrency(identity.Profile, input.ConcurrencyToken);
-        Require(input.BusinessName, "BUSINESS_NAME_REQUIRED", "상호 또는 공급자 표시명을 입력해 주세요.", 200);
+        Require(input.BusinessName, "BUSINESS_NAME_REQUIRED", "상호 또는 전문가 표시명을 입력해 주세요.", 200);
         Require(input.RepresentativeName, "REPRESENTATIVE_NAME_REQUIRED", "대표자명을 입력해 주세요.", 100);
         Require(input.ContactName, "CONTACT_NAME_REQUIRED", "담당자명을 입력해 주세요.", 100);
-        var email = Clean(input.Email, 320)?.ToLowerInvariant();
-        if (email is not null && (!email.Contains('@') || email.StartsWith('@') || email.EndsWith('@')))
-            throw Invalid("EMAIL_INVALID", "올바른 이메일을 입력해 주세요.");
+        // V212: 연락용/공개용 이메일을 하나로 통합한다. 이전 화면에서 PublicEmail만
+        // 보내는 경우도 보존해 배포 직후 캐시된 구버전 화면과 호환한다.
+        var emailSource = !string.IsNullOrWhiteSpace(input.Email) ? input.Email : input.PublicEmail;
+        var email = Clean(emailSource, 320)?.ToLowerInvariant();
+        if (email is not null && !Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            throw Invalid("EMAIL_INVALID", "이메일 아이디와 도메인을 모두 확인해 주세요.");
         var phone = Clean(input.Phone, 30)?.Replace("-", "").Replace(" ", "");
+        var verifiedPhone = identity.User.Phone?.Replace("-", "").Replace(" ", "");
+        if (!string.Equals(phone, verifiedPhone, StringComparison.Ordinal))
+            throw Invalid("PHONE_REVERIFICATION_REQUIRED", "심사용 전화번호는 본인인증 정보입니다. 번호 변경은 휴대폰 본인인증 절차에서 진행해 주세요.");
         var registrationNumber = input.BusinessRegistrationNumber?.Contains('*') == true
             ? identity.Profile.BusinessRegistrationNo
             : NormalizeBusinessNumber(input.BusinessRegistrationNumber);
+        var providerType = EffectiveProviderType(identity.Profile);
+        if (providerType == "BUSINESS" && registrationNumber is null)
+            throw Invalid("BUSINESS_NUMBER_REQUIRED", "사업자 전문가는 사업자등록번호가 필요합니다.");
+        if (providerType == "INDIVIDUAL") registrationNumber = null;
         if (registrationNumber is not null && await dbContext.ProviderProfiles.AnyAsync(x => x.Id != identity.Profile.Id && x.BusinessRegistrationNo == registrationNumber, token))
             throw new ProviderConfigurationException("BUSINESS_NUMBER_DUPLICATE", "이미 등록된 사업자등록번호입니다.", StatusCodes.Status409Conflict);
         if (email is not null)
@@ -46,13 +64,14 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         identity.Profile.RepresentativeName = input.RepresentativeName.Trim();
         identity.Profile.ContactName = input.ContactName.Trim();
         identity.Profile.BusinessRegistrationNo = registrationNumber;
-        identity.Profile.BusinessAddress = Clean(input.BusinessAddress, 500);
-        identity.Profile.BusinessTypeText = Clean(input.BusinessTypeText, 100);
-        identity.Profile.BusinessItemText = Clean(input.BusinessItemText, 100);
+        identity.Profile.ProviderTypeCode = providerType;
+        identity.Profile.BusinessAddress = providerType == "BUSINESS" ? Clean(input.BusinessAddress, 500) : null;
+        identity.Profile.BusinessTypeText = providerType == "BUSINESS" ? Clean(input.BusinessTypeText, 100) : null;
+        identity.Profile.BusinessItemText = providerType == "BUSINESS" ? Clean(input.BusinessItemText, 100) : null;
         identity.Profile.Introduction = Clean(input.Introduction, 1000);
         identity.Profile.PublicIntroductionHtml = ValidatePublicHtml(input.PublicIntroductionHtml);
         identity.Profile.PublicPhone = Clean(input.PublicPhone, 30);
-        identity.Profile.PublicEmail = ValidatePublicEmail(input.PublicEmail);
+        identity.Profile.PublicEmail = email;
         identity.Profile.PublicAddress = Clean(input.PublicAddress, 500);
         identity.Profile.PublicBlogUrl = ValidateHttpsUrl(input.PublicBlogUrl, "BLOG_URL_INVALID");
         identity.Profile.PublicWebsiteUrl = ValidateHttpsUrl(input.PublicWebsiteUrl, "WEBSITE_URL_INVALID");
@@ -61,9 +80,10 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
             .Where(x => !string.IsNullOrWhiteSpace(x)).Take(5).Select(x => ValidatePublicImageUrl(x, "PHOTO_URL_INVALID")!).ToArray());
         identity.Profile.UpdatedAt = DateTime.UtcNow;
         identity.Profile.UpdatedByUserId = identity.UserId;
+        var emailChanged = !string.Equals(identity.User.Email, email, StringComparison.OrdinalIgnoreCase);
         identity.User.Email = email;
         identity.User.NormalizedEmail = email?.ToUpperInvariant();
-        identity.User.Phone = phone;
+        if (emailChanged) identity.User.EmailVerificationStatusCode = "NOT_INTEGRATED";
         identity.User.UpdatedAt = DateTime.UtcNow;
         identity.User.UpdatedByUserId = identity.UserId;
         try { await dbContext.SaveChangesAsync(token); }
@@ -95,9 +115,12 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         var categories = await dbContext.ServiceCategories
             .Where(category => categoryIds.Contains(category.PublicId) &&
                                category.LevelCode == "SERVICE" && category.StatusCode == "ACTIVE" &&
-                               dbContext.CategoryPolicies.Any(policy =>
-                                   policy.CategoryId == category.Id && policy.TransactionTypeCode == "ONE_TIME" &&
-                                   policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)))
+                               (dbContext.CategoryPolicies.Any(policy =>
+                                    policy.CategoryId == category.Id && (policy.TransactionTypeCode == "ONE_TIME" || policy.TransactionTypeCode == "PROJECT") &&
+                                    policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today)) ||
+                                dbContext.CategoryOperationPolicies.Any(policy =>
+                                    policy.CategoryId == category.Id && policy.IsActive && policy.SubscriptionOptionText == "허용" &&
+                                    policy.EffectiveFrom <= today && (policy.EffectiveTo == null || policy.EffectiveTo > today))))
             .ToListAsync(cancellationToken);
         if (categories.Count != categoryIds.Count)
         {
@@ -114,6 +137,7 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
             var active = desiredInternalIds.Contains(item.CategoryId);
             var wasActive = item.StatusCode == "ACTIVE";
             item.StatusCode = active ? "ACTIVE" : "INACTIVE";
+            if (!active) item.IsNationwide = false;
             item.ActivatedAt = active && !wasActive ? now : item.ActivatedAt;
             item.DeactivatedAt = active ? null : item.DeactivatedAt ?? now;
             item.UpdatedAt = now;
@@ -158,15 +182,25 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
             .Where(x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "ACTIVE")
             .ToListAsync(cancellationToken);
         var activeServiceIds = activeServices.Select(x => x.Id).ToArray();
-        var existingApprovalIds = await dbContext.ProviderServiceApprovals
-            .Where(x => activeServiceIds.Contains(x.ProviderServiceCategoryId))
-            .Select(x => x.ProviderServiceCategoryId).ToListAsync(cancellationToken);
+        var existingApprovals = await dbContext.ProviderServiceApprovals
+            .Where(x => activeServiceIds.Contains(x.ProviderServiceCategoryId)).ToListAsync(cancellationToken);
+        foreach (var approval in existingApprovals.Where(x => x.ApprovalStatusCode != "APPROVED"))
+        {
+            approval.ApprovalStatusCode = "APPROVED"; approval.ApprovalDecidedAt = now;
+            approval.ApprovalDecidedByUserId = null; approval.DecisionReason = "전문가 등록 카테고리 시스템 자동 승인";
+            approval.UpdatedAt = now; approval.UpdatedByUserId = identity.UserId;
+        }
+        var existingApprovalIds = existingApprovals.Select(x => x.ProviderServiceCategoryId).ToHashSet();
         foreach (var service in activeServices.Where(x => !existingApprovalIds.Contains(x.Id)))
+        {
             dbContext.ProviderServiceApprovals.Add(new ProviderServiceApproval
             {
-                ProviderServiceCategoryId = service.Id, ApprovalStatusCode = "PENDING", ApprovalRequestedAt = now,
+                ProviderServiceCategoryId = service.Id, ApprovalStatusCode = "APPROVED", ApprovalRequestedAt = now,
+                ApprovalDecidedAt = now,
+                DecisionReason = "전문가 등록 카테고리 시스템 자동 승인",
                 CreatedAt = now, CreatedByUserId = identity.UserId, UpdatedAt = now, UpdatedByUserId = identity.UserId,
             });
+        }
         var requirements = await (from service in dbContext.ProviderServiceCategories
                                   join operation in dbContext.CategoryOperationPolicies on service.CategoryId equals operation.CategoryId
                                   join assignment in dbContext.CategoryProviderRequirementAssignments on operation.Id equals assignment.CategoryOperationPolicyId
@@ -183,6 +217,7 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
                 UpdatedAt = now, UpdatedByUserId = identity.UserId,
             });
         await dbContext.SaveChangesAsync(cancellationToken);
+        await matchingService.RefreshProviderMatchesAsync(identity.Profile.Id, cancellationToken);
         return await QueryServiceCategories(identity.Profile.Id, cancellationToken);
     }
 
@@ -200,24 +235,75 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         CancellationToken cancellationToken)
     {
         var identity = await GetIdentityAsync(principal, cancellationToken);
-        var selections = input.Services ?? [];
+        if (!await dbContext.ProviderServiceCategories.AsNoTracking().AnyAsync(
+                value => value.ProviderProfileId == identity.Profile.Id && value.StatusCode == "ACTIVE", cancellationToken))
+        {
+            throw Invalid("PROVIDER_SERVICE_REQUIRED_FOR_AREA", "활동지역을 설정하려면 서비스 분야를 먼저 설정해 주세요.");
+        }
+        var directSelections = input.Services ?? [];
+        var middleSelections = input.Middles ?? [];
+        var nationwideIds = input.NationwideServiceCategoryIds ?? [];
+        if (nationwideIds.Count != nationwideIds.Distinct().Count())
+            throw Invalid("PROVIDER_NATIONWIDE_DUPLICATE", "전국 서비스는 중복 선택할 수 없습니다.");
+        if (directSelections.Count > 0 && middleSelections.Count > 0)
+        {
+            throw Invalid("PROVIDER_AREA_SELECTION_MODE_INVALID", "출장지역은 중분류 또는 하위 서비스 중 한 가지 기준으로만 저장할 수 있습니다.");
+        }
+        if (middleSelections.Count != middleSelections.Select(selection => selection.MiddleCategoryId).Distinct().Count() ||
+            middleSelections.Any(selection => selection.AdministrativeAreaIds.Count != selection.AdministrativeAreaIds.Distinct().Count()))
+        {
+            throw Invalid("PROVIDER_MIDDLE_AREA_DUPLICATE", "동일한 중분류 또는 출장지역을 중복 선택할 수 없습니다.");
+        }
+        IReadOnlyList<ProviderServiceAreaSelection> selections = directSelections;
+        if (middleSelections.Count > 0)
+        {
+            var middlePublicIds = middleSelections.Select(selection => selection.MiddleCategoryId).ToArray();
+            var middleServices = await (
+                    from providerService in dbContext.ProviderServiceCategories.AsNoTracking()
+                    join service in dbContext.ServiceCategories.AsNoTracking() on providerService.CategoryId equals service.Id
+                    join middle in dbContext.ServiceCategories.AsNoTracking() on service.ParentId equals middle.Id
+                    where providerService.ProviderProfileId == identity.Profile.Id && providerService.StatusCode == "ACTIVE" &&
+                          middlePublicIds.Contains(middle.PublicId)
+                    select new { ServiceId = service.PublicId, MiddleId = middle.PublicId })
+                .ToListAsync(cancellationToken);
+            if (middleServices.Select(value => value.MiddleId).Distinct().Count() != middlePublicIds.Length)
+            {
+                throw Invalid("PROVIDER_AREA_MIDDLE_INVALID", "본인이 제공 중인 서비스의 중분류에만 출장지역을 설정할 수 있습니다.");
+            }
+            var areasByMiddle = middleSelections.ToDictionary(selection => selection.MiddleCategoryId, selection => selection.AdministrativeAreaIds);
+            selections = middleServices.Select(value => new ProviderServiceAreaSelection(value.ServiceId, areasByMiddle[value.MiddleId])).ToArray();
+        }
         if (selections.Count != selections.Select(selection => selection.ServiceCategoryId).Distinct().Count() ||
             selections.Any(selection => selection.AdministrativeAreaIds.Count != selection.AdministrativeAreaIds.Distinct().Count()))
         {
             throw Invalid("PROVIDER_AREA_DUPLICATE", "동일한 서비스 또는 출장지역을 중복 선택할 수 없습니다.");
         }
+        if (selections.Any(selection => nationwideIds.Contains(selection.ServiceCategoryId) && selection.AdministrativeAreaIds.Count > 0))
+            throw Invalid("PROVIDER_NATIONWIDE_AREA_CONFLICT", "전국 서비스와 시·군·구 활동지역은 같은 서비스에 동시에 설정할 수 없습니다.");
 
-        var serviceCategoryPublicIds = selections.Select(selection => selection.ServiceCategoryId).ToArray();
+        var serviceCategoryPublicIds = selections.Select(selection => selection.ServiceCategoryId).Concat(nationwideIds).Distinct().ToArray();
         var providerServices = await (
                 from providerService in dbContext.ProviderServiceCategories
                 join category in dbContext.ServiceCategories on providerService.CategoryId equals category.Id
-                where providerService.ProviderProfileId == identity.Profile.Id && providerService.StatusCode == "ACTIVE" &&
-                      serviceCategoryPublicIds.Contains(category.PublicId)
+                where providerService.ProviderProfileId == identity.Profile.Id && providerService.StatusCode == "ACTIVE"
                 select new { ProviderService = providerService, Category = category })
             .ToListAsync(cancellationToken);
-        if (providerServices.Count != serviceCategoryPublicIds.Length)
+        if (serviceCategoryPublicIds.Any(id => providerServices.All(item => item.Category.PublicId != id)))
         {
             throw Invalid("PROVIDER_AREA_SERVICE_INVALID", "본인의 활성 제공 서비스에 대해서만 출장지역을 설정할 수 있습니다.");
+        }
+        var nationwideServices = providerServices.Where(item => nationwideIds.Contains(item.Category.PublicId)).ToArray();
+        foreach (var item in nationwideServices)
+        {
+            var policy = await dbContext.CategoryOperationPolicies.AsNoTracking()
+                .Where(value => value.CategoryId == item.Category.Id && value.IsActive)
+                .OrderByDescending(value => value.EffectiveFrom)
+                .Select(value => value.CoverageTypeCode)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!ProviderCoveragePolicy.AllowsNationwide(policy))
+                throw Invalid("PROVIDER_NATIONWIDE_NOT_ALLOWED", $"{item.Category.Name} 서비스는 현재 지역 방문형으로 분류되어 전국 제공을 선택할 수 없습니다.");
+            if (await dbContext.ProviderEmergencyServiceSettings.AsNoTracking().AnyAsync(value => value.ProviderServiceCategoryId == item.ProviderService.Id && value.IsEnabled, cancellationToken))
+                throw Invalid("PROVIDER_NATIONWIDE_EMERGENCY_CONFLICT", "긴급출동으로 사용 중인 서비스는 전국 서비스로 설정할 수 없습니다. 실제 이동 가능한 지역을 선택해 주세요.");
         }
 
         var areaPublicIds = selections.SelectMany(selection => selection.AdministrativeAreaIds).Distinct().ToArray();
@@ -237,6 +323,73 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
             .Where(item => providerServiceIds.Contains(item.ProviderServiceCategoryId))
             .ToListAsync(cancellationToken);
         var now = DateTime.UtcNow;
+        foreach (var item in providerServices)
+        {
+            item.ProviderService.IsNationwide = nationwideIds.Contains(item.Category.PublicId);
+            item.ProviderService.UpdatedAt = now;
+            item.ProviderService.UpdatedByUserId = identity.UserId;
+        }
+
+        var activeCategoryIds = providerServices.Select(item => item.Category.Id).ToArray();
+        var activePolicies = await dbContext.CategoryOperationPolicies.AsNoTracking()
+            .Where(policy => activeCategoryIds.Contains(policy.CategoryId) && policy.IsActive)
+            .OrderByDescending(policy => policy.EffectiveFrom)
+            .ToListAsync(cancellationToken);
+        var currentPolicies = activePolicies.GroupBy(policy => policy.CategoryId)
+            .ToDictionary(group => group.Key, group => group.First());
+        var policyIds = currentPolicies.Values.Select(policy => policy.Id).ToArray();
+        var protectedPolicyIds = await dbContext.CategoryProviderRequirementAssignments.AsNoTracking()
+            .Where(assignment => policyIds.Contains(assignment.CategoryOperationPolicyId) && assignment.IsActive &&
+                assignment.IsRequired && assignment.VerificationRequired)
+            .Select(assignment => assignment.CategoryOperationPolicyId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+        var autonomousServices = providerServices.Where(item =>
+            item.ProviderService.IsNationwide &&
+            currentPolicies.TryGetValue(item.Category.Id, out var policy) &&
+            ProviderCoveragePolicy.AllowsNationwide(policy.CoverageTypeCode) &&
+            !protectedPolicyIds.Contains(policy.Id)).ToArray();
+        var autonomousServiceIds = autonomousServices.Select(item => item.ProviderService.Id).ToArray();
+        var approvals = await dbContext.ProviderServiceApprovals
+            .Where(approval => autonomousServiceIds.Contains(approval.ProviderServiceCategoryId))
+            .ToListAsync(cancellationToken);
+        foreach (var service in autonomousServices)
+        {
+            var approval = approvals.SingleOrDefault(value => value.ProviderServiceCategoryId == service.ProviderService.Id);
+            if (approval is null)
+            {
+                approval = new ProviderServiceApproval
+                {
+                    ProviderServiceCategoryId = service.ProviderService.Id,
+                    ApprovalRequestedAt = now,
+                    CreatedAt = now,
+                    CreatedByUserId = identity.UserId,
+                };
+                dbContext.ProviderServiceApprovals.Add(approval);
+                approvals.Add(approval);
+            }
+            approval.ApprovalStatusCode = "APPROVED";
+            approval.ApprovalDecidedAt = now;
+            approval.ApprovalDecidedByUserId = null;
+            approval.DecisionReason = "본인인증 완료 전국 서비스 자율등록";
+            approval.UpdatedAt = now;
+            approval.UpdatedByUserId = identity.UserId;
+        }
+
+        var phoneVerified = await dbContext.Users.AsNoTracking()
+            .Where(user => user.Id == identity.UserId)
+            .Select(user => user.PhoneVerificationStatusCode == "VERIFIED")
+            .SingleAsync(cancellationToken);
+        if (phoneVerified && providerServices.Count > 0 && autonomousServices.Length == providerServices.Count &&
+            identity.Profile.ApprovalStatusCode == "PENDING")
+        {
+            identity.Profile.ApprovalStatusCode = "APPROVED";
+            identity.Profile.ActivityStatusCode = "ACTIVE";
+            identity.Profile.ApprovalDecidedAt = now;
+            identity.Profile.ApprovalDecidedByUserId = null;
+            identity.Profile.UpdatedAt = now;
+            identity.Profile.UpdatedByUserId = identity.UserId;
+        }
         foreach (var item in existing.Where(item => item.StatusCode == "ACTIVE"))
         {
             item.StatusCode = "INACTIVE";
@@ -277,6 +430,16 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await matchingService.RefreshProviderMatchesAsync(identity.Profile.Id, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception,
+                "Provider service areas were saved, but automatic rematching failed. ProviderProfileId={ProviderProfileId}",
+                identity.Profile.Id);
+        }
         return await QueryServiceAreas(identity.Profile.Id, cancellationToken);
     }
 
@@ -649,29 +812,12 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
 
     private static ValidatedPromotionImage ValidatePromotionImageBytes(string fileName, string contentType, byte[] bytes)
     {
-        if (bytes.Length is <= 0 or > 5_242_880)
-            throw Invalid("PROMOTION_IMAGE_SIZE_INVALID", "로고와 홍보 사진은 파일당 5MB 이하만 등록할 수 있습니다.");
-        var name = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(name) || name != fileName || name.Length > 255)
-            throw Invalid("PROMOTION_IMAGE_NAME_INVALID", "안전한 이미지 파일명을 사용해 주세요.");
-        var extension = Path.GetExtension(name).ToLowerInvariant();
-        var allowed = (contentType, extension) switch
+        try
         {
-            ("image/jpeg", ".jpg" or ".jpeg") => true,
-            ("image/png", ".png") => true,
-            ("image/webp", ".webp") => true,
-            _ => false,
-        };
-        if (!allowed) throw Invalid("PROMOTION_IMAGE_TYPE_INVALID", "JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
-        var valid = contentType switch
-        {
-            "image/jpeg" => bytes.Length >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff,
-            "image/png" => bytes.Length >= 8 && bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
-            "image/webp" => bytes.Length >= 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8),
-            _ => false,
-        };
-        if (!valid) throw Invalid("PROMOTION_IMAGE_SIGNATURE_INVALID", "이미지 확장자와 실제 파일 형식이 일치하지 않습니다.");
-        return new(bytes, name, contentType, extension);
+            var safe = SafeImageUploadPolicy.Process(fileName, contentType, bytes);
+            return new(safe.Bytes, safe.FileName, safe.ContentType, safe.Extension);
+        }
+        catch (SafeImageUploadException error) { throw Invalid(error.Code, error.Message); }
     }
 
     private static string PromotionImageUrl(Guid fileId) => $"/api/v1/provider-promotion-images/{fileId}";
@@ -770,7 +916,7 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         if (areaCount == 0) actions.Add("서비스별 활동지역을 선택해 주세요.");
         if (requirements.Any(x => x.ProviderDocumentId == null)) actions.Add("필수 증빙을 제출해 주세요.");
         if (identity.Profile.ApprovalStatusCode == "PENDING") actions.Add("본사 심사 결과를 기다려 주세요.");
-        var rejection = await dbContext.ProviderApprovalEvents.AsNoTracking().Where(x => x.ProviderProfileId == identity.Profile.Id && x.ToStatusCode == "REJECTED").OrderByDescending(x => x.DecidedAt).Select(x => x.Reason).FirstOrDefaultAsync(token);
+        var rejection = await dbContext.ProviderApprovalEvents.AsNoTracking().Where(x => identity.Profile.ApprovalStatusCode == "REJECTED" && x.ProviderProfileId == identity.Profile.Id && x.ToStatusCode == "REJECTED").OrderByDescending(x => x.DecidedAt).Select(x => x.Reason).FirstOrDefaultAsync(token);
         return new(identity.Profile.ApprovalStatusCode, identity.Profile.ActivityStatusCode, services.Count,
             approvals.Count(x => x == "APPROVED"), approvals.Count(x => x == "PENDING"), approvals.Count(x => x == "REJECTED"),
             areaCount, requirements.Count, requirements.Count(x => x.ProviderDocumentId != null), requirements.Count(x => x.VerificationStatusCode == "APPROVED"), actions, rejection);
@@ -827,10 +973,46 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
                               select item).SingleOrDefaultAsync(token)
             ?? throw new ProviderConfigurationException("PROVIDER_SERVICE_NOT_FOUND", "등록 서비스를 찾을 수 없습니다.", StatusCodes.Status404NotFound);
         if (approval.ApprovalStatusCode != "REJECTED") throw Invalid("SERVICE_RESUBMIT_NOT_ALLOWED", "반려된 서비스만 재심사를 요청할 수 있습니다.");
-        approval.ApprovalStatusCode = "PENDING"; approval.ApprovalRequestedAt = DateTime.UtcNow;
+        var now = DateTime.UtcNow; var previousReason = approval.DecisionReason;
+        approval.ApprovalStatusCode = "PENDING"; approval.ApprovalRequestedAt = now;
         approval.ApprovalDecidedAt = null; approval.ApprovalDecidedByUserId = null; approval.DecisionReason = null;
-        approval.UpdatedAt = DateTime.UtcNow; approval.UpdatedByUserId = identity.UserId;
+        approval.UpdatedAt = now; approval.UpdatedByUserId = identity.UserId;
+        dbContext.ProviderServiceApprovalEvents.Add(new ProviderServiceApprovalEvent { ProviderServiceCategoryId = approval.ProviderServiceCategoryId,
+            FromStatusCode = "REJECTED", ToStatusCode = "PENDING", ActionCode = "RESUBMIT", DecisionReason = previousReason,
+            DecidedAt = now, DecidedByUserId = identity.UserId, CreatedAt = now });
+        dbContext.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = identity.UserId, ActorRoleCode = "PROVIDER",
+            ActionCode = "PROVIDER_SERVICE_RESUBMITTED", EntityType = "PROVIDER_SERVICE_APPROVAL", EntityPublicId = approval.PublicId,
+            ResultCode = "SUCCESS", Reason = previousReason, BeforeJson = JsonSerializer.Serialize(new { ApprovalStatusCode = "REJECTED" }),
+            AfterJson = JsonSerializer.Serialize(new { ApprovalStatusCode = "PENDING" }), MetadataJson = JsonSerializer.Serialize(new { CategoryId = categoryId }) });
         await dbContext.SaveChangesAsync(token);
+        await matchingService.RefreshProviderMatchesAsync(identity.Profile.Id, token);
+    }
+
+    public async Task<ProviderOnboardingDashboardResponse> ResubmitApprovalAsync(ClaimsPrincipal principal, ResubmitProviderApprovalInput input, CancellationToken token)
+    {
+        var identity = await GetIdentityAsync(principal, token);
+        if (identity.Profile.ApprovalStatusCode != "REJECTED") throw Invalid("APPROVAL_RESUBMIT_NOT_ALLOWED", "전체 심사가 반려된 경우에만 보완 제출할 수 있습니다.");
+        ApplyConcurrency(identity.Profile, input.ConcurrencyToken);
+        var activeServiceIds = await dbContext.ProviderServiceCategories.Where(x => x.ProviderProfileId == identity.Profile.Id && x.StatusCode == "ACTIVE").Select(x => x.Id).ToArrayAsync(token);
+        if (activeServiceIds.Length == 0) throw Invalid("APPROVAL_RESUBMIT_SERVICE_REQUIRED", "서비스 분야를 한 개 이상 등록해 주세요.");
+        if (await dbContext.ProviderServiceApprovals.AnyAsync(x => activeServiceIds.Contains(x.ProviderServiceCategoryId) && x.ApprovalStatusCode == "REJECTED", token))
+            throw Invalid("APPROVAL_RESUBMIT_REJECTED_SERVICE", "반려된 서비스의 보완 제출을 먼저 완료해 주세요.");
+        var note = string.IsNullOrWhiteSpace(input.Note) ? "전문가 보완 제출" : input.Note.Trim();
+        if (note.Length > 1000) throw Invalid("APPROVAL_RESUBMIT_NOTE_TOO_LONG", "보완 내용은 1,000자 이하여야 합니다.");
+        var now = DateTime.UtcNow;
+        identity.Profile.ApprovalStatusCode = "PENDING"; identity.Profile.ActivityStatusCode = "INACTIVE";
+        identity.Profile.ApprovalDecidedAt = null; identity.Profile.ApprovalDecidedByUserId = null;
+        identity.Profile.UpdatedAt = now; identity.Profile.UpdatedByUserId = identity.UserId;
+        dbContext.ProviderApprovalEvents.Add(new ProviderApprovalEvent { ProviderProfileId = identity.Profile.Id, FromStatusCode = "REJECTED",
+            ToStatusCode = "PENDING", ActionCode = "RESUBMIT", Reason = note, DecidedAt = now, DecidedByUserId = identity.UserId });
+        dbContext.AuditLogs.Add(new AuditLog { OccurredAt = now, ActorUserId = identity.UserId, ActorRoleCode = "PROVIDER",
+            ActionCode = "PROVIDER_APPROVAL_RESUBMITTED", EntityType = "PROVIDER_PROFILE", EntityPublicId = identity.Profile.PublicId,
+            ResultCode = "SUCCESS", Reason = note, BeforeJson = JsonSerializer.Serialize(new { ApprovalStatusCode = "REJECTED" }),
+            AfterJson = JsonSerializer.Serialize(new { ApprovalStatusCode = "PENDING" }) });
+        try { await dbContext.SaveChangesAsync(token); }
+        catch (DbUpdateConcurrencyException) { throw new ProviderConfigurationException("PROFILE_CONCURRENCY_CONFLICT", "다른 화면에서 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.", StatusCodes.Status409Conflict); }
+        await matchingService.RefreshProviderMatchesAsync(identity.Profile.Id, token);
+        return await GetDashboardAsync(principal, token);
     }
 
     private static bool AllowedFile(string contentType, string extension) => (contentType, extension) switch
@@ -873,8 +1055,13 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
                 select new
                 {
                     ProviderServiceId = providerService.Id,
+                    providerService.IsNationwide,
                     service.PublicId,
+                    MiddlePublicId = middle.PublicId,
+                    MiddleName = middle.Name,
+                    MiddlePath = major.Name + " > " + middle.Name,
                     Path = major.Name + " > " + middle.Name + " > " + service.Name,
+                    CoverageTypeCode = dbContext.CategoryOperationPolicies.Where(x => x.CategoryId == service.Id && x.IsActive).OrderByDescending(x => x.EffectiveFrom).Select(x => x.CoverageTypeCode).FirstOrDefault(),
                 })
             .ToListAsync(cancellationToken);
         var providerServiceIds = services.Select(service => service.ProviderServiceId).ToArray();
@@ -892,7 +1079,14 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
 
         return services.Select(service => new ProviderServiceAreaResponse(
             service.PublicId,
+            service.MiddlePublicId,
+            service.MiddleName,
+            service.MiddlePath,
             service.Path,
+            service.IsNationwide,
+            ProviderCoveragePolicy.AllowsNationwide(service.CoverageTypeCode),
+            service.CoverageTypeCode ?? ProviderCoveragePolicy.LocalOnly,
+            ProviderCoveragePolicy.DisplayName(service.CoverageTypeCode),
             areas.Where(area => area.ProviderServiceCategoryId == service.ProviderServiceId)
                 .Select(area => area.Area)
                 .ToArray())).ToArray();
@@ -905,7 +1099,7 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         {
             throw new ProviderConfigurationException(
                 "PROVIDER_NOT_ELIGIBLE",
-                "승인되고 활성 상태인 공급자만 공급 범위를 설정할 수 있습니다.",
+                "승인되고 활성 상태인 전문가만 공급 범위를 설정할 수 있습니다.",
                 StatusCodes.Status403Forbidden);
         }
 
@@ -951,9 +1145,11 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         identity.Profile.BusinessTypeText, identity.Profile.BusinessItemText, identity.Profile.Introduction,
         identity.Profile.PublicIntroductionHtml, identity.Profile.PublicPhone, identity.Profile.PublicEmail,
         identity.Profile.PublicAddress, identity.Profile.PublicBlogUrl, identity.Profile.PublicWebsiteUrl,
-        identity.Profile.PublicLogoUrl, ParseUrls(identity.Profile.PublicPhotoUrlsJson), null,
+        identity.Profile.PublicLogoUrl, ParseUrls(identity.Profile.PublicPhotoUrlsJson), EffectiveProviderType(identity.Profile),
         identity.Profile.ApprovalStatusCode, identity.Profile.ActivityStatusCode, identity.Profile.TrustScore,
         identity.Profile.TrustScore is null ? "평가 전" : "산정 완료", rejection, Convert.ToBase64String(identity.Profile.RowVersion));
+    private static string EffectiveProviderType(ProviderProfile profile) =>
+        profile.ProviderTypeCode == "BUSINESS" && string.IsNullOrWhiteSpace(profile.BusinessRegistrationNo) ? "INDIVIDUAL" : profile.ProviderTypeCode;
     private static IReadOnlyList<string> ParseUrls(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];
@@ -982,14 +1178,33 @@ public sealed class ProviderConfigurationService(SoodalLifeDbContext dbContext, 
         if (text.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParse(text[prefix.Length..], out _)) return text;
         return ValidateHttpsUrl(text, code);
     }
+    private static readonly HashSet<string> PublicIntroductionTags = new(StringComparer.OrdinalIgnoreCase) { "p", "br", "strong", "b", "em", "i", "ul", "ol", "li", "h2", "h3", "a" };
+    private static readonly Regex DangerousHtmlBlock = new(@"<\s*(script|style|iframe|object|embed|form|svg|math)\b[^>]*>.*?<\s*/\s*\1\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+    private static readonly Regex HtmlTag = new(@"<\s*(/?)\s*([a-z0-9]+)\b([^>]*)>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex HrefAttribute = new("""\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private static string? ValidatePublicHtml(string? value)
     {
         var html = Clean(value, 8000);
         if (html is null) return null;
-        var lower = html.ToLowerInvariant();
-        string[] blocked = ["<script", "<iframe", "<object", "<embed", "<form", "javascript:", "data:", " onerror=", " onload="];
-        if (blocked.Any(lower.Contains)) throw Invalid("PUBLIC_INTRODUCTION_HTML_UNSAFE", "공급자 소개에 허용되지 않는 HTML이 포함되어 있습니다.");
-        return html;
+        html = Regex.Replace(html, @"<!--[\s\S]*?-->", string.Empty, RegexOptions.CultureInvariant);
+        html = DangerousHtmlBlock.Replace(html, string.Empty);
+        html = HtmlTag.Replace(html, match =>
+        {
+            var closing = match.Groups[1].Value.Length > 0;
+            var tag = match.Groups[2].Value.ToLowerInvariant();
+            if (!PublicIntroductionTags.Contains(tag)) return string.Empty;
+            if (closing) return tag == "br" ? string.Empty : $"</{tag}>";
+            if (tag == "br") return "<br>";
+            if (tag != "a") return $"<{tag}>";
+            var hrefMatch = HrefAttribute.Match(match.Groups[3].Value);
+            var href = hrefMatch.Success ? hrefMatch.Groups[1].Success ? hrefMatch.Groups[1].Value : hrefMatch.Groups[2].Value : null;
+            if (href is null || !Uri.TryCreate(href, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return "<a>";
+            return $"<a href=\"{WebUtility.HtmlEncode(uri.ToString())}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+        });
+        if (Regex.IsMatch(html, @"javascript\s*:|data\s*:|on[a-z]+\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            throw Invalid("PUBLIC_INTRODUCTION_HTML_UNSAFE", "전문가 소개에 허용되지 않는 HTML이 포함되어 있습니다.");
+        return Encoding.UTF8.GetByteCount(html) <= 8000 ? html : throw Invalid("VALUE_TOO_LONG", "전문가 상세 소개는 8,000바이트 이하로 입력해 주세요.");
     }
     private sealed record ProviderIdentity(long UserId, User User, ProviderProfile Profile);
     private sealed record ValidatedPromotionImage(byte[] Bytes, string Name, string ContentType, string Extension);

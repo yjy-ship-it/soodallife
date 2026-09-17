@@ -94,6 +94,36 @@ public sealed class AdminTrustApiTests(AuthenticationWebApplicationFactory facto
     }
 
     [Fact]
+    public async Task Admin_CanAdjustTrustScore_WithReasonAndAppendOnlyHistory()
+    {
+        var providerId = await PrepareProvider("수달 관리자조정", null);
+        using var client = Client(); await Login(client, RoleCodes.Admin);
+        var key = $"admin-adjustment-{Guid.NewGuid():N}";
+        var firstResponse = await client.PostAsJsonAsync($"{BasePath}/{providerId}/adjustment", new { score = 82.5m, reason = "본인인증 자료 재검토 결과 반영", idempotencyKey = key });
+        firstResponse.EnsureSuccessStatusCode();
+        var first = await firstResponse.Content.ReadFromJsonAsync<TrustManualAdjustmentResponse>();
+        var retry = await (await client.PostAsJsonAsync($"{BasePath}/{providerId}/adjustment", new { score = 82.5m, reason = "본인인증 자료 재검토 결과 반영", idempotencyKey = key })).Content.ReadFromJsonAsync<TrustManualAdjustmentResponse>();
+        Assert.NotNull(first); Assert.NotNull(retry); Assert.Equal(first.EventId, retry.EventId); Assert.Equal(82.5m, first.ScoreAfter); Assert.Equal("우수수달", first.GradeLabel);
+
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        var provider = await db.ProviderProfiles.SingleAsync(value => value.PublicId == providerId);
+        var current = await db.ProviderTrustScoreCurrent.SingleAsync(value => value.ProviderProfileId == provider.Id);
+        Assert.Equal(82.5m, provider.TrustScore); Assert.Equal(82.5m, current.Score); Assert.Equal("EXCELLENT", current.GradeCode);
+        Assert.Single(await db.TrustScoreEvents.Where(value => value.ProviderProfileId == provider.Id && value.EventTypeCode == "MANUAL_ADJUSTMENT").ToListAsync());
+        Assert.Contains(await db.AuditLogs.ToListAsync(), value => value.EntityPublicId == providerId && value.ActionCode == "TRUST_SCORE_MANUAL_ADJUSTMENT" && value.Reason == "본인인증 자료 재검토 결과 반영");
+    }
+
+    [Fact]
+    public async Task TrustAdjustment_RequiresAdminAndReason()
+    {
+        var providerId = await PrepareProvider("수달 권한검증", null);
+        using var providerClient = Client(); await Login(providerClient, RoleCodes.Provider);
+        Assert.Equal(HttpStatusCode.Forbidden, (await providerClient.PostAsJsonAsync($"{BasePath}/{providerId}/adjustment", new { score = 70m, reason = "권한 검증", idempotencyKey = Guid.NewGuid().ToString("N") })).StatusCode);
+        using var adminClient = Client(); await Login(adminClient, RoleCodes.Admin);
+        Assert.Equal(HttpStatusCode.BadRequest, (await adminClient.PostAsJsonAsync($"{BasePath}/{providerId}/adjustment", new { score = 70m, reason = "", idempotencyKey = Guid.NewGuid().ToString("N") })).StatusCode);
+    }
+
+    [Fact]
     public async Task TrustScoreEvent_IsAppendOnlyAtApplicationLevel()
     {
         var providerId = await PrepareProvider("수달 이력검증", null);

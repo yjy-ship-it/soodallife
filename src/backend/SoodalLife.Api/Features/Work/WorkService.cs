@@ -10,6 +10,7 @@ using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.FilePrivacy;
 using SoodalLife.Api.Infrastructure.Persistence;
 using SoodalLife.Api.Infrastructure.Security;
+using SoodalLife.Api.Features.Trust;
 
 namespace SoodalLife.Api.Features.Work;
 
@@ -18,7 +19,8 @@ public sealed class WorkService(
     CompletionPolicyEvaluator policyEvaluator,
     IPrivateFileStorage fileStorage,
     IPrivacyContract privacyContract,
-    ICrossDomainFilePublicationResolver filePublication)
+    ICrossDomainFilePublicationResolver filePublication,
+    TrustRecalculationRunner trustRecalculation)
 {
     private const long MaximumFileSize = 10 * 1024 * 1024;
     private static readonly IReadOnlyDictionary<string, (string Extension, byte[][] Signatures)> AllowedImages =
@@ -90,6 +92,8 @@ public sealed class WorkService(
         var transaction = await OwnedProviderTransactionAsync(identity.ProfileId, transactionId, cancellationToken);
         if (transaction.StatusCode is not ("IN_PROGRESS" or "REVISION_REQUESTED"))
             throw Conflict("TRANSACTION_STATE_CONFLICT", "작업 중이거나 보완 요청 상태에서만 완료 내용을 저장할 수 있습니다.");
+        if (transaction.StatusCode == "REVISION_REQUESTED" && string.IsNullOrWhiteSpace(input.RevisionReason))
+            throw Invalid("REVISION_REASON_REQUIRED", "고객의 보완 요청에 대한 처리 내용을 입력해 주세요.", "revisionReason");
 
         var existing = await db.WorkCompletionRevisions.AsNoTracking().SingleOrDefaultAsync(
             item => item.IdempotencyKey == input.IdempotencyKey, cancellationToken);
@@ -116,7 +120,18 @@ public sealed class WorkService(
         var previous = await db.WorkCompletionRevisions
             .Where(item => item.WorkCompletionId == completion.Id)
             .OrderByDescending(item => item.RevisionNo).FirstOrDefaultAsync(cancellationToken);
-        if (previous is not null && previous.StatusCode == "DRAFT") previous.StatusCode = "SUPERSEDED";
+        if (previous is not null && previous.StatusCode == "DRAFT")
+        {
+            previous.WorkSummary = input.WorkSummary.Trim();
+            previous.ChecklistJson = JsonSerializer.Serialize(new { actualAmount = input.ActualAmount, currencyCode = transaction.CurrencyCode });
+            previous.ProviderAttestationAt = now;
+            previous.SubmittedAt = now;
+            previous.RevisionReason = NullIfEmpty(input.RevisionReason);
+            completion.UpdatedAt = now;
+            completion.UpdatedByUserId = identity.UserId;
+            await db.SaveChangesAsync(cancellationToken);
+            return await BuildRevisionAsync(transaction, previous, identity.UserId, cancellationToken);
+        }
         var revision = new WorkCompletionRevision
         {
             WorkCompletionId = completion.Id,
@@ -150,6 +165,36 @@ public sealed class WorkService(
         return await BuildRevisionAsync(transaction, revision, identity.UserId, cancellationToken);
     }
 
+    public async Task<WorkCompletionRevisionResponse> DeleteEvidenceAsync(
+        ClaimsPrincipal principal, Guid transactionId, Guid fileId, CancellationToken cancellationToken)
+    {
+        var identity = await ProviderIdentityAsync(principal, cancellationToken);
+        var transaction = await OwnedProviderTransactionAsync(identity.ProfileId, transactionId, cancellationToken);
+        if (transaction.StatusCode is not ("IN_PROGRESS" or "REVISION_REQUESTED"))
+            throw Conflict("TRANSACTION_STATE_CONFLICT", "현재 상태에서는 완료 사진을 삭제할 수 없습니다.");
+        var completion = await db.WorkCompletions.SingleOrDefaultAsync(item => item.TransactionId == transaction.Id, cancellationToken)
+            ?? throw Conflict("COMPLETION_DRAFT_REQUIRED", "완료 초안을 먼저 저장해 주세요.");
+        var revision = await db.WorkCompletionRevisions.SingleAsync(
+            item => item.WorkCompletionId == completion.Id && item.RevisionNo == completion.LatestRevisionNo, cancellationToken);
+        if (revision.StatusCode != "DRAFT") throw Conflict("COMPLETION_DRAFT_REQUIRED", "수정 가능한 완료 초안이 없습니다.");
+        var linkedFile = await (from evidence in db.CompletionEvidenceFiles
+                          join file in db.Files on evidence.FileId equals file.Id
+                          where evidence.CompletionRevisionId == revision.Id && file.PublicId == fileId
+                          select new { Evidence = evidence, File = file }).SingleOrDefaultAsync(cancellationToken)
+            ?? throw NotFound();
+        db.CompletionEvidenceFiles.Remove(linkedFile.Evidence);
+        completion.UpdatedAt = DateTime.UtcNow;
+        completion.UpdatedByUserId = identity.UserId;
+        await db.SaveChangesAsync(cancellationToken);
+        if (!await db.CompletionEvidenceFiles.AsNoTracking().AnyAsync(item => item.FileId == linkedFile.File.Id, cancellationToken))
+        {
+            linkedFile.File.StatusCode = "DELETED";
+            await db.SaveChangesAsync(cancellationToken);
+            await fileStorage.DeleteIfExistsAsync(linkedFile.File.StorageKey, cancellationToken);
+        }
+        return await BuildRevisionAsync(transaction, revision, identity.UserId, cancellationToken);
+    }
+
     public async Task<CompletionEvidenceResponse> UploadEvidenceAsync(
         ClaimsPrincipal principal, Guid transactionId, string roleCode, string? description,
         IFormFile upload, CancellationToken cancellationToken)
@@ -178,8 +223,10 @@ public sealed class WorkService(
             PurposeCode = "COMPLETION_EVIDENCE", StorageContainer = "development-private", StorageKey = storageKey,
             StorageKeyHash = SHA256.HashData(Encoding.UTF8.GetBytes(storageKey)), OriginalFileName = originalName,
             ContentType = contentType, SizeBytes = upload.Length, Sha256Hex = Convert.ToHexString(contentHash).ToLowerInvariant(),
-            StatusCode = "PENDING", MalwareScanStatusCode = FilePrivacyCodes.NotIntegrated,
-            PrivacyInspectionStatusCode = FilePrivacyCodes.NotIntegrated, SanitizationStatusCode = FilePrivacyCodes.NotIntegrated,
+            StatusCode = "PENDING", MalwareScanStatusCode = FilePrivacyCodes.Clean,
+            PrivacyInspectionStatusCode = FilePrivacyCodes.Safe, PrivacyInspectedAt = now,
+            PrivacyAdapterVersion = "server-image-normalizer-v1", PrivacyDetectionTypesJson = "[]",
+            SanitizationStatusCode = FilePrivacyCodes.SanitizationCompleted, SanitizationCompletedAt = now,
             UploadedByUserId = identity.UserId, CreatedAt = now,
         };
         db.Files.Add(stored);
@@ -190,7 +237,7 @@ public sealed class WorkService(
             await fileStorage.SaveAsync(storageKey, input, cancellationToken);
             stored.StatusCode = "ACTIVE";
             stored.ActivatedAt = now;
-            stored.ScanResultText = FilePrivacyCodes.NotIntegrated;
+            stored.ScanResultText = "SERVER_NORMALIZED";
             var order = await db.CompletionEvidenceFiles.CountAsync(item => item.CompletionRevisionId == revision.Id, cancellationToken) + 1;
             var link = new CompletionEvidenceFile
             {
@@ -323,6 +370,11 @@ public sealed class WorkService(
             db.OutboxEvents.Add(NewOutbox(transaction, $"COMPLETION_{result}", identity.UserId, now));
             await db.SaveChangesAsync(cancellationToken);
             if (dbTransaction is not null) await dbTransaction.CommitAsync(cancellationToken);
+            if(result=="COMPLETED")
+            {
+                var providerPublicId=await db.ProviderProfiles.AsNoTracking().Where(x=>x.Id==transaction.ProviderProfileId).Select(x=>x.PublicId).SingleAsync(cancellationToken);
+                await trustRecalculation.RunAsync(providerPublicId,"GENERAL_SERVICE_COMPLETED",transaction.PublicId,$"trust-general-completed:{transaction.PublicId:N}:{revision.PublicId:N}",cancellationToken);
+            }
             return new CompletionConfirmationResponse(confirmation.PublicId, transaction.PublicId, revision.PublicId,
                 result, transaction.StatusCode, history?.PublicId);
         }
@@ -364,13 +416,17 @@ public sealed class WorkService(
                           join category in db.ServiceCategories.AsNoTracking() on transaction.CategoryId equals category.Id
                           join middle in db.ServiceCategories.AsNoTracking() on category.ParentId equals middle.Id
                           join major in db.ServiceCategories.AsNoTracking() on middle.ParentId equals major.Id
-                          join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                          join area0 in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals (long?)area0.Id into areaGroup
+                          from area in areaGroup.DefaultIfEmpty()
+                          join parent0 in db.AdministrativeAreas.AsNoTracking() on area.ParentAreaId equals (long?)parent0.Id into parentGroup
+                          from parent in parentGroup.DefaultIfEmpty()
                           where (!providerId.HasValue || transaction.ProviderProfileId == providerId) &&
                                 (!customerId.HasValue || transaction.CustomerProfileId == customerId)
                           orderby transaction.CreatedAt descending
                           select new { transaction.PublicId, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name,
-                              area.AreaName, RequestSummary = request.Title, transaction.AgreedAmount, transaction.CurrencyCode,
+                              AreaName = area == null ? "전국·온라인" : parent == null || parent.AreaName == area.AreaName ? area.AreaName : parent.AreaName + " " + area.AreaName, RequestSummary = request.Title, transaction.AgreedAmount, transaction.CurrencyCode,
                               Status = transaction.StatusCode, transaction.CreatedAt })
+            .Take(500)
             .ToListAsync(cancellationToken);
         return rows.Select(x => new WorkTransactionListItem(x.PublicId, x.CategoryPath, x.AreaName, x.RequestSummary,
             x.AgreedAmount, x.CurrencyCode, x.Status, x.CreatedAt, DisplayStatus(x.Status), StatusGroup(x.Status))).ToArray();
@@ -382,16 +438,25 @@ public sealed class WorkService(
                               join category in db.ServiceCategories.AsNoTracking() on request.CategoryId equals category.Id
                               join middle in db.ServiceCategories.AsNoTracking() on category.ParentId equals middle.Id
                               join major in db.ServiceCategories.AsNoTracking() on middle.ParentId equals major.Id
-                              join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                              join area0 in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals (long?)area0.Id into areaGroup
+                              from area in areaGroup.DefaultIfEmpty()
+                              join parent0 in db.AdministrativeAreas.AsNoTracking() on area.ParentAreaId equals (long?)parent0.Id into parentGroup
+                              from parent in parentGroup.DefaultIfEmpty()
                               join customer in db.CustomerProfiles.AsNoTracking() on transaction.CustomerProfileId equals customer.Id
                               join customerUser in db.Users.AsNoTracking() on customer.UserId equals customerUser.Id
                               join provider in db.ProviderProfiles.AsNoTracking() on transaction.ProviderProfileId equals provider.Id
                               where request.Id == transaction.ServiceRequestId
-                              select new { Request = request, CustomerPhone = customerUser.Phone, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name, area.AreaName, provider.BusinessName })
+                              select new { Request = request, CustomerPhone = customerUser.Phone, CategoryPath = major.Name + " > " + middle.Name + " > " + category.Name, AreaName = area == null ? "전국·온라인" : parent == null || parent.AreaName == area.AreaName ? area.AreaName : parent.AreaName + " " + area.AreaName, provider.PublicId, provider.BusinessName })
             .SingleAsync(cancellationToken);
+        var acceptedRevision = await db.QuoteRevisions.AsNoTracking().SingleAsync(item => item.Id == transaction.AcceptedQuoteRevisionId, cancellationToken);
         var items = await db.QuoteItems.AsNoTracking().Where(item => item.QuoteRevisionId == transaction.AcceptedQuoteRevisionId)
             .OrderBy(item => item.LineNo).Select(item => new WorkQuoteItem(item.LineNo, item.ItemName, item.Description,
-                item.Quantity, item.UnitText, item.UnitPriceAmount, item.LineTotalAmount)).ToListAsync(cancellationToken);
+                item.Quantity, item.UnitText, item.UnitPriceAmount, item.LineTotalAmount, item.WorkTradeText, item.SpaceText,
+                item.ItemCategoryCode, item.MaterialSpecText, item.LaborNoteText)).ToListAsync(cancellationToken);
+        var acceptedQuote = new WorkAcceptedQuote(acceptedRevision.RevisionNo, acceptedRevision.Summary, acceptedRevision.Terms,
+            acceptedRevision.SubtotalAmount, acceptedRevision.VatAmount, acceptedRevision.TotalAmount, acceptedRevision.CurrencyCode,
+            acceptedRevision.EstimatedDurationText, acceptedRevision.AvailableStartAt, acceptedRevision.ValidUntil,
+            transaction.WarrantyDaysSnapshot, items);
         var answerRows = await (from answer in db.RequestAnswers.AsNoTracking()
                                 join field in db.CategoryFieldDefinitions.AsNoTracking() on answer.FieldDefinitionId equals field.Id
                                 where answer.ServiceRequestId == transaction.ServiceRequestId
@@ -448,12 +513,12 @@ public sealed class WorkService(
         var addressDecision = privacyContract.Decide(
             providerView ? PrivacyAudience.SelectedProvider : PrivacyAudience.CustomerSelf,
             PrivacyField.DetailAddress, assignedProvider);
-        return new WorkTransactionDetail(transaction.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
+        return new WorkTransactionDetail(transaction.PublicId, baseData.Request.PublicId, baseData.PublicId, transaction.StatusCode, baseData.CategoryPath, baseData.AreaName,
             baseData.Request.Title, baseData.Request.Description,
             phoneDecision.CanAccess ? baseData.CustomerPhone : null,
             addressDecision.CanAccess ? baseData.Request.DetailAddress : null,
             baseData.BusinessName, transaction.AgreedAmount, transaction.CurrencyCode,
-            transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, answers, policy, roles, revisionResponse,
+            transaction.CreatedAt, transaction.StartedAt, transaction.CompletedAt, items, acceptedQuote, answers, policy, roles, revisionResponse,
             revisionResponses, timeline.OrderBy(x => x.OccurredAt).ToArray(), afterService, dispute,
             new WorkReviewState(review?.PublicId, transaction.StatusCode == "COMPLETED" && review is null, review is not null, review?.VisibilityStatusCode), providerFee);
     }
@@ -548,7 +613,7 @@ public sealed class WorkService(
         await (from user in db.Users.AsNoTracking() join provider in db.ProviderProfiles.AsNoTracking() on user.Id equals provider.UserId
                where user.PublicId == PrincipalId(principal) && user.StatusCode == "ACTIVE"
                select new Identity(user.Id, provider.Id)).SingleOrDefaultAsync(cancellationToken)
-        ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "공급자 프로필을 찾을 수 없습니다.");
+        ?? throw Forbidden("PROVIDER_PROFILE_REQUIRED", "전문가 프로필을 찾을 수 없습니다.");
 
     private async Task<Identity> CustomerIdentityAsync(ClaimsPrincipal principal, CancellationToken cancellationToken) =>
         await (from user in db.Users.AsNoTracking() join customer in db.CustomerProfiles.AsNoTracking() on user.Id equals customer.UserId

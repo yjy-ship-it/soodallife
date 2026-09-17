@@ -1,0 +1,8 @@
+V240 verification summary
+- Backend Release build: passed (0 warnings, 0 errors)
+- Frontend production build: passed
+- Provider template API test: passed (save, list, update, delete)
+- Existing quote flow tests: 2 passed; 1 unrelated request-rate-limit failure (HTTP 429 during test request creation)
+- Database migration generated and SQL deployment made idempotent
+- Production appsettings and App_Data are excluded from the package overwrite
+- PowerShell scripts must be UTF-8 with BOM and are parser-checked by the outer deployment script

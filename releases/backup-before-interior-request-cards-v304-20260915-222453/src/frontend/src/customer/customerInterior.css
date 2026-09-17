@@ -1,0 +1,790 @@
+.interiorHero {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  padding: 52px max(24px, calc((100vw - 1200px) / 2));
+}
+.interiorHero p {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin: 0 0 8px;
+}
+.interiorHero h1 {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  margin: 0 0 10px;
+}
+.interiorHero span {
+  opacity: 0.9;
+}
+.interiorShell {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 28px;
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 0 24px;
+}
+.interiorShell > nav {
+  align-self: start;
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 7px;
+}
+.interiorShell > nav button,
+.interiorTabs a {
+  border: 0;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+.interiorShell > nav button.isActive,
+.interiorShell > nav button:hover {
+  background: #d1fae5;
+  color: #0f766e;
+}
+.interiorContent {
+  min-width: 0;
+}
+.interiorIntro {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 24px;
+  background: #fff;
+  border: 1px solid #dbe7e4;
+  border-radius: 24px;
+  padding: 32px;
+}
+.interiorIntro h2 {
+  font-size: 2rem;
+  margin-top: 0;
+}
+.interiorIntro button,
+.interiorDashboard > button,
+.interiorToolbar button,
+.interiorStartGuide button,
+.interiorRecord button,
+.interiorContract button,
+.paymentPlan button,
+.interiorForm button {
+  border: 0;
+  border-radius: 12px;
+  background: #0f766e;
+  color: #fff;
+  padding: 12px 18px;
+  font-weight: 800;
+}
+.interiorIntro ol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.interiorIntro li {
+  counter-increment: step;
+  background: #f0fdfa;
+  border-radius: 14px;
+  padding: 16px;
+}
+.interiorIntro li:before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #14b8a6;
+  color: #fff;
+}
+.interiorDashboard,
+.interiorSection,
+.interiorPolicy,
+.interiorDetailSection,
+.interiorStartGuide {
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #dbe7e4;
+  border-radius: 20px;
+  padding: 24px;
+}
+.interiorDashboard > div,
+.interiorSummary {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+.interiorDashboard article,
+.interiorSummary article {
+  background: #f7f9f8;
+  border-radius: 14px;
+  padding: 16px;
+}
+.interiorDashboard span,
+.interiorSummary span {
+  display: block;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+.interiorDashboard strong,
+.interiorSummary strong {
+  font-size: 1.35rem;
+  color: #0f766e;
+}
+.interiorServices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.interiorServices button {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid #dbe7e4;
+  background: #f7f9f8;
+  border-radius: 14px;
+  padding: 12px;
+  color: #333;
+  overflow: hidden;
+}
+.interiorServices button:hover {
+  border-color: #14b8a6;
+}
+.interiorServices small {
+  color: #0f766e;
+}
+.interiorServiceCopy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+.interiorServiceCopy strong {
+  color: #173f3a;
+}
+.interiorServiceCopy > span {
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+.interiorServices .interiorServiceThumbnail.serviceThumbnail {
+  width: 96px;
+  height: 72px;
+  border-radius: 11px;
+}
+.interiorServices .interiorServiceThumbnail.categoryVectorIcon {
+  width: 72px;
+  height: 72px;
+  justify-self: center;
+}
+.interiorPolicy {
+  background: #ecfdf5;
+}
+.interiorError {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  padding: 14px;
+  border-radius: 12px;
+}
+.interiorEmpty {
+  color: #64748b;
+  padding: 20px 0;
+}
+.interiorToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+.interiorProjectList,
+.interiorCandidateList {
+  display: grid;
+  gap: 14px;
+}
+.interiorProjectCard {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid #dbe7e4;
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  color: #333;
+}
+.interiorProjectCard > b {
+  color: #0f766e;
+}
+.interiorProjectCard dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 5px 0;
+}
+.interiorProjectCard dl div {
+  background: #f7f9f8;
+  padding: 10px;
+  border-radius: 10px;
+}
+.interiorProjectCard dt {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.interiorProjectCard dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+.stageMini {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.stageMini span {
+  background: #d1fae5;
+  color: #0f766e;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+.interiorCandidateList article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 16px;
+  background: #fff;
+  border: 1px solid #dbe7e4;
+  border-radius: 16px;
+  padding: 18px;
+}
+.interiorCandidateList article > * {
+  grid-column: 1;
+}
+.interiorCandidateList button {
+  grid-column: 2;
+  grid-row: 1/5;
+  border: 0;
+  border-radius: 12px;
+  background: #0f766e;
+  color: #fff;
+  padding: 10px 15px;
+  font-weight: 800;
+}
+.interiorCandidateList button:disabled {
+  background: #94a3b8;
+}
+.interiorCandidateHelp {
+  margin: 7px 0 0;
+  color: #52645d;
+  line-height: 1.55;
+  font-size: 0.9rem;
+}
+.interiorTabs {
+  display: flex;
+  position: sticky;
+  top: 70px;
+  z-index: 5;
+  overflow: auto;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(247, 249, 248, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+}
+.interiorTabs a {
+  white-space: nowrap;
+  text-decoration: none;
+  color: #0f766e;
+}
+.interiorDetailSection {
+  scroll-margin-top: 130px;
+}
+.interiorDetailSection > h2 {
+  border-bottom: 2px solid #a7f3d0;
+  padding-bottom: 12px;
+}
+.interiorRecord,
+.interiorContract,
+.interiorStage,
+.paymentPlan {
+  border: 1px solid #dbe7e4;
+  border-radius: 16px;
+  padding: 18px;
+  margin-top: 12px;
+}
+.interiorRecord header,
+.interiorContract header,
+.interiorStage header,
+.paymentPlan {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.interiorRecord header h3,
+.interiorContract header h3,
+.interiorStage header h3 {
+  margin: 4px 0;
+}
+.interiorRecord header span,
+.interiorContract header span,
+.interiorStage header span {
+  font-size: 0.78rem;
+  color: #0f766e;
+}
+.interiorRecord dl,
+.interiorContract dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.interiorRecord dl div,
+.interiorContract dl div {
+  background: #f7f9f8;
+  padding: 10px;
+  border-radius: 10px;
+}
+.interiorRecord dt,
+.interiorContract dt {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+.interiorRecord dd,
+.interiorContract dd {
+  margin: 4px 0;
+}
+.siteVisitSelection {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  background: #f0fdfa;
+}
+.siteVisitSelection label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+.siteVisitSelection label b {
+  color: #dc2626;
+}
+.siteVisitSelection input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #94a3b8;
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #fff;
+  font: inherit;
+}
+.siteVisitSelection small {
+  color: #475569;
+  line-height: 1.55;
+}
+.interiorRecord table,
+.quoteCompare table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.interiorRecord th,
+.interiorRecord td,
+.quoteCompare th,
+.quoteCompare td {
+  border-bottom: 1px solid #dbe7e4;
+  padding: 9px;
+  text-align: left;
+}
+.interiorFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+.interiorFiles li {
+  background: #f0fdfa;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.interiorFiles a {
+  color: #0f766e;
+  font-weight: 700;
+}
+.interiorFiles small {
+  display: block;
+}
+.interiorHint {
+  background: #ecfdf5;
+  border-left: 4px solid #14b8a6;
+  padding: 12px;
+}
+.quoteCompare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.quoteCompare > article {
+  border: 1px solid #dbe7e4;
+  border-radius: 16px;
+  padding: 18px;
+  overflow: auto;
+}
+.quoteCompare > article > span,
+.quoteCompare > article > small {
+  display: block;
+  color: #64748b;
+}
+.quoteCompare > article > strong {
+  font-size: 1.45rem;
+  color: #0f766e;
+}
+.quoteCompare td small {
+  display: block;
+}
+.interiorContract pre,
+.contractVersions pre,
+.inspection pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f7f9f8;
+  padding: 10px;
+  border-radius: 10px;
+}
+.contractVersions {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.contractVersions details {
+  border: 1px solid #dbe7e4;
+  border-radius: 12px;
+  padding: 12px;
+}
+.paymentPlan {
+  align-items: center;
+}
+.paymentPlan > div {
+  display: grid;
+}
+.paymentPlan > div strong {
+  color: #0f766e;
+}
+.interiorStage progress {
+  width: 100%;
+  height: 14px;
+  accent-color: #14b8a6;
+}
+.interiorStage > small {
+  display: block;
+  margin: 8px 0;
+}
+.workUpdate,
+.inspection {
+  background: #f7f9f8;
+  padding: 14px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+.workUpdate .issue {
+  color: #b45309;
+}
+.interiorRecord .danger {
+  background: #fff1f2;
+  color: #be123c;
+  margin-left: 8px;
+}
+.interiorForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  background: #f7f9f8;
+  padding: 18px;
+  border-radius: 16px;
+}
+.interiorForm input,
+.interiorForm select,
+.interiorForm textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 12px;
+  font: inherit;
+}
+.interiorForm textarea {
+  min-height: 100px;
+}
+.interiorFilePicker {
+  display: flex;
+  justify-content: space-between;
+  border: 1px dashed #14b8a6;
+  background: #ecfdf5;
+  padding: 12px;
+  border-radius: 10px;
+}
+.interiorPendingFiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.interiorPendingFiles article {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  border: 1px solid #dbe7e4;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+.interiorPendingFiles img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+.interiorPendingFiles a {
+  display: grid;
+  place-items: center;
+  height: 120px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #0f766e;
+  font-weight: 800;
+}
+.interiorPendingFiles strong,
+.interiorPendingFiles small {
+  overflow-wrap: anywhere;
+}
+.interiorPendingFiles button.secondary {
+  background: #e2e8f0;
+  color: #334155;
+  padding: 8px 10px;
+}
+.interiorTimeline {
+  border-left: 2px solid #a7f3d0;
+  list-style: none;
+  padding-left: 20px;
+}
+.interiorTimeline li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  position: relative;
+}
+.interiorTimeline li:before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 15px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #14b8a6;
+}
+.interiorTimeline time {
+  color: #64748b;
+}
+.providerSelectionButton {
+  width: 100%;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #0f766e;
+  color: #fff;
+  padding: 13px;
+  font-weight: 800;
+}
+.providerSelectionMark,
+.providerSelectionSummary {
+  border: 1px solid #14b8a6;
+  background: #ecfdf5;
+  color: #0f766e;
+  border-radius: 14px;
+  padding: 14px;
+}
+.providerSelectionSummary {
+  margin: 18px 0;
+}
+.providerSelectionSummary h2 {
+  margin: 5px 0;
+}
+.providerSelectionSummary strong,
+.providerSelectionSummary small {
+  display: block;
+}
+.contractDeadlineNotice { margin: 12px 0 0; padding: 12px; border-radius: 10px; background: #f3faf8; color: #174f48; }
+.providerSelectionActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.providerSelectionActions button { border: 1px solid #0b8176; border-radius: 10px; padding: 10px 14px; background: #fff; color: #076c63; font-weight: 700; cursor: pointer; }
+.providerSelectionActions button.danger { border-color: #bd4b43; color: #a43630; }
+.providerSelectionActions button:disabled { opacity: .55; cursor: wait; }
+.providerSelectionBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #0f172a99;
+}
+.providerSelectionBackdrop > section {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  border-radius: 20px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 24px 70px #0f172a55;
+}
+.providerSelectionBackdrop > section > span {
+  color: #0f766e;
+  font-weight: 800;
+}
+.providerSelectionBackdrop dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.providerSelectionBackdrop dl div {
+  background: #f7f9f8;
+  border-radius: 10px;
+  padding: 10px;
+}
+.providerSelectionBackdrop dt {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+.providerSelectionBackdrop dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+.providerSelectionBackdrop > section > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+.providerSelectionBackdrop button {
+  border: 0;
+  border-radius: 10px;
+  background: #0f766e;
+  color: #fff;
+  padding: 11px 15px;
+  font-weight: 800;
+}
+.providerSelectionBackdrop button.secondary {
+  background: #e2e8f0;
+  color: #334155;
+}
+.interiorMobileCta {
+  display: none;
+}
+@media (max-width: 900px) {
+  .interiorShell {
+    grid-template-columns: 1fr;
+  }
+  .interiorShell > nav {
+    position: static;
+    display: flex;
+    overflow: auto;
+  }
+  .interiorShell > nav button {
+    white-space: nowrap;
+  }
+  .interiorDashboard > div,
+  .interiorSummary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .interiorServices {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .quoteCompare {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .interiorHero {
+    padding: 32px 18px;
+  }
+  .interiorShell {
+    margin: 16px auto;
+    padding: 0 14px;
+  }
+  .interiorIntro {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  .interiorDashboard,
+  .interiorSection,
+  .interiorPolicy,
+  .interiorDetailSection,
+  .interiorStartGuide {
+    padding: 17px;
+    border-radius: 16px;
+  }
+  .interiorServices {
+    grid-template-columns: 1fr;
+  }
+  .interiorProjectCard dl {
+    grid-template-columns: 1fr 1fr;
+  }
+  .interiorCandidateList article {
+    display: block;
+  }
+  .interiorCandidateList button {
+    width: 100%;
+    margin-top: 12px;
+  }
+  .interiorTabs {
+    top: 58px;
+    margin-inline: -5px;
+  }
+  .interiorRecord header,
+  .interiorContract header,
+  .interiorStage header,
+  .paymentPlan {
+    display: grid;
+  }
+  .interiorRecord dl,
+  .interiorContract dl {
+    grid-template-columns: 1fr;
+  }
+  .interiorRecord table,
+  .quoteCompare table {
+    font-size: 0.8rem;
+  }
+  .interiorMobileCta {
+    display: block;
+    position: sticky;
+    bottom: calc(70px + env(safe-area-inset-bottom));
+    z-index: 4;
+  }
+  .interiorMobileCta button {
+    width: 100%;
+    border: 0;
+    background: #0f766e;
+    color: #fff;
+    padding: 14px;
+    border-radius: 14px;
+    font-weight: 800;
+    box-shadow: 0 6px 20px #0f766e55;
+  }
+  .providerSelectionBackdrop {
+    padding: 12px;
+  }
+  .providerSelectionBackdrop > section {
+    padding: 18px;
+    max-height: calc(100dvh - 24px);
+  }
+  .providerSelectionBackdrop dl {
+    grid-template-columns: 1fr;
+  }
+}
+.interiorHero.hasFeatureBanner{position:relative;isolation:isolate;display:flex;min-height:220px;box-sizing:border-box;flex-direction:column;justify-content:center;overflow:hidden;color:#fff;background:#075f59}.interiorHero.hasFeatureBanner>img{position:absolute;z-index:-2;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}.interiorHero.hasFeatureBanner::after{position:absolute;z-index:-1;inset:0;content:'';background:linear-gradient(90deg,rgba(4,72,67,.98) 0%,rgba(4,72,67,.88) 42%,rgba(4,72,67,.2) 74%,rgba(4,72,67,.04))}.interiorHero.hasFeatureBanner>span{max-width:560px}.interiorHero.hasFeatureBanner>p,.interiorHero.hasFeatureBanner>h1,.interiorHero.hasFeatureBanner>span{position:relative;z-index:1;color:#fff}
+@media(max-width:640px){.interiorHero.hasFeatureBanner{min-height:210px;padding:25px 20px}.interiorHero.hasFeatureBanner>img{object-position:64% center}.interiorHero.hasFeatureBanner::after{background:linear-gradient(90deg,rgba(4,72,67,.97),rgba(4,72,67,.78) 58%,rgba(4,72,67,.3))}.interiorHero.hasFeatureBanner>span{max-width:78%}}
+.interiorHero.hasFeatureBanner{width:min(1200px,calc(100% - 40px));margin:24px auto 0;padding:36px clamp(26px,4vw,48px);border-radius:28px}.interiorHero.hasFeatureBanner>img{object-position:center 8%}
+@media(max-width:640px){.interiorHero.hasFeatureBanner{width:calc(100% - 32px);margin:16px auto 0;padding:25px 20px}}
+.interiorTargetServices>header>strong{flex:0 0 auto;padding:6px 10px;border-radius:999px;color:#0f766e;background:#e4f7f1;font-size:.78rem}.interiorServiceSearch{position:relative;display:grid;gap:7px;margin:0 0 16px}.interiorServiceSearch>span{color:#29483f;font-size:.82rem;font-weight:800}.interiorServiceSearch input{box-sizing:border-box;width:100%;min-height:48px;padding:0 78px 0 44px;border:1px solid #bfd7d0;border-radius:14px;color:#173f3a;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m16 16 5 5'/%3E%3C/svg%3E") 15px center/20px no-repeat;font:inherit;outline:none}.interiorServiceSearch input:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.12)}.interiorServiceSearch>button{position:absolute;right:10px;bottom:8px;min-height:32px;padding:0 11px;border:0;border-radius:9px;color:#0f766e;background:#e8f7f3;font-weight:800;cursor:pointer}.interiorServiceSearchEmpty{grid-column:1/-1;margin:0;padding:34px 18px;border:1px dashed #b8cec6;border-radius:16px;color:#667771;background:#fbfdfc;text-align:center}@media(max-width:640px){.interiorTargetServices>header{align-items:flex-start}.interiorTargetServices>header>strong{margin-top:4px}.interiorServiceSearch input{min-height:52px;font-size:1rem}}

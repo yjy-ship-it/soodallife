@@ -34,6 +34,7 @@ public sealed record AdvertisingReviewRequest(
     [param: StringLength(1000)] string? Reason);
 
 public sealed record AdvertisingPauseRequest([param: Required, StringLength(1000)] string Reason);
+public sealed record AdvertisingOperationRequest([param: StringLength(1000)] string? Reason);
 
 public sealed record AdminAdvertisingCampaignListResponse(int TotalCount, int Page, int PageSize, IReadOnlyList<AdminAdvertisingCampaignListItem> Items);
 public sealed record AdminAdvertisingCampaignListItem(Guid Id, string CampaignName, string CampaignTypeCode, string AudienceTypeCode,
@@ -73,6 +74,7 @@ public sealed record SaveManagedContentRequest(
     [param: StringLength(1000)] string? ChangeReason);
 
 public sealed record AdminManagedContentListResponse(int TotalCount, int Page, int PageSize, IReadOnlyList<AdminManagedContentListItem> Items);
+public sealed record ManagedContentDefaultInitializationResponse(int CreatedCount, int RepairedCount, int ExistingCount, int TotalCount);
 public sealed record AdminManagedContentListItem(Guid Id, string ContentTypeCode, string AudienceTypeCode, string Title,
     int CurrentVersionNo, DateTime StartAt, DateTime? EndAt, string StatusCode, string ReviewStatusCode, string PublicationStatus);
 public sealed record AdminManagedContentDetail(Guid Id, string ContentTypeCode, string AudienceTypeCode, string StatusCode,
@@ -84,7 +86,7 @@ public sealed record ManagedContentVersionResponse(Guid Id, int VersionNo, strin
     string? AnswerText, Guid? FileId, string? FileName, string? LinkText, string DestinationTypeCode,
     string? DestinationValue, string? ChangeReason, DateTime CreatedAt);
 
-public sealed record PublicAdvertisingCreative(Guid CampaignId, Guid CreativeId, string CampaignTypeCode, string Title,
+public sealed record PublicAdvertisingCreative(Guid CampaignId, Guid? ProviderId, Guid CreativeId, string CampaignTypeCode, string Title,
     string? Subtitle, string? BodyText, Guid? MediaId, string? AltText, string? ButtonText,
     string DestinationTypeCode, string? DestinationValue, int Priority, int DisplayOrder);
 public sealed record PublicManagedContent(Guid Id, string ContentTypeCode, string AudienceTypeCode, string Title, string? BodyText,

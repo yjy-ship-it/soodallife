@@ -11,6 +11,8 @@ public sealed class ReviewsController(ReviewService service):ControllerBase
 {
     [Authorize(Roles=RoleCodes.Customer),HttpPost("customers/me/transactions/{transactionId:guid}/review")]
     public Task<ActionResult<ReviewResponse>> Create(Guid transactionId,CreateReviewRequest input,CancellationToken token)=>Run(()=>service.CreateAsync(User,transactionId,input,token));
+    [Authorize(Roles=RoleCodes.Customer),HttpPut("customers/me/reviews/{reviewId:guid}")]
+    public Task<ActionResult<ReviewResponse>> Update(Guid reviewId,UpdateReviewRequest input,CancellationToken token)=>Run(()=>service.UpdateAsync(User,reviewId,input,token));
     [Authorize(Roles=RoleCodes.Customer),HttpGet("customers/me/review-rating-items")]
     public Task<ActionResult<IReadOnlyList<ReviewRatingItemOption>>> RatingItems(CancellationToken token)=>Run(()=>service.RatingItems(User,token));
     [Authorize(Roles=RoleCodes.Customer),HttpGet("customers/me/reviews")]

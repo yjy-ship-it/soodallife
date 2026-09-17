@@ -1,0 +1,18 @@
+{
+  "id": "/provider-app",
+  "name": "수달 라이프 전문가",
+  "short_name": "수달 전문가",
+  "description": "수달 라이프 전문가 업무 서비스",
+  "lang": "ko-KR",
+  "start_url": "/provider",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F9F8",
+  "theme_color": "#0F766E",
+  "categories": ["business"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/brand/soodal-life-mark.png", "sizes": "1254x1254", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -20,6 +20,10 @@ public sealed record ChatMessageResponse(
 public sealed record ChatMessagePage(IReadOnlyList<ChatMessageResponse> Items, Guid? NextCursor, bool HasMore);
 public sealed record ChatUnreadCountResponse(int Count);
 public sealed record SendChatTextInput(string Body, string IdempotencyKey);
+public sealed record SendChatFileInput(string FileName, string ContentType, string Base64Data, string IdempotencyKey);
+public sealed record SendChatFileChunkInput(Guid UploadId, string FileName, string ContentType,
+    int ChunkIndex, int TotalChunks, string Base64Chunk, string IdempotencyKey);
+public sealed record ChatFileChunkResponse(bool Completed, ChatMessageResponse? Message);
 public sealed record MarkChatReadInput(Guid MessageId);
 
 public sealed class ChatBusinessException(string code, string message, int statusCode = 409) : Exception(message)

@@ -1,0 +1,28 @@
+SOODAL LIFE V175 REVIEW COMMUNICATIONS RELEASE
+Release date: 2026-08-31
+Database schema/data changed: false
+API changed: true
+Customer app changed: true
+Partner app changed: true
+Admin app changed: true
+Production appsettings included: false
+API App_Data included: false
+
+Verified features
+- Customer Communication hub: private work chat plus My Reviews/Comments
+- Provider Communication hub: private work chat plus Customer Reviews/Replies
+- Desktop and mobile navigation access
+- Review reply WEB notification and direct conversation route
+- Unread review reply badge with 30-second refresh
+- Latest-activity-first review conversation ordering
+- Exact duplicate and rapid same-author consecutive comment protection
+- Public review/private chat guidance
+
+Verification results
+- ReviewConversationApiTests: 5 passed, 0 failed
+- Frontend production build: passed
+
+Key artifact SHA-256
+- SoodalLife.Api.dll | 22930944 bytes | 338DFBF0B1CBA632B20BB640323CE6BA5AB8499E2885466EA37BE73F95225E6B
+- index-CnSWXPL4.js | 1323518 bytes | 67B14F9946DE682952FCECC96218CB53D6D3F28151697DE53F4BFF83BC6B6B63
+- index-B8qhayD5.css | 323746 bytes | BA443039022BC1D3C3A51B0CFD6C66A9FF95B66EF0BD1F291086EC18ACF4E4F5

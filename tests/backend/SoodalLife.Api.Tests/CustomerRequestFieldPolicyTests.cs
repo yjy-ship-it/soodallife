@@ -1,5 +1,6 @@
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.ServiceRequests;
+using SoodalLife.Api.Features.Providers;
 
 namespace SoodalLife.Api.Tests;
 
@@ -27,6 +28,22 @@ public sealed class CustomerRequestFieldPolicyTests
     public void Service_specific_question_remains_visible()
     {
         Assert.False(CustomerRequestFieldPolicy.IsRetiredStructuralDuplicate(Field("space_type", "공간 유형")));
+    }
+
+    [Theory]
+    [InlineData("area_size", "면적")]
+    [InlineData("parking", "주차 조건")]
+    [InlineData("onsite_condition", "현장 조건")]
+    public void Remote_services_hide_onsite_only_questions(string key, string label)
+    {
+        Assert.True(CustomerRequestFieldPolicy.IsIncompatibleWithCoverage(Field(key, label), ProviderCoveragePolicy.NationwideRemote));
+        Assert.False(CustomerRequestFieldPolicy.IsIncompatibleWithCoverage(Field(key, label), ProviderCoveragePolicy.LocalOnly));
+    }
+
+    [Fact]
+    public void Remote_services_keep_delivery_content_questions()
+    {
+        Assert.False(CustomerRequestFieldPolicy.IsIncompatibleWithCoverage(Field("project_requirements", "제작 요구사항"), ProviderCoveragePolicy.NationwideRemote));
     }
 
     private static CategoryFieldDefinition Field(string key, string label) => new()

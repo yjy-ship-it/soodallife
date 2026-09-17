@@ -1,0 +1,121 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260825020112
+Username: DH-SERVER\Administrator
+RunAs User: DH-SERVER\Administrator
+Configuration Name: 
+Machine: DH-SERVER (Microsoft Windows NT 10.0.17763.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+Process ID: 7384
+PSVersion: 5.1.17763.7434
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.17763.7434
+BuildVersion: 10.0.17763.7434
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+=== CHAT ATTACHMENT V138 ROOT-CAUSE DIAGNOSTICS ===
+CollectedAt: 2026-08-25T02:01:12.9482718+09:00
+Computer: DH-SERVER
+WindowHours: 2
+
+=== API IIS SITE CONFIGURATION ===
+
+
+Site                : api.soodallife.kr
+PhysicalPath        : D:\SOODALLIFE\apps\api
+UploadReadAheadSize : 20971520
+
+
+
+
+=== IIS APPLICATION POOLS ===
+
+
+Name         : SoodalLife.Api
+State        : Started
+IdentityType : ApplicationPoolIdentity
+UserName     :
+
+
+
+
+
+Name         : soodallife.kr
+State        : Started
+IdentityType : ApplicationPoolIdentity
+UserName     :
+
+
+
+
+
+Name         : SoodalLife.Static
+State        : Started
+IdentityType : ApplicationPoolIdentity
+UserName     :
+
+
+
+
+=== PRIVATE STORAGE ===
+
+
+Path   : D:\SOODALLIFE\apps\api\App_Data\private-files
+Exists : True
+
+
+
+D:\SOODALLIFE\apps\api\App_Data\private-files IIS APPPOOL\SoodalLife.Api:(OI)(CI)(M)
+                                              IIS APPPOOL\SoodalLife.Api:(I)(OI)(CI)(M)
+                                              BUILTIN\Administrators:(I)(OI)(CI)(F)
+                                              NT AUTHORITY\SYSTEM:(I)(OI)(CI)(F)
+                                              IIS APPPOOL\SoodalLife.Api:(I)(F)
+                                              CREATOR OWNER:(I)(OI)(CI)(IO)(F)
+                                              BUILTIN\Users:(I)(OI)(CI)(RX)
+                                              BUILTIN\Users:(I)(CI)(AD)
+                                              BUILTIN\Users:(I)(CI)(WD)
+
+Successfully processed 1 files; Failed processing 0 files
+AdministratorWriteProbe: ok
+
+=== CHAT UPLOAD CHUNK DIRECTORIES ===
+
+
+Path          : D:\SOODALLIFE\apps\api\App_Data\private-files\chat-upload\17\4bd8dd7818d949d0bfde3db5bc1a4058\chunks-67837a38decd418c941f9b3ea8d8b837
+LastWriteTime : 2026-08-25 오전 1:48:55
+ChunkCount    : 4
+TotalBytes    : 98979
+
+
+
+
+=== RECENT APPLICATION ERRORS ===
+
+=== RECENT IIS CHAT REQUESTS ===
+
+=== RECENT HTTPERR ENTRIES ===
+
+=== CHAT ATTACHMENT DATABASE ROWS ===
+public_id                            purpose_code                   original_file_name
+                                                     content_type                                                                                                                                                                                             size_bytes
+    status_code          malware_scan_status_code       privacy_inspection_status_code created_at                             activated_at
+------------------------------------ ------------------------------ -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------- -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -----------------
+--- -------------------- ------------------------------ ------------------------------ -------------------------------------- --------------------------------------
+
+=== DEPLOYED FILES ===
+
+FullName                                    Length LastWriteTime
+--------                                    ------ -------------
+D:\SOODALLIFE\apps\api\SoodalLife.Api.dll 19389952 2026-08-25 오전 1:56:28
+D:\SOODALLIFE\apps\customer\index.html        1081 2026-08-25 오전 1:55:10
+D:\SOODALLIFE\apps\partner\index.html         1081 2026-08-25 오전 1:55:10
+
+
+**********************
+Windows PowerShell transcript end
+End time: 20260825020114
+**********************

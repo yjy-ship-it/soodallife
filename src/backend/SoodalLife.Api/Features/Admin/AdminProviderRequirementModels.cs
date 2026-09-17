@@ -19,7 +19,26 @@ public sealed record AdminProviderRequirementResponse(
     string EffectiveStatus,
     bool IsCurrentlyEffective,
     bool IsActive,
+    string RowVersion,
     IReadOnlyList<AdminCategoryProviderRequirementResponse> StructuredRequirements);
+
+public sealed record SaveAdminOperationPolicyRequest(
+    string QualificationAndLicenseRequirement,
+    string InsuranceRequirement,
+    string SafetyGradeCode,
+    string RowVersion);
+
+public sealed record SaveAdminMiddleOperationPolicyRequest(
+    string QualificationAndLicenseRequirement,
+    string InsuranceRequirement,
+    string SafetyGradeCode,
+    IReadOnlyList<AdminOperationPolicyTargetRequest> Services);
+
+public sealed record AdminOperationPolicyTargetRequest(Guid ServiceId, Guid PolicyId, string RowVersion);
+public sealed record ApplyAdminMiddleProviderRequirementsRequest(
+    Guid SourceServiceId,
+    Guid SourcePolicyId,
+    IReadOnlyList<AdminOperationPolicyTargetRequest> Services);
 
 public sealed record AdminCategoryProviderRequirementResponse(
     Guid Id,

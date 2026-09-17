@@ -19,5 +19,9 @@ public sealed class AdminProviderServiceApprovalsController(AdminProviderService
     public async Task<ActionResult<AdminProviderServiceApprovalDecisionResponse>> Decide(Guid providerId, Guid serviceId, AdminProviderServiceApprovalDecisionRequest request, CancellationToken cancellationToken)
     { try { return Ok(await service.DecideAsync(providerId, serviceId, request, Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!), cancellationToken)); }
       catch (AdminServiceCategoryException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); } }
+    [HttpPost("bulk-decisions")]
+    public async Task<ActionResult<IReadOnlyList<AdminProviderServiceApprovalDecisionResponse>>> DecideAll(Guid providerId,
+        AdminProviderServiceBulkApprovalDecisionRequest request, CancellationToken cancellationToken)
+    { try { return Ok(await service.DecideAllAsync(providerId, request, Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!), cancellationToken)); }
+      catch (AdminServiceCategoryException exception) { return StatusCode(exception.StatusCode, ApiErrorResponse.Create(HttpContext, exception.BusinessCode, exception.Message)); } }
 }
-

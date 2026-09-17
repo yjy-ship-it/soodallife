@@ -21,7 +21,7 @@ public sealed class AuthenticationController(
         LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var user = await authenticationService.AuthenticateAsync(request.LoginOrEmail, request.Password, cancellationToken);
+        var user = await authenticationService.AuthenticateAsync(request.LoginOrEmail, request.Password, request.MfaCode, cancellationToken);
         if (user is null)
         {
             return Unauthorized(ApiErrorResponse.Create(
@@ -30,7 +30,7 @@ public sealed class AuthenticationController(
                 "아이디 또는 비밀번호를 확인해 주세요."));
         }
 
-        await SignIn(user);
+        await SignIn(user, request.RememberMe && !user.Roles.Contains(RoleCodes.Admin, StringComparer.Ordinal));
 
         if (user.Roles.Contains(RoleCodes.Admin, StringComparer.Ordinal))
         {
@@ -51,7 +51,8 @@ public sealed class AuthenticationController(
         if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var publicId)) return Unauthorized();
         var user = await authenticationService.CurrentAsync(publicId, cancellationToken);
         if (user is null) return Unauthorized();
-        await SignIn(user);
+        var current = await HttpContext.AuthenticateAsync(AuthenticationConstants.Scheme);
+        await SignIn(user, current.Properties?.IsPersistent == true);
         return Ok(user);
     }
 
@@ -74,14 +75,16 @@ public sealed class AuthenticationController(
         return NoContent();
     }
 
-    private Task SignIn(AuthenticatedUserResponse user)
+    private Task SignIn(AuthenticatedUserResponse user, bool rememberMe)
     {
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user.PublicId.ToString()), new(ClaimTypes.Name, user.LoginId) };
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationConstants.Scheme));
         return HttpContext.SignInAsync(AuthenticationConstants.Scheme, principal, new AuthenticationProperties
         {
-            IsPersistent = true, AllowRefresh = true, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+            IsPersistent = rememberMe,
+            AllowRefresh = rememberMe,
+            ExpiresUtc = rememberMe ? DateTimeOffset.UtcNow.AddDays(30) : null,
         });
     }
 }

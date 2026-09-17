@@ -1,0 +1,19 @@
+Set these as protected Windows Machine environment variables before deployment.
+Do not place live keys in appsettings.json or this file.
+
+SubscriptionPaymentGateway__Enabled=true
+SubscriptionPaymentGateway__ProviderCode=TOSS
+SubscriptionPaymentGateway__BaseUrl=https://api.tosspayments.com
+SubscriptionPaymentGateway__ClientKey=<live_client_key>
+SubscriptionPaymentGateway__SecretKey=<live_secret_key>
+SubscriptionPaymentGateway__BillingSuccessPath=/customer/care/payments?billing=success
+SubscriptionPaymentGateway__BillingFailPath=/customer/care/payments?billing=fail
+
+Register this webhook in the Toss Payments console:
+https://api.soodallife.kr/api/v1/webhooks/toss/subscriptions
+
+Events:
+- PAYMENT_STATUS_CHANGED
+- CANCEL_STATUS_CHANGED
+
+After changing Machine environment variables, restart the SoodalLife.Api application pool.

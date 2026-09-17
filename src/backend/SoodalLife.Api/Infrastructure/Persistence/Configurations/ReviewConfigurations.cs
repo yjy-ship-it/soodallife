@@ -60,3 +60,16 @@ internal sealed class ReviewProviderReplyConfiguration() : EntityConfiguration<R
         Mapping.Fk<ReviewProviderReply,Review>(b,nameof(ReviewProviderReply.ReviewId)); Mapping.Fk<ReviewProviderReply,ProviderProfile>(b,nameof(ReviewProviderReply.ProviderProfileId)); b.HasIndex(x=>x.ReviewId).IsUnique(); b.HasIndex(x=>x.IdempotencyKey).IsUnique();
     }
 }
+
+internal sealed class ReviewCommentConfiguration() : EntityConfiguration<ReviewComment>("review_comments")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ReviewComment> b)
+    {
+        Mapping.PublicId(b); Mapping.Long(b,nameof(ReviewComment.ReviewId),"review_id"); Mapping.NullableLong(b,nameof(ReviewComment.ParentCommentId),"parent_comment_id"); Mapping.Long(b,nameof(ReviewComment.AuthorUserId),"author_user_id");
+        Mapping.String(b,nameof(ReviewComment.AuthorRoleCode),"author_role_code",20,unicode:false); Mapping.String(b,nameof(ReviewComment.AuthorDisplayName),"author_display_name",150); Mapping.String(b,nameof(ReviewComment.BodyText),"body_text",2000); Mapping.String(b,nameof(ReviewComment.StatusCode),"status_code",20,unicode:false); Mapping.String(b,nameof(ReviewComment.IdempotencyKey),"idempotency_key",150,unicode:false);
+        Mapping.DateTime(b,nameof(ReviewComment.SubmittedAt),"submitted_at"); Mapping.DateTime(b,nameof(ReviewComment.HiddenAt),"hidden_at",nullable:true); Mapping.NullableLong(b,nameof(ReviewComment.HiddenByUserId),"hidden_by_user_id"); Mapping.String(b,nameof(ReviewComment.HiddenReason),"hidden_reason",1000,nullable:true); Mapping.DateTime(b,nameof(ReviewComment.CreatedAt),"created_at",utcDefault:true); Mapping.DateTime(b,nameof(ReviewComment.UpdatedAt),"updated_at",utcDefault:true); Mapping.RowVersion(b);
+        Mapping.Fk<ReviewComment,Review>(b,nameof(ReviewComment.ReviewId)); Mapping.Fk<ReviewComment,User>(b,nameof(ReviewComment.AuthorUserId)); Mapping.Fk<ReviewComment,User>(b,nameof(ReviewComment.HiddenByUserId));
+        b.HasOne<ReviewComment>().WithMany().HasForeignKey(x=>x.ParentCommentId).OnDelete(DeleteBehavior.NoAction); b.HasIndex(x=>x.PublicId).IsUnique(); b.HasIndex(x=>x.IdempotencyKey).IsUnique(); b.HasIndex(x=>new{x.ReviewId,x.SubmittedAt}); b.HasIndex(x=>x.ParentCommentId);
+        b.ToTable("review_comments",t=>{t.HasCheckConstraint("CK_review_comments_author_role","[author_role_code] IN ('CUSTOMER','PROVIDER')");t.HasCheckConstraint("CK_review_comments_status","[status_code] IN ('ACTIVE','HIDDEN')");});
+    }
+}

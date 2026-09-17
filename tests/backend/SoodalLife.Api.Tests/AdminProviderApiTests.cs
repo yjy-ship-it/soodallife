@@ -33,17 +33,41 @@ public sealed class AdminProviderApiTests(AuthenticationWebApplicationFactory fa
     }
 
     [Fact]
+    public async Task Admin_UsesPublicEmailWhenPrivateContactEmailIsEmpty()
+    {
+        var providerId = await EnsureProviderDataAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+            var provider = await db.ProviderProfiles.SingleAsync(value => value.PublicId == providerId);
+            var user = await db.Users.SingleAsync(value => value.Id == provider.UserId);
+            user.Email = null;
+            user.NormalizedEmail = null;
+            provider.PublicEmail = "public-contact@sudal.example.kr";
+            await db.SaveChangesAsync();
+        }
+
+        using var client = Client();
+        await Login(client, factory.Credentials[RoleCodes.Admin]);
+        var list = await client.GetFromJsonAsync<AdminProviderListResponse>($"{BasePath}?search={Uri.EscapeDataString("public-contact@sudal.example.kr")}");
+        var item = Assert.Single(list!.Items, value => value.Id == providerId);
+        Assert.Equal("p***@sudal.example.kr", item.MaskedEmail);
+        var detail = await client.GetFromJsonAsync<AdminProviderDetailResponse>($"{BasePath}/{providerId}");
+        Assert.Equal("public-contact@sudal.example.kr", detail!.Basic.Email);
+    }
+
+    [Fact]
     public async Task Admin_DetailConnectsServicesAreasRequirementsDocumentsQuotesTransactions_WithoutOtherProviderData()
     {
         var providerId = await SeedDetailAsync(); using var client = Client(); await Login(client, factory.Credentials[RoleCodes.Admin]);
         var detail = await client.GetFromJsonAsync<AdminProviderDetailResponse>($"{BasePath}/{providerId}");
         Assert.NotNull(detail); Assert.Equal("수달홈케어", detail.Basic.ProviderName); Assert.Contains(RoleCodes.Customer, detail.Basic.Roles);
-        Assert.Equal("123-**-67890", detail.Business.BusinessRegistrationNo); Assert.False(detail.Business.DetailFieldsSupported);
-        Assert.Single(detail.Services); Assert.Single(detail.Areas); Assert.Single(detail.Documents); Assert.False(detail.Documents[0].CanOpenFile);
+        Assert.Equal("1234567890", detail.Business.BusinessRegistrationNo); Assert.True(detail.Business.DetailFieldsSupported);
+        Assert.Single(detail.Services); Assert.Single(detail.Areas); Assert.Single(detail.Documents); Assert.True(detail.Documents[0].CanOpenFile);
         var review = Assert.Single(detail.ServiceReviews); Assert.True(review.StructuredRequirementsConfigured); Assert.Equal("관련 자격·사업자 확인", review.LegacyQualificationText);
         var requirement = Assert.Single(review.Requirements, item => item.LinkedDocumentType == "사업자등록증"); Assert.Equal("PENDING", requirement.VerificationStatusCode);
         Assert.Single(detail.Quotes); Assert.True(detail.Quotes[0].IsAccepted); Assert.Single(detail.Transactions);
-        Assert.DoesNotContain(detail.Quotes, quote => quote.RequestTitle == "다른 공급자에게 전달된 요청");
+        Assert.DoesNotContain(detail.Quotes, quote => quote.RequestTitle == "다른 전문가에게 전달된 요청");
     }
 
     [Theory]

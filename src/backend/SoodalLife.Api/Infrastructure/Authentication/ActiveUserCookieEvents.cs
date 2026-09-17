@@ -18,22 +18,19 @@ public sealed class ActiveUserCookieEvents(SoodalLifeDbContext dbContext) : Cook
             return;
         }
 
-        var user = await dbContext.Users
-            .AsNoTracking()
-            .SingleOrDefaultAsync(candidate => candidate.PublicId == publicId, context.HttpContext.RequestAborted);
-
-        if (user is null || user.StatusCode != "ACTIVE")
+        var activeRoleCodes = await (
+                from user in dbContext.Users.AsNoTracking()
+                join userRole in dbContext.UserRoles.AsNoTracking() on user.Id equals userRole.UserId
+                join role in dbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+                where user.PublicId == publicId && user.StatusCode == "ACTIVE" && userRole.RevokedAt == null && role.IsActive
+                select role.Code)
+            .Distinct()
+            .ToListAsync(context.HttpContext.RequestAborted);
+        if (activeRoleCodes.Count == 0)
         {
             await RejectAsync(context);
             return;
         }
-
-        var activeRoleCodes = await (
-                from userRole in dbContext.UserRoles.AsNoTracking()
-                join role in dbContext.Roles.AsNoTracking() on userRole.RoleId equals role.Id
-                where userRole.UserId == user.Id && userRole.RevokedAt == null && role.IsActive
-                select role.Code)
-            .ToListAsync(context.HttpContext.RequestAborted);
         var activeRoles = activeRoleCodes.ToHashSet(StringComparer.Ordinal);
 
         var claimedRoles = context.Principal?.FindAll(ClaimTypes.Role)

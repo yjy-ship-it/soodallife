@@ -8,6 +8,7 @@ import {
   updateAdminRequestFieldOption,
 } from './requestFieldApi'
 import type { AdminRequestField, AdminRequestFieldOption, RequestFieldDefinitionStatus, RequestFieldInputType } from './requestFieldTypes'
+import { soodalConfirm } from '../components/soodalDialog'
 
 const inputTypeLabels: Record<RequestFieldInputType, string> = {
   ADDRESS: '주소', DATETIME: '일시', FILE: '파일·사진', LONG_TEXT: '장문', MONEY: '금액',
@@ -62,7 +63,7 @@ export function AdminRequestFieldsPanel({ serviceId, serviceName }: { serviceId:
   const saveDefinition = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (!selected) return
     let confirmSharedChange = selected.affectedServiceCount <= 1
-    if (!confirmSharedChange) confirmSharedChange = window.confirm(`이 질문 정의는 같은 중분류의 서비스 ${selected.affectedServiceCount}곳에 공통 적용됩니다. 계속할까요?`)
+    if (!confirmSharedChange) confirmSharedChange = await soodalConfirm(`이 질문 정의는 같은 중분류의 서비스 ${selected.affectedServiceCount}곳에 공통 적용됩니다. 계속할까요?`)
     if (!confirmSharedChange) return
     setSaving(true); setError(null); setNotice(null)
     try {
@@ -77,7 +78,7 @@ export function AdminRequestFieldsPanel({ serviceId, serviceName }: { serviceId:
 
   const saveAssignment = async () => {
     if (!selected) return
-    if (!serviceEnabled && !window.confirm(`이 질문을 '${serviceName}' 고객 요청 화면에서 사용하지 않도록 설정할까요?`)) return
+    if (!serviceEnabled && !await soodalConfirm(`이 질문을 '${serviceName}' 고객 요청 화면에서 사용하지 않도록 설정할까요?`)) return
     setSaving(true); setError(null); setNotice(null)
     try {
       replaceField(await updateAdminRequestFieldAssignment(serviceId, selected.id, { isActive: serviceEnabled, isRequired: required, displayOrder }))

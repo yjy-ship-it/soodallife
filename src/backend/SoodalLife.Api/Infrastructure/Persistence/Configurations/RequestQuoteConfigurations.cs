@@ -14,6 +14,7 @@ internal sealed class ServiceRequestConfiguration() : EntityConfiguration<Servic
         Mapping.Long(b, nameof(ServiceRequest.CategoryPolicyId), "category_policy_id");
         Mapping.NullableLong(b, nameof(ServiceRequest.AdministrativeAreaId), "administrative_area_id");
         Mapping.String(b, nameof(ServiceRequest.DetailAddress), "detail_address", 500, nullable: true);
+        Mapping.String(b, nameof(ServiceRequest.DetailAddressDisclosureCode), "detail_address_disclosure_code", 30, unicode: false, defaultValue: "AFTER_SELECTION");
         Mapping.Binary(b, nameof(ServiceRequest.DetailAddressEncrypted), "detail_address_encrypted");
         Mapping.NullableShort(b, nameof(ServiceRequest.PrivacyProtectionVersion), "privacy_protection_version");
         Mapping.String(b, nameof(ServiceRequest.Title), "title", 200);
@@ -27,6 +28,11 @@ internal sealed class ServiceRequestConfiguration() : EntityConfiguration<Servic
         Mapping.DateTime(b, nameof(ServiceRequest.CancelledAt), "cancelled_at", nullable: true);
         Mapping.String(b, nameof(ServiceRequest.CancellationReason), "cancellation_reason", 1000, nullable: true);
         Mapping.String(b, nameof(ServiceRequest.IdempotencyKey), "idempotency_key", 100, nullable: true, unicode: false);
+        Mapping.String(b, nameof(ServiceRequest.AbuseFingerprint), "abuse_fingerprint", 64, nullable: true, unicode: false, fixedLength: true);
+        Mapping.NullableShort(b, nameof(ServiceRequest.AbusePolicyVersion), "abuse_policy_version");
+        Mapping.DateTime(b, nameof(ServiceRequest.CustomerQuotesViewedAt), "customer_quotes_viewed_at", nullable: true);
+        Mapping.Bool(b, nameof(ServiceRequest.AbuseCountExcluded), "abuse_count_excluded", false);
+        Mapping.String(b, nameof(ServiceRequest.AbuseExclusionReason), "abuse_exclusion_reason", 500, nullable: true);
         Mapping.FullAudit(b);
         Mapping.Fk<ServiceRequest, CustomerProfile>(b, nameof(ServiceRequest.CustomerProfileId));
         Mapping.Fk<ServiceRequest, ServiceCategory>(b, nameof(ServiceRequest.CategoryId));
@@ -44,8 +50,11 @@ internal sealed class ServiceRequestConfiguration() : EntityConfiguration<Servic
         b.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[idempotency_key] IS NOT NULL");
         b.HasIndex(x => new { x.CategoryId, x.AdministrativeAreaId, x.StatusCode, x.OpenedAt });
         b.HasIndex(x => new { x.CustomerProfileId, x.CreatedAt }).IsDescending(false, true);
+        b.HasIndex(x => new { x.CustomerProfileId, x.CategoryId, x.OpenedAt });
+        b.HasIndex(x => new { x.CustomerProfileId, x.AbuseFingerprint, x.OpenedAt });
         b.ToTable("service_requests", t =>
         {
+            t.UseSqlOutputClause(false);
             t.HasCheckConstraint("CK_service_requests_status", "[status_code] IN ('DRAFT','OPEN','ACCEPTED','EXPIRED','CANCELLED')");
             t.HasCheckConstraint("CK_service_requests_policy_json", "ISJSON([policy_snapshot_json]) = 1");
         });
@@ -139,7 +148,7 @@ internal sealed class DispatchCandidateConfiguration() : EntityConfiguration<Dis
         b.HasIndex(x => x.ExpiresAt);
         b.HasIndex(x => new { x.ServiceRequestId, x.ProviderProfileId }).IsUnique();
         b.HasIndex(x => new { x.ServiceRequestId, x.StatusCode });
-        b.ToTable("dispatch_candidates", t => t.HasCheckConstraint("CK_dispatch_candidates_status", "[status_code] IN ('ELIGIBLE','INELIGIBLE','DISPATCHED','EXPIRED')"));
+        b.ToTable("dispatch_candidates", t => t.HasCheckConstraint("CK_dispatch_candidates_status", "[status_code] IN ('ELIGIBLE','INELIGIBLE','DISPATCHED','DECLINED','EXPIRED')"));
     }
 }
 
@@ -171,7 +180,7 @@ internal sealed class RequestDispatchConfiguration() : EntityConfiguration<Reque
         b.HasIndex(x => x.IdempotencyKey).IsUnique();
         b.HasIndex(x => new { x.ServiceRequestId, x.ProviderProfileId }).IsUnique();
         b.HasIndex(x => new { x.ProviderProfileId, x.StatusCode, x.AvailableAt }).IsDescending(false, false, true);
-        b.ToTable("request_dispatches", t => t.HasCheckConstraint("CK_request_dispatches_status", "[status_code] IN ('AVAILABLE','VIEWED','RESPONDED','EXPIRED')"));
+        b.ToTable("request_dispatches", t => t.HasCheckConstraint("CK_request_dispatches_status", "[status_code] IN ('AVAILABLE','VIEWED','RESPONDED','DECLINED','EXPIRED')"));
     }
 }
 
@@ -307,7 +316,11 @@ internal sealed class QuoteConfiguration() : EntityConfiguration<Quote>("quotes"
         b.HasIndex(x => x.ExpiresAt);
         b.HasIndex(x => new { x.ServiceRequestId, x.ProviderProfileId }).IsUnique();
         b.HasIndex(x => new { x.ServiceRequestId, x.StatusCode, x.SubmittedAt }).IsDescending(false, false, true);
-        b.ToTable("quotes", t => t.HasCheckConstraint("CK_quotes_status", "[status_code] IN ('DRAFT','SUBMITTED','ACCEPTED','NOT_SELECTED','WITHDRAWN','EXPIRED','INVALIDATED')"));
+        b.ToTable("quotes", t =>
+        {
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_quotes_status", "[status_code] IN ('DRAFT','SUBMITTED','ACCEPTED','NOT_SELECTED','WITHDRAWN','EXPIRED','INVALIDATED')");
+        });
     }
 }
 
@@ -342,6 +355,7 @@ internal sealed class QuoteRevisionConfiguration() : EntityConfiguration<QuoteRe
         b.HasIndex(x => x.IdempotencyKey).IsUnique();
         b.HasIndex(x => new { x.QuoteId, x.RevisionNo }).IsUnique().IsDescending(false, true);
         b.HasIndex(x => new { x.QuoteId, x.SubmittedAt }).IsDescending(false, true);
+        b.ToTable("quote_revisions", t => t.UseSqlOutputClause(false));
     }
 }
 
@@ -366,6 +380,34 @@ internal sealed class QuoteItemConfiguration() : EntityConfiguration<QuoteItem>(
         Mapping.Fk<QuoteItem, QuoteRevision>(b, nameof(QuoteItem.QuoteRevisionId));
         b.HasIndex(x => x.QuoteRevisionId);
         b.HasIndex(x => new { x.QuoteRevisionId, x.LineNo }).IsUnique();
-        b.ToTable("quote_items", t => t.HasCheckConstraint("CK_quote_items_quantity", "[quantity] > 0"));
+        b.ToTable("quote_items", t =>
+        {
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_quote_items_quantity", "[quantity] > 0");
+        });
+    }
+}
+
+internal sealed class ProviderQuoteTemplateConfiguration() : EntityConfiguration<ProviderQuoteTemplate>("provider_quote_templates")
+{
+    protected override void ConfigureEntity(EntityTypeBuilder<ProviderQuoteTemplate> b)
+    {
+        Mapping.PublicId(b);
+        Mapping.Long(b, nameof(ProviderQuoteTemplate.ProviderProfileId), "provider_profile_id");
+        Mapping.String(b, nameof(ProviderQuoteTemplate.Name), "name", 100);
+        Mapping.String(b, nameof(ProviderQuoteTemplate.Summary), "summary", 1000);
+        Mapping.String(b, nameof(ProviderQuoteTemplate.Terms), "terms", null, nullable: true);
+        Mapping.String(b, nameof(ProviderQuoteTemplate.EstimatedDurationText), "estimated_duration_text", 200, nullable: true);
+        Mapping.String(b, nameof(ProviderQuoteTemplate.VatMode), "vat_mode", 10, unicode: false, defaultValue: "EXCLUDED");
+        Mapping.String(b, nameof(ProviderQuoteTemplate.ItemsJson), "items_json", null);
+        Mapping.FullAudit(b);
+        Mapping.Fk<ProviderQuoteTemplate, ProviderProfile>(b, nameof(ProviderQuoteTemplate.ProviderProfileId));
+        b.HasIndex(x => x.ProviderProfileId);
+        b.HasIndex(x => new { x.ProviderProfileId, x.Name }).IsUnique();
+        b.ToTable("provider_quote_templates", t =>
+        {
+            t.UseSqlOutputClause(false);
+            t.HasCheckConstraint("CK_provider_quote_templates_vat_mode", "[vat_mode] IN ('INCLUDED','EXCLUDED')");
+        });
     }
 }

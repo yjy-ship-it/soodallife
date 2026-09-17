@@ -1,0 +1,23 @@
+SOODAL LIFE V159 - Expert offer and group recruitment marketplace
+
+Release scope
+- Existing advertising remains unchanged and a separate expert offer/group recruitment module is added.
+- Only active catalog services approved for the expert can be selected.
+- Nationwide recruitment requires the service's nationwide/remote approval; local recruitment accepts at most five active districts.
+- Capacity x KRW 5,000 is reserved. Only confirmed participants are captured, and unused or failed recruitment funds are released/restored.
+- Customer home feed, public list/detail, one-click neighborhood and service interests are included.
+- Targeting uses direct interests, request/transaction history, saved district information and 30-day service detail signals; exact addresses are never exposed to experts.
+- Nationwide notifications use WEB/PUSH; local notifications use WEB/PUSH/SMS. Kakao AlimTalk is excluded.
+- Marketing legal consent and per-channel consent are required for active delivery.
+- SMS/PUSH external delivery is fail-closed until ProviderProposals:MarketingTermsFinalized=true.
+- PUSH remains blocked until ProviderProposals:PwaPushEnabled=true and the channel is enabled.
+
+Database schema changed: Yes
+Production appsettings preserved: Yes
+API App_Data preserved: Yes
+
+Verification
+- Backend build: passed
+- Provider proposal integration tests: 2 passed
+- Frontend production build: passed
+- Existing ads use their original module and tables.

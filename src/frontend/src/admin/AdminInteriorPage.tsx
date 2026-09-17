@@ -8,13 +8,13 @@ import type {
 
 const statuses: Record<string, string> = {
   CONSULTATION: "상담",
-  SITE_VISIT_SELECTION: "실측 공급자 선택",
+  SITE_VISIT_SELECTION: "실측 전문가 선택",
   SITE_VISIT_SCHEDULED: "실측 예정",
   SITE_VISIT_COMPLETED: "실측 완료",
   ESTIMATE_IN_PROGRESS: "설계·견적 작성",
   ESTIMATE_READY: "견적 준비 완료",
-  CONTRACT_PENDING: "계약 동의 대기",
-  CONTRACTED: "계약 완료",
+  CONTRACT_PENDING: "당사자 계약자료 확인 중",
+  CONTRACTED: "당사자 계약자료 확인 완료",
   CONSTRUCTION: "공사 진행",
   INSPECTION: "검수",
   COMPLETED: "완료",
@@ -23,7 +23,7 @@ const statuses: Record<string, string> = {
   PROPOSED: "일정 제안",
   CONFIRMED: "일정 확정",
   PENDING_AGREEMENT: "동의 대기",
-  EFFECTIVE: "계약 효력 발생",
+  EFFECTIVE: "계약자료 상호 확인 완료",
   PLANNED: "예정",
   IN_PROGRESS: "진행 중",
   REQUESTED: "승인 대기",
@@ -125,8 +125,7 @@ export function AdminInteriorPage({
           <h1>인테리어 프로젝트 관리</h1>
         </div>
         <span>
-          상담부터 실측·계약·공정·변경·검수·하자까지 하나의 프로젝트 이력으로
-          관리합니다.
+          정상 거래는 고객·전문가가 직접 진행합니다. 본사는 개인정보를 최소화해 조회하고 분쟁·제재 등 예외 업무만 처리합니다.
         </span>
       </section>
       {error && <div className="adminError">{error}</div>}
@@ -148,7 +147,7 @@ export function AdminInteriorPage({
               <div>
                 <h2>프로젝트 목록</h2>
                 <span>
-                  개인정보는 상세 업무권한이 있는 관리자에게만 표시됩니다.
+                  운영 현황 조회 전용입니다. 고객 전화번호와 상세주소는 이 화면에 표시하지 않습니다.
                 </span>
               </div>
             </header>
@@ -204,7 +203,7 @@ function ProjectTable({ items }: { items: InteriorProjectItem[] }) {
             <th>고객·서비스</th>
             <th>지역</th>
             <th>현재 단계</th>
-            <th>담당 공급자</th>
+            <th>담당 전문가</th>
             <th>계약금액</th>
             <th>공사기간</th>
             <th>진행률</th>
@@ -293,11 +292,11 @@ function Detail({
         </div>
         <dl>
           <div>
-            <dt>실측 공급자</dt>
+            <dt>실측 전문가</dt>
             <dd>{value.siteVisitProvider ?? "미확정"}</dd>
           </div>
           <div>
-            <dt>최종 선택 공급자</dt>
+            <dt>최종 선택 전문가</dt>
             <dd>{value.contractor ?? "미확정"}</dd>
           </div>
           <div>
@@ -382,7 +381,7 @@ function Detail({
             empty="등록된 계약이 없습니다."
             values={value.contracts.map((v) => ({
               title: `계약 ${v.version}차 · ${statuses[v.statusCode] ?? v.statusCode}`,
-              body: `${v.providerName} · ${money(v.amount, v.currencyCode)}\n고객동의 ${date(v.customerAgreedAt)} · 공급자동의 ${date(v.providerAgreedAt)}`,
+              body: `${v.providerName} · ${money(v.amount, v.currencyCode)}\n고객동의 ${date(v.customerAgreedAt)} · 전문가동의 ${date(v.providerAgreedAt)}`,
             }))}
           />
         )}{" "}
@@ -476,7 +475,7 @@ function nextAction(status: string) {
     (
       {
         CONSULTATION: "실측 후보 등록",
-        SITE_VISIT_SELECTION: "실측 공급자 확정",
+        SITE_VISIT_SELECTION: "실측 전문가 확정",
         SITE_VISIT_SCHEDULED: "실측 수행",
         SITE_VISIT_COMPLETED: "설계·견적 등록",
         ESTIMATE_IN_PROGRESS: "견적 확정",

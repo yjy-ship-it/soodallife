@@ -16,6 +16,19 @@ public sealed class AdminCaseManagementApiTests(AuthenticationWebApplicationFact
     public async Task Admin_CanAccessReportSanctionAndMasterManagement()
     {using var client=Client();await Login(client,RoleCodes.Admin);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/admin/reports")).StatusCode);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/admin/sanctions")).StatusCode);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/admin/case-masters/report-types")).StatusCode);}
 
+    [Fact]
+    public async Task Admin_CanSafelyInitializeDefaultReportTypesMoreThanOnce()
+    {
+        using var client=Client();await Login(client,RoleCodes.Admin);
+        var first=await client.PostAsync("/api/v1/admin/case-masters/report-types/initialize",null);
+        var second=await client.PostAsync("/api/v1/admin/case-masters/report-types/initialize",null);
+        Assert.Equal(HttpStatusCode.OK,first.StatusCode);Assert.Equal(HttpStatusCode.OK,second.StatusCode);
+        var values=await second.Content.ReadFromJsonAsync<List<CaseMasterResponse>>();Assert.NotNull(values);
+        var defaults=values!.Where(x=>new[]{"TRANSACTION_BREACH","QUALITY_DEFECT","PAYMENT_CHARGE_ISSUE","NO_SHOW_COMMUNICATION","SAFETY_PROPERTY_DAMAGE","HARASSMENT_ABUSE","FRAUD_MISREPRESENTATION","PRIVACY_VIOLATION","INAPPROPRIATE_CONTENT","OTHER"}.Contains(x.Code)).ToList();
+        Assert.Equal(10,defaults.Count);Assert.Equal(10,defaults.Select(x=>x.Code).Distinct().Count());Assert.All(defaults,x=>Assert.True(x.IsActive));Assert.Contains(defaults,x=>x.Code=="QUALITY_DEFECT"&&x.Name=="작업 품질·하자"&&x.DisplayOrder==20);
+        using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();Assert.Equal(10,await db.ReportTypes.CountAsync(x=>new[]{"TRANSACTION_BREACH","QUALITY_DEFECT","PAYMENT_CHARGE_ISSUE","NO_SHOW_COMMUNICATION","SAFETY_PROPERTY_DAMAGE","HARASSMENT_ABUSE","FRAUD_MISREPRESENTATION","PRIVACY_VIOLATION","INAPPROPRIATE_CONTENT","OTHER"}.Contains(x.Code)));
+    }
+
     [Theory,InlineData(RoleCodes.Customer),InlineData(RoleCodes.Provider)]
     public async Task NonAdmin_CannotAccessCaseManagement(string role)
     {using var client=Client();await Login(client,role);Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync("/api/v1/admin/reports")).StatusCode);Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync("/api/v1/admin/sanctions")).StatusCode);Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync("/api/v1/admin/case-masters/sanction-types")).StatusCode);}

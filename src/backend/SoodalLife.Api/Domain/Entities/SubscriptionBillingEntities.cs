@@ -41,6 +41,7 @@ public sealed class SubscriptionPaymentRequest
     public string? FailureReason { get; set; }
     public string? ExternalPaymentReference { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
+    public int GatewayAttemptNo { get; set; } = 1;
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -161,6 +162,11 @@ public sealed class SubscriptionRefundAdjustment
     public decimal RequestedAmount { get; set; }
     public decimal? ApprovedAmount { get; set; }
     public string Reason { get; set; } = string.Empty;
+    public string? CalculationJson { get; set; }
+    public decimal ProviderAdjustmentAmount { get; set; }
+    public string? ExternalRefundReference { get; set; }
+    public string? FailureCode { get; set; }
+    public string? FailureReason { get; set; }
     public string StatusCode { get; set; } = "REQUESTED";
     public DateTime RequestedAt { get; set; }
     public DateTime? ApprovedAt { get; set; }

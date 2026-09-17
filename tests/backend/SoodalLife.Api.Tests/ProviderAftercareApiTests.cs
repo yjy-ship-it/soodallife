@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -70,6 +71,27 @@ public sealed class ProviderAftercareApiTests(AuthenticationWebApplicationFactor
     }
 
     [Fact]
+    public async Task ProviderCanUploadPreviewAndOpenAfterServiceImage_ButPdfIsRejected()
+    {
+        var id = await SeedAfterService("IN_PROGRESS"); using var client = Client(); await Login(client, factory.Credentials[RoleCodes.Provider]);
+        using var form = new MultipartFormDataContent();
+        var image = new ByteArrayContent(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
+        image.Headers.ContentType = new MediaTypeHeaderValue("image/png"); form.Add(image, "file", "evidence.png"); form.Add(new StringContent("처리 후"), "role");
+        var response = await client.PostAsync($"/api/v1/providers/me/after-services/{id}/evidence", form);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var uploaded = await response.Content.ReadFromJsonAsync<ProviderCaseFile>(); Assert.NotNull(uploaded); Assert.NotNull(uploaded.DownloadUrl);
+        var opened = await client.GetAsync(uploaded.DownloadUrl); Assert.Equal(HttpStatusCode.OK, opened.StatusCode); Assert.Equal("image/png", opened.Content.Headers.ContentType?.MediaType);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>(); var stored = await db.Files.SingleAsync(x => x.PublicId == uploaded.Id);
+            Assert.Equal("CLEAN", stored.MalwareScanStatusCode); Assert.Equal("SAFE", stored.PrivacyInspectionStatusCode); Assert.Equal("COMPLETED", stored.SanitizationStatusCode);
+        }
+
+        using var pdfForm = new MultipartFormDataContent(); var pdf = new ByteArrayContent("%PDF-1.4"u8.ToArray()); pdf.Headers.ContentType = new MediaTypeHeaderValue("application/pdf"); pdfForm.Add(pdf, "file", "evidence.pdf");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync($"/api/v1/providers/me/after-services/{id}/evidence", pdfForm)).StatusCode);
+    }
+
+    [Fact]
     public async Task OnlyConnectedProvider_CanRespondToDispute_WithoutResolvingIt()
     {
         var id = await SeedDispute(); using var assigned = Client(); await Login(assigned, factory.Credentials[RoleCodes.Provider]);
@@ -115,7 +137,7 @@ public sealed class ProviderAftercareApiTests(AuthenticationWebApplicationFactor
         var provider = await (from profile in db.ProviderProfiles join user in db.Users on profile.UserId equals user.Id where user.LoginId == factory.Credentials[RoleCodes.Provider].LoginId select profile).SingleAsync();
         var customer = await (from profile in db.CustomerProfiles join user in db.Users on profile.UserId equals user.Id where user.LoginId == factory.Credentials[RoleCodes.Customer].LoginId select profile).SingleAsync();
         var now = DateTime.UtcNow; var item = new AfterServiceCase { CustomerProfileId = customer.Id, ProviderProfileId = provider.Id, ReportedByUserId = customer.UserId,
-            StatusCode = status, Subject = "공급자 A/S 검증", Description = "고객 접수 증상", ReceivedAt = now, CompletedAt = status == "RESOLVED" ? now : null,
+            StatusCode = status, Subject = "전문가 A/S 검증", Description = "고객 접수 증상", ReceivedAt = now, CompletedAt = status == "RESOLVED" ? now : null,
             IdempotencyKey = Key(), CreatedAt = now, CreatedByUserId = customer.UserId, UpdatedAt = now, UpdatedByUserId = customer.UserId, RowVersion = [1] };
         db.AfterServiceCases.Add(item); await db.SaveChangesAsync();
         db.AfterServiceActions.Add(new AfterServiceAction { AfterServiceCaseId = item.Id, ToStatusCode = status, ActionTypeCode = status == "RESOLVED" ? "RESOLUTION" : status == "IN_PROGRESS" ? "TREATMENT" : "RECEIVED", OccurredAt = now, ActorUserId = customer.UserId, IdempotencyKey = Key() });

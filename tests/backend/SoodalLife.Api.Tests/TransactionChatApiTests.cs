@@ -59,7 +59,7 @@ public sealed class TransactionChatApiTests(AuthenticationWebApplicationFactory 
         var repeated = (await (await customer.PostAsJsonAsync($"/api/v1/chat/rooms/{room.Id}/messages/text", new { body = "중복", idempotencyKey = key })).Content.ReadFromJsonAsync<ChatMessageResponse>())!;
         Assert.Equal(first.Id, repeated.Id);
         for (var index = 0; index < 34; index++)
-            (await provider.PostAsJsonAsync($"/api/v1/chat/rooms/{room.Id}/messages/text", new { body = $"공급자 메시지 {index}", idempotencyKey = Guid.NewGuid().ToString("N") })).EnsureSuccessStatusCode();
+            (await provider.PostAsJsonAsync($"/api/v1/chat/rooms/{room.Id}/messages/text", new { body = $"전문가 메시지 {index}", idempotencyKey = Guid.NewGuid().ToString("N") })).EnsureSuccessStatusCode();
         var unread = await customer.GetFromJsonAsync<ChatUnreadCountResponse>("/api/v1/chat/unread-count");
         Assert.Equal(34, unread!.Count);
         var pageResponse = await customer.GetAsync($"/api/v1/chat/rooms/{room.Id}/messages?pageSize=10");
@@ -95,7 +95,7 @@ public sealed class TransactionChatApiTests(AuthenticationWebApplicationFactory 
         await Login(customer, factory.Credentials[RoleCodes.Customer]); await Login(provider, factory.Credentials[RoleCodes.Provider]); await Login(otherProvider, factory.AreaMismatchProviderCredential);
         var room = await customer.GetFromJsonAsync<ChatRoomDetail>($"/api/v1/chat/transactions/{transactionId}/room");
         using var form = new MultipartFormDataContent();
-        var bytes = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0 };
+        var bytes = TestFileSamples.ValidPng();
         var content = new ByteArrayContent(bytes); content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(content, "file", "현장사진.png"); form.Add(new StringContent(Guid.NewGuid().ToString("N"), Encoding.UTF8), "idempotencyKey");
         var sentResponse = await customer.PostAsync($"/api/v1/chat/rooms/{room!.Id}/messages/file", form); sentResponse.EnsureSuccessStatusCode();
@@ -109,8 +109,58 @@ public sealed class TransactionChatApiTests(AuthenticationWebApplicationFactory 
         Assert.Equal(HttpStatusCode.NotFound, (await otherProvider.GetAsync($"/api/v1/chat/rooms/{room.Id}/attachments/{sent.Attachment.Id}")).StatusCode);
         var raw = await sentResponse.Content.ReadAsStringAsync(); Assert.DoesNotContain("storageKey", raw, StringComparison.OrdinalIgnoreCase); Assert.DoesNotContain("fileId", raw, StringComparison.OrdinalIgnoreCase);
         using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
-        var stored = await db.Files.SingleAsync(x => x.PublicId == sent.Attachment.Id || x.PurposeCode == "CHAT_ATTACHMENT" && x.UploadedByUserId != null);
+        var stored = await (from link in db.ChatAttachments join file in db.Files on link.FileId equals file.Id
+            where link.PublicId == sent.Attachment.Id select file).SingleAsync();
         Assert.Equal("CHAT_ATTACHMENT", stored.PurposeCode); Assert.Equal("NOT_INTEGRATED", stored.MalwareScanStatusCode); Assert.Equal("NOT_INTEGRATED", stored.PrivacyInspectionStatusCode);
+    }
+
+    [Fact]
+    public async Task FileDataMessage_AcceptsJsonTransport_AndCreatesAttachment()
+    {
+        var transactionId = await SeedTransaction();
+        using var customer = Client(); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var room = await customer.GetFromJsonAsync<ChatRoomDetail>($"/api/v1/chat/transactions/{transactionId}/room");
+        var bytes = TestFileSamples.ValidJpeg();
+        var response = await customer.PostAsJsonAsync($"/api/v1/chat/rooms/{room!.Id}/messages/file-data", new
+        {
+            fileName = "현장사진.jpg",
+            contentType = "image/jpeg",
+            base64Data = Convert.ToBase64String(bytes),
+            idempotencyKey = Guid.NewGuid().ToString("N"),
+        });
+        response.EnsureSuccessStatusCode();
+        var message = await response.Content.ReadFromJsonAsync<ChatMessageResponse>();
+        Assert.NotNull(message); Assert.Equal("FILE", message!.MessageTypeCode); Assert.Equal("현장사진.jpg", message.Attachment!.FileName);
+        Assert.True(message.Attachment.Available); Assert.NotNull(message.Attachment.DownloadUrl);
+    }
+
+    [Fact]
+    public async Task FileChunkMessage_AssemblesSmallRequests_AndCreatesOneAttachment()
+    {
+        var transactionId = await SeedTransaction();
+        using var customer = Client(); await Login(customer, factory.Credentials[RoleCodes.Customer]);
+        var room = await customer.GetFromJsonAsync<ChatRoomDetail>($"/api/v1/chat/transactions/{transactionId}/room");
+        var bytes = new byte[40_000]; TestFileSamples.ValidJpeg().CopyTo(bytes, 0);
+        var uploadId = Guid.NewGuid(); var idempotencyKey = Guid.NewGuid().ToString("N");
+        var first = await customer.PostAsJsonAsync($"/api/v1/chat/rooms/{room!.Id}/messages/file-chunks", new
+        {
+            uploadId, fileName = "분할현장사진.jpg", contentType = "image/jpeg", chunkIndex = 0, totalChunks = 2,
+            base64Chunk = Convert.ToBase64String(bytes[..32_768]), idempotencyKey,
+        });
+        first.EnsureSuccessStatusCode();
+        var pending = await first.Content.ReadFromJsonAsync<ChatFileChunkResponse>();
+        Assert.NotNull(pending); Assert.False(pending!.Completed); Assert.Null(pending.Message);
+        var second = await customer.PostAsJsonAsync($"/api/v1/chat/rooms/{room.Id}/messages/file-chunks", new
+        {
+            uploadId, fileName = "분할현장사진.jpg", contentType = "image/jpeg", chunkIndex = 1, totalChunks = 2,
+            base64Chunk = Convert.ToBase64String(bytes[32_768..]), idempotencyKey,
+        });
+        second.EnsureSuccessStatusCode();
+        var completed = await second.Content.ReadFromJsonAsync<ChatFileChunkResponse>();
+        Assert.NotNull(completed); Assert.True(completed!.Completed); Assert.NotNull(completed.Message);
+        Assert.Equal("분할현장사진.jpg", completed.Message!.Attachment!.FileName);
+        using var scope = factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<SoodalLifeDbContext>();
+        Assert.Single(await db.ChatMessages.Where(x => x.MessageTypeCode == "FILE").ToListAsync());
     }
 
     [Fact]

@@ -1,5 +1,8 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SoodalLife.Api.Domain.Entities;
 using SoodalLife.Api.Features.Authentication;
 using SoodalLife.Api.Features.FilePrivacy;
@@ -8,7 +11,7 @@ using SoodalLife.Api.Infrastructure.Persistence;
 
 namespace SoodalLife.Api.Features.Subscriptions;
 
-public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPrivateFileStorage storage, ICrossDomainFilePublicationResolver filePublication)
+public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPrivateFileStorage storage, ICrossDomainFilePublicationResolver filePublication, SubscriptionTerminationService terminationService,ISubscriptionPaymentGateway paymentGateway,IOptions<SubscriptionPaymentGatewayOptions> paymentOptions,ISubscriptionPaymentTokenProtector tokenProtector,SubscriptionPaymentProcessor paymentProcessor)
 {
     public async Task<IReadOnlyList<SubscriptionServiceItem>> EligibleServices(CancellationToken token)
     {
@@ -55,8 +58,15 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var completed = await VisitQuery(identity.ProfileId).Where(row => row.visit.CustomerConfirmedAt != null)
             .OrderByDescending(row => row.visit.CustomerConfirmedAt).Take(3).ToListAsync(token);
         return new CustomerCareHomeResponse(eligible.Count, products.Count,
-            await db.SubscriptionRequests.CountAsync(item => item.CustomerProfileId == identity.ProfileId && item.StatusCode == "OPEN", token),
-            await db.SubscriptionContracts.CountAsync(item => item.CustomerProfileId == identity.ProfileId && (item.StatusCode == "ACTIVE" || item.StatusCode == "PAUSED"), token),
+            await db.SubscriptionRequests.CountAsync(item => item.CustomerProfileId == identity.ProfileId &&
+                db.SubscriptionRecurrenceRules.Any(rule => rule.SubscriptionRequestId == item.Id) &&
+                db.ServiceCategories.Any(category => category.Id == item.ServiceCategoryId) &&
+                db.AdministrativeAreas.Any(area => area.Id == item.AdministrativeAreaId) &&
+                (item.StatusCode == "OPEN" || (item.StatusCode == "CONTRACTED" && db.SubscriptionContracts.Any(contract =>
+                    contract.SubscriptionRequestId == item.Id && (contract.StatusCode == "PAYMENT_PENDING" || contract.StatusCode == "ACTIVE" ||
+                    contract.StatusCode == "PAUSED" || contract.StatusCode == "TERMINATION_REQUESTED")))), token),
+            await db.SubscriptionContracts.CountAsync(item => item.CustomerProfileId == identity.ProfileId &&
+                (item.StatusCode == "PAYMENT_PENDING" || item.StatusCode == "ACTIVE" || item.StatusCode == "PAUSED" || item.StatusCode == "TERMINATION_REQUESTED"), token),
             await db.SubscriptionVisitSchedules.CountAsync(visit => visit.ScheduledStartAt >= DateTime.UtcNow && visit.StatusCode != "CANCELLED" && visit.StatusCode != "SKIPPED" &&
                 db.SubscriptionContracts.Any(contract => contract.Id == visit.SubscriptionContractId && contract.CustomerProfileId == identity.ProfileId), token),
             await db.SubscriptionVisitSchedules.CountAsync(visit => visit.CustomerConfirmedAt != null &&
@@ -74,7 +84,10 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
     public async Task<IReadOnlyList<CustomerSubscriptionRequestResponse>> Requests(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Customer(principal, token);
-        var ids = await db.SubscriptionRequests.AsNoTracking().Where(item => item.CustomerProfileId == identity.ProfileId)
+        var ids = await db.SubscriptionRequests.AsNoTracking().Where(item => item.CustomerProfileId == identity.ProfileId &&
+                db.SubscriptionRecurrenceRules.Any(rule => rule.SubscriptionRequestId == item.Id) &&
+                db.ServiceCategories.Any(category => category.Id == item.ServiceCategoryId) &&
+                db.AdministrativeAreas.Any(area => area.Id == item.AdministrativeAreaId))
             .OrderByDescending(item => item.CreatedAt).Select(item => item.Id).ToListAsync(token);
         var result = new List<CustomerSubscriptionRequestResponse>();
         foreach (var id in ids) result.Add(await Request(id, identity.ProfileId, token));
@@ -87,6 +100,26 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var internalId = await db.SubscriptionRequests.Where(item => item.PublicId == id && item.CustomerProfileId == identity.ProfileId)
             .Select(item => (long?)item.Id).SingleOrDefaultAsync(token) ?? throw NotFound("SUBSCRIPTION_REQUEST_NOT_FOUND", "구독 요청을 찾을 수 없습니다.");
         return await Request(internalId, identity.ProfileId, token);
+    }
+
+    public async Task<CustomerSubscriptionRequestResponse> CancelRequest(Guid id, CancelSubscriptionRequestRequest input, ClaimsPrincipal principal, CancellationToken token)
+    {
+        var identity = await Customer(principal, token);
+        var request = await db.SubscriptionRequests.SingleOrDefaultAsync(item => item.PublicId == id && item.CustomerProfileId == identity.ProfileId, token)
+                      ?? throw NotFound("SUBSCRIPTION_REQUEST_NOT_FOUND", "구독 요청을 찾을 수 없습니다.");
+        if (request.StatusCode == "CANCELLED") return await Request(request.Id, identity.ProfileId, token);
+        if (request.StatusCode != "OPEN" || request.SelectedApplicationId.HasValue)
+            throw Conflict("SUBSCRIPTION_REQUEST_CANCEL_INVALID", "전문가를 선택하기 전의 공개 요청만 취소할 수 있습니다.");
+        if (await db.SubscriptionEvents.AsNoTracking().AnyAsync(item => item.IdempotencyKey == input.IdempotencyKey, token))
+            return await Request(request.Id, identity.ProfileId, token);
+        ApplyVersion(request, input.RowVersion);
+        var now = DateTime.UtcNow; request.StatusCode = "CANCELLED"; request.UpdatedAt = now; request.UpdatedByUserId = identity.UserId;
+        foreach (var application in await db.SubscriptionApplications.Where(item => item.SubscriptionRequestId == request.Id && item.StatusCode == "SUBMITTED").ToListAsync(token))
+        { application.StatusCode = "NOT_SELECTED"; application.UpdatedAt = now; application.UpdatedByUserId = identity.UserId; }
+        Event(request.Id, null, null, "REQUEST_CANCELLED", identity.UserId, input.IdempotencyKey, now);
+        Audit(identity.UserId, "SUBSCRIPTION_REQUEST_CANCELLED", "SUBSCRIPTION_REQUEST", request.PublicId, input.Reason, now);
+        await db.SaveChangesAsync(token);
+        return await Request(request.Id, identity.ProfileId, token);
     }
 
     public async Task<IReadOnlyList<CustomerSubscriptionApplicationResponse>> Applications(Guid requestId, ClaimsPrincipal principal, CancellationToken token)
@@ -186,6 +219,8 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var future = await db.SubscriptionVisitSchedules.Where(item => item.SubscriptionContractId == contract.Id && item.ScheduledStartAt >= now &&
             item.StatusCode != "COMPLETED" && item.StatusCode != "CANCELLED" && item.StatusCode != "SKIPPED").ToListAsync(token);
         var code = action.Trim().ToUpperInvariant();
+        if (code is "PAUSE" or "TERMINATE" && string.IsNullOrWhiteSpace(input.Reason))
+            throw Bad("CONTRACT_ACTION_REASON_REQUIRED", code == "PAUSE" ? "일시정지 사유를 입력해 주세요." : "해지 사유를 입력해 주세요.");
         if (code == "PAUSE")
         {
             if (contract.StatusCode != "ACTIVE") throw Conflict("CONTRACT_STATE_INVALID", "이용 중인 구독만 일시정지할 수 있습니다.");
@@ -201,7 +236,7 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         else if (code == "TERMINATE")
         {
             if (contract.StatusCode == "TERMINATED" || contract.TerminationRequestedAt.HasValue) throw Conflict("CONTRACT_STATE_INVALID", "이미 해지되었거나 처리 중인 구독입니다.");
-            contract.StatusCode = "TERMINATION_REQUESTED"; contract.TerminationRequestedAt = now; contract.TerminationReason = Clean(input.Reason);
+            await terminationService.RequestTerminationAsync(contract, identity.UserId, Clean(input.Reason), input.IdempotencyKey, now, token);
         }
         else throw Bad("CONTRACT_ACTION_INVALID", "구독 처리유형을 확인해 주세요.");
         contract.UpdatedAt = now; contract.UpdatedByUserId = identity.UserId;
@@ -218,8 +253,8 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         var row = await VisitQuery(identity.ProfileId, tracking: true).SingleOrDefaultAsync(value => value.visit.PublicId == id, token)
             ?? throw NotFound("SUBSCRIPTION_VISIT_NOT_FOUND", "구독 회차를 찾을 수 없습니다.");
         if (await db.SubscriptionEvents.AsNoTracking().AnyAsync(item => item.IdempotencyKey == input.IdempotencyKey, token)) return MapVisit(row);
-        if (row.visit.ScheduledStartAt <= DateTime.UtcNow || row.visit.StatusCode is "COMPLETED" or "CANCELLED" or "SKIPPED")
-            throw Conflict("VISIT_SKIP_INVALID", "건너뛸 수 없는 회차입니다.");
+        if (row.visit.ScheduledStartAt <= DateTime.UtcNow.AddHours(24) || row.visit.StatusCode is "COMPLETED" or "CANCELLED" or "SKIPPED")
+            throw Conflict("VISIT_SKIP_CUTOFF", "방문 24시간 전까지만 회차를 건너뛸 수 있습니다. 이후에는 전문가와 일정 변경을 협의해 주세요.");
         ApplyVersion(row.visit, input.RowVersion);
         row.visit.StatusCode = "SKIPPED"; row.visit.UpdatedAt = DateTime.UtcNow; row.visit.UpdatedByUserId = identity.UserId;
         Event(row.contract.SubscriptionRequestId, row.contract.Id, row.visit.Id, "VISIT_SKIPPED", identity.UserId, input.IdempotencyKey, DateTime.UtcNow);
@@ -254,13 +289,47 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
                 item.MaskedDisplayText, item.StatusCode, item.IsDefault, item.RegisteredAt)).ToListAsync(token);
     }
 
+    public async Task<SubscriptionBillingRegistrationResponse> BillingRegistration(ClaimsPrincipal principal,CancellationToken token)
+    {
+        var identity=await Customer(principal,token);var customer=await db.CustomerProfiles.AsNoTracking().SingleAsync(x=>x.Id==identity.ProfileId,token);var settings=paymentOptions.Value;
+        return new(settings.Enabled&&!string.IsNullOrWhiteSpace(settings.ClientKey)&&!string.IsNullOrWhiteSpace(settings.SecretKey),settings.ProviderCode,settings.ClientKey,SubscriptionPaymentIdentity.CustomerKey(customer.PublicId),settings.BillingSuccessPath,settings.BillingFailPath);
+    }
+
+    public async Task<CustomerSubscriptionPaymentMethodResponse> CompleteBillingAuthorization(CompleteBillingAuthorizationRequest input,ClaimsPrincipal principal,CancellationToken token)
+    {
+        var identity=await Customer(principal,token);var customer=await db.CustomerProfiles.SingleAsync(x=>x.Id==identity.ProfileId,token);var expected=SubscriptionPaymentIdentity.CustomerKey(customer.PublicId);if(!string.Equals(expected,input.CustomerKey,StringComparison.Ordinal))throw Bad("SUBSCRIPTION_CUSTOMER_KEY_INVALID","결제수단 인증 고객정보가 일치하지 않습니다.");
+        var digest=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input.AuthKey)));var issued=await paymentGateway.IssueBillingKeyAsync(paymentOptions.Value.ProviderCode,input.AuthKey,expected,$"billing-authorization:{digest}",token);var now=DateTime.UtcNow;
+        if(input.IsDefault)foreach(var old in await db.SubscriptionPaymentMethods.Where(x=>x.CustomerProfileId==customer.Id&&x.IsDefault).ToListAsync(token))old.IsDefault=false;
+        var method=new SubscriptionPaymentMethod{CustomerProfileId=customer.Id,ProviderCode=paymentOptions.Value.ProviderCode,PaymentMethodTypeCode=issued.MethodType,ExternalTokenReference=tokenProtector.Protect(issued.BillingKey),MaskedDisplayText=issued.MaskedDisplayText,StatusCode="ACTIVE",IsDefault=input.IsDefault,RegisteredAt=now,CreatedAt=now,CreatedByUserId=identity.UserId,UpdatedAt=now,UpdatedByUserId=identity.UserId};db.SubscriptionPaymentMethods.Add(method);Audit(identity.UserId,"SUBSCRIPTION_PAYMENT_METHOD_REGISTERED","SUBSCRIPTION_PAYMENT_METHOD",method.PublicId,null,now);await db.SaveChangesAsync(token);return new(method.PublicId,method.PaymentMethodTypeCode,method.ProviderCode,method.MaskedDisplayText,method.StatusCode,method.IsDefault,method.RegisteredAt);
+    }
+
+    public async Task<CustomerSubscriptionContractResponse> ConsentRecurringPayment(Guid id, CustomerRecurringPaymentConsentRequest input, ClaimsPrincipal principal, CancellationToken token)
+    {
+        if (!input.Consent) throw Bad("SUBSCRIPTION_RECURRING_CONSENT_REQUIRED", "정기결제 동의가 필요합니다.");
+        var identity = await Customer(principal, token);
+        var contract = await db.SubscriptionContracts.SingleOrDefaultAsync(item => item.PublicId == id && item.CustomerProfileId == identity.ProfileId, token)
+            ?? throw NotFound("SUBSCRIPTION_CONTRACT_NOT_FOUND", "구독 계약을 찾을 수 없습니다.");
+        if (contract.StatusCode != "PAYMENT_PENDING") throw Conflict("SUBSCRIPTION_BILLING_STATE_INVALID", "첫 결제 대기 계약에서만 정기결제를 설정할 수 있습니다.");
+        if (await db.SubscriptionEvents.AsNoTracking().AnyAsync(item => item.IdempotencyKey == input.IdempotencyKey, token)) return await Contract(contract.Id, identity.ProfileId, token);
+        ApplyVersion(contract, input.RowVersion);
+        var method = await db.SubscriptionPaymentMethods.SingleOrDefaultAsync(item => item.PublicId == input.PaymentMethodId && item.CustomerProfileId == identity.ProfileId && item.StatusCode == "ACTIVE", token)
+            ?? throw NotFound("SUBSCRIPTION_PAYMENT_METHOD_NOT_FOUND", "사용 가능한 결제수단을 찾을 수 없습니다.");
+        var payment = await db.SubscriptionPaymentRequests.Where(item => item.SubscriptionContractId == contract.Id && item.StatusCode == "REQUESTED").OrderBy(item => item.RequestedAt).FirstOrDefaultAsync(token)
+            ?? throw NotFound("SUBSCRIPTION_INITIAL_PAYMENT_NOT_FOUND", "첫 결제 요청을 찾을 수 없습니다.");
+        var now = DateTime.UtcNow; payment.PaymentMethodId = method.Id; contract.PaymentMethodId = method.Id; payment.UpdatedAt = now; payment.UpdatedByUserId = identity.UserId; contract.BillingStatusCode = "AUTO_PAY_CONSENTED"; contract.UpdatedAt = now; contract.UpdatedByUserId = identity.UserId;
+        Event(contract.SubscriptionRequestId, contract.Id, null, "RECURRING_PAYMENT_CONSENTED", identity.UserId, input.IdempotencyKey, now);
+        Audit(identity.UserId, "SUBSCRIPTION_RECURRING_PAYMENT_CONSENTED", "SUBSCRIPTION_CONTRACT", contract.PublicId, null, now);
+        await db.SaveChangesAsync(token);await paymentProcessor.ChargeAsync(payment.PublicId,token);return await Contract(contract.Id, identity.ProfileId, token);
+    }
+
     public async Task<IReadOnlyList<CustomerSubscriptionPaymentHistoryResponse>> Payments(ClaimsPrincipal principal, CancellationToken token)
     {
         var identity = await Customer(principal, token);
         var rows = await (from payment in db.SubscriptionPaymentRequests.AsNoTracking()
                           join contract in db.SubscriptionContracts.AsNoTracking() on payment.SubscriptionContractId equals contract.Id
                           join service in db.ServiceCategories.AsNoTracking() on contract.ServiceCategoryId equals service.Id
-                          where payment.CustomerProfileId == identity.ProfileId
+                          where payment.CustomerProfileId == identity.ProfileId &&
+                                (payment.StatusCode != "REQUESTED" || payment.PaymentMethodId != null)
                           orderby payment.RequestedAt descending
                           select new { payment, contract, service }).ToListAsync(token);
         var result = new List<CustomerSubscriptionPaymentHistoryResponse>();
@@ -288,11 +357,19 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
             ?? throw NotFound("SUBSCRIPTION_REQUEST_NOT_FOUND", "구독 요청을 찾을 수 없습니다.");
         var product = row.item.CareProductId.HasValue ? await db.CareProducts.AsNoTracking().Where(item => item.Id == row.item.CareProductId)
             .Select(item => new { item.PublicId, item.ProductName }).SingleAsync(token) : null;
+        var parentAreaName = row.area.ParentAreaId.HasValue
+            ? await db.AdministrativeAreas.AsNoTracking().Where(item => item.Id == row.area.ParentAreaId.Value)
+                .Select(item => item.AreaName).SingleOrDefaultAsync(token)
+            : null;
+        var displayAreaName = string.IsNullOrWhiteSpace(parentAreaName) || parentAreaName == row.area.AreaName
+            ? row.area.AreaName
+            : $"{parentAreaName} / {row.area.AreaName}";
+        var preference = CareSubscriptionService.PricePreference(row.rule);
         return new CustomerSubscriptionRequestResponse(row.item.PublicId, Number("SR", row.item.PublicId), row.category.PublicId, row.category.Name,
             product?.PublicId, product?.ProductName, row.item.RequestTypeCode, row.item.RequestedScopeText, row.item.PreferredStartDate, row.area.PublicId,
-            row.area.AreaName, row.item.DetailAddress, row.item.StatusCode,
+            displayAreaName, row.item.DetailAddress, row.item.StatusCode,
             await db.SubscriptionApplications.CountAsync(item => item.SubscriptionRequestId == row.item.Id, token), row.item.SelectedApplicationId.HasValue,
-            MapRule(row.rule), row.item.CreatedAt, Version(row.item.RowVersion));
+            preference.PriceNegotiable, preference.DesiredMonthlyAmount, preference.DesiredVisitAmount, MapRule(row.rule), row.item.CreatedAt, Version(row.item.RowVersion));
     }
 
     private async Task<CustomerSubscriptionApplicationResponse> Application(SubscriptionApplication item, SubscriptionRequest request, CancellationToken token)
@@ -317,7 +394,7 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         return new CustomerSubscriptionApplicationResponse(item.PublicId, provider.PublicId, provider.BusinessName, item.ProposedScopeText,
             item.ProposedMonthlyAmount, item.ProposedVisitAmount, item.AvailableScheduleText, score, score.HasValue ? trust?.GradeCode : null,
             trust?.EvaluationStatusCode ?? "NEW_OR_EVALUATING", score.HasValue ? $"{score:0.##}점{(string.IsNullOrWhiteSpace(trust?.GradeCode) ? "" : $" · {trust.GradeCode}")}" : "신규·평가중",
-            reviewIds.Length, averages, provider.ApprovalStatusCode == "APPROVED" ? "본사 공급자 승인 완료" : "공급자 승인 확인 필요",
+            reviewIds.Length, averages, provider.ApprovalStatusCode == "APPROVED" ? "본사 전문가 승인 완료" : "전문가 승인 확인 필요",
             approval == "APPROVED" ? "해당 서비스 승인 완료" : "서비스 승인 확인 필요", requirement, item.StatusCode, item.SubmittedAt,
             request.SelectedApplicationId == item.Id, Version(item.RowVersion));
     }
@@ -342,20 +419,28 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
                          join provider in db.ProviderProfiles.AsNoTracking() on item.ProviderProfileId equals provider.Id
                          join category in db.ServiceCategories.AsNoTracking() on item.ServiceCategoryId equals category.Id
                          join application in db.SubscriptionApplications.AsNoTracking() on item.SubscriptionApplicationId equals application.Id
+                         join area in db.AdministrativeAreas.AsNoTracking() on request.AdministrativeAreaId equals area.Id
+                         join rule in db.SubscriptionRecurrenceRules.AsNoTracking() on request.Id equals rule.SubscriptionRequestId
                          where item.Id == id && item.CustomerProfileId == customerId
-                         select new { item, request, provider, category, application }).SingleOrDefaultAsync(token)
+                         select new { item, request, provider, category, application, area, rule }).SingleOrDefaultAsync(token)
             ?? throw NotFound("SUBSCRIPTION_CONTRACT_NOT_FOUND", "구독 계약을 찾을 수 없습니다.");
         var product = row.item.CareProductId.HasValue ? await db.CareProducts.AsNoTracking().Where(value => value.Id == row.item.CareProductId)
             .Select(value => new { value.ProductName, value.StandardMonthlyAmount, value.StandardVisitAmount }).SingleAsync(token) : null;
         var next = await db.SubscriptionVisitSchedules.AsNoTracking().Where(value => value.SubscriptionContractId == row.item.Id && value.ScheduledStartAt >= DateTime.UtcNow && value.StatusCode != "CANCELLED" && value.StatusCode != "SKIPPED")
             .OrderBy(value => value.ScheduledStartAt).Select(value => (DateTime?)value.ScheduledStartAt).FirstOrDefaultAsync(token);
+        var parentAreaName = row.area.ParentAreaId.HasValue
+            ? await db.AdministrativeAreas.AsNoTracking().Where(value => value.Id == row.area.ParentAreaId.Value).Select(value => value.AreaName).SingleOrDefaultAsync(token)
+            : null;
+        var requestAreaName = string.IsNullOrWhiteSpace(parentAreaName) || parentAreaName == row.area.AreaName ? row.area.AreaName : $"{parentAreaName} / {row.area.AreaName}";
+        var requestPrice = CareSubscriptionService.PricePreference(row.rule);
         return new CustomerSubscriptionContractResponse(row.item.PublicId, Number("SC", row.item.PublicId), row.request.PublicId, row.category.Name,
-            product?.ProductName, row.provider.PublicId, row.provider.BusinessName, row.item.StatusCode,
+            product?.ProductName, requestAreaName, row.request.RequestedScopeText, row.request.PreferredStartDate, requestPrice.PriceNegotiable,
+            requestPrice.DesiredMonthlyAmount, requestPrice.DesiredVisitAmount, row.provider.PublicId, row.provider.BusinessName, row.item.StatusCode,
             row.item.TerminationRequestedAt.HasValue && !row.item.TerminatedAt.HasValue ? "해지 처리 대기" : ContractStatus(row.item.StatusCode), row.item.StartedAt,
             row.item.EndedAt, row.item.PauseStartedAt, row.item.ResumePlannedAt, row.item.TerminationRequestedAt, row.item.TerminatedAt,
             row.application.ProposedMonthlyAmount ?? product?.StandardMonthlyAmount, row.application.ProposedVisitAmount ?? product?.StandardVisitAmount,
             row.item.CurrencyCode, next, row.item.PriceSnapshotJson, row.item.ServiceScopeSnapshotJson, row.item.RecurrenceSnapshotJson,
-            row.item.ProviderTrustScoreSnapshot, true, Version(row.item.RowVersion));
+            row.item.ProviderTrustScoreSnapshot, true, row.item.NextBillingAt, row.item.BillingStatusCode, Version(row.item.RowVersion));
     }
 
     private IQueryable<VisitRow> VisitQuery(long customerId, bool tracking = false)
@@ -405,8 +490,8 @@ public sealed class CustomerCareSubscriptionService(SoodalLifeDbContext db, IPri
         item.VisitsPerPeriod, string.IsNullOrWhiteSpace(item.WeekdaysJson) ? [] : System.Text.Json.JsonSerializer.Deserialize<List<int>>(item.WeekdaysJson) ?? [],
         item.PreferredTimeFrom, item.PreferredTimeTo, item.ExpectedDurationMinutes, item.StartDate, item.EndDate);
     private static string CustomerProgress(SubscriptionVisitSchedule visit) => visit.StatusCode switch { "PROVIDER_COMPLETED" => "완료보고 확인 대기", "COMPLETED" => "작업 확인 완료", "DISPUTED" => "확인 중", "SKIPPED" => "이번 회차 건너뜀", "CANCELLED" => "취소된 회차", _ => VisitStatus(visit.StatusCode) };
-    private static string ContractStatus(string code) => code switch { "ACTIVE" => "이용 중", "PAUSED" => "일시정지", "TERMINATED" => "해지", "COMPLETED" => "종료", _ => code };
-    private static string VisitStatus(string code) => code switch { "SCHEDULED" => "방문 예정", "RESCHEDULED" => "변경 일정 확정", "PAUSED" => "일시정지", "PROVIDER_COMPLETED" => "완료보고 도착", "COMPLETED" => "작업 확인 완료", "SKIPPED" => "건너뜀", "CANCELLED" => "취소", "DISPUTED" => "확인 중", _ => code };
+    private static string ContractStatus(string code) => code switch { "PAYMENT_PENDING" => "첫 결제 대기", "ACTIVE" => "이용 중", "PAUSED" => "일시정지", "TERMINATION_REQUESTED" => "해지 처리 대기", "TERMINATED" => "해지", "COMPLETED" => "종료", _ => "상태 확인 중" };
+    private static string VisitStatus(string code) => code switch { "SCHEDULED" => "방문 예정", "RESCHEDULED" => "변경 일정 확정", "PAUSED" => "일시정지", "PROVIDER_COMPLETED" => "완료보고 도착", "COMPLETED" => "작업 확인 완료", "SKIPPED" => "건너뜀", "CANCELLED" => "취소", "DISPUTED" => "확인 중", _ => "상태 확인 중" };
     private static string Number(string prefix, Guid id) => $"{prefix}-{id:N}"[..Math.Min(prefix.Length + 13, prefix.Length + 33)].ToUpperInvariant();
     private static string Version(byte[] value) => value.Length == 0 ? string.Empty : Convert.ToBase64String(value);
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

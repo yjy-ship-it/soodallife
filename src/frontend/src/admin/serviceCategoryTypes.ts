@@ -27,10 +27,21 @@ export interface AdminServiceCategoryList {
   items: AdminServiceCategoryListItem[]
 }
 
-export interface AdminServiceCategoryDetail extends AdminServiceCategoryListItem {}
+export interface AdminServiceCategoryDetail extends AdminServiceCategoryListItem {
+  searchKeywordsText: string | null
+  searchSlug: string | null
+  seoTitle: string | null
+  seoDescription: string | null
+  isSearchIndexable: boolean
+}
 
 export interface UpdateAdminServiceCategoryInput {
   name: string
   statusCode: ServiceCategoryStatus
   sortOrder: number
+  searchKeywordsText: string
+  searchSlug: string
+  seoTitle: string
+  seoDescription: string
+  isSearchIndexable: boolean
 }

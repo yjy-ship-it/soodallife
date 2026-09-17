@@ -17,6 +17,20 @@ public sealed class InteriorProject
     public decimal? SiteVisitProviderTrustScoreSnapshot { get; set; }
     public decimal? ContractorTrustScoreSnapshot { get; set; }
     public string FeeAssessmentStatusCode { get; set; } = "PENDING_SELECTION";
+    public decimal? ReservedFeeAmount { get; set; }
+    public long? FeeReservationWalletId { get; set; }
+    public long? FeeReservationLedgerEntryId { get; set; }
+    public long? FeeReleaseLedgerEntryId { get; set; }
+    public DateTime? FeeReservedAt { get; set; }
+    public DateTime? FeeCapturedAt { get; set; }
+    public DateTime? FeeReleasedAt { get; set; }
+    public string? FeeReleaseReasonCode { get; set; }
+    public string? ContractExpiryPhaseCode { get; set; }
+    public DateTime? ContractActionDueAt { get; set; }
+    public DateTime? ContractExpiryReminderSentAt { get; set; }
+    public DateTime? ContractExpiryPausedAt { get; set; }
+    public string? ContractExpiryPauseReasonCode { get; set; }
+    public DateTime? ContractExpiredAt { get; set; }
     public DateOnly? ProjectStartDate { get; set; }
     public DateOnly? ExpectedCompletionDate { get; set; }
     public DateOnly? ActualCompletionDate { get; set; }
@@ -160,11 +174,27 @@ public sealed class InteriorContract
     public DateTime? EffectiveAt { get; set; }
     public DateTime? TerminatedAt { get; set; }
     public string? TerminationReason { get; set; }
+    public DateOnly ContractSignedDate { get; set; }
+    public DateTime RegisteredByProviderAt { get; set; }
+    public string? ProviderDeclarationText { get; set; }
+    public string? CustomerMismatchReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public long? CreatedByUserId { get; set; }
     public DateTime UpdatedAt { get; set; }
     public long? UpdatedByUserId { get; set; }
     public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class InteriorContractDocument
+{
+    public long Id { get; set; }
+    public Guid PublicId { get; set; } = Guid.NewGuid();
+    public long InteriorContractId { get; set; }
+    public long FileId { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsCurrent { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public long? CreatedByUserId { get; set; }
 }
 
 public sealed class InteriorContractVersion

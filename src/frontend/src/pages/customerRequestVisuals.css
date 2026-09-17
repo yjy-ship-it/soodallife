@@ -1,0 +1,4 @@
+.requestSelectedServiceVisual{display:flex;align-items:center;gap:14px;padding:12px;margin-top:14px;border:1px solid #dbe7e4;border-radius:14px;background:#f7fbfa}
+.requestSelectedServiceVisual>.serviceThumbnail{width:112px;height:82px;min-width:112px;border-radius:14px;object-fit:cover}
+.requestSelectedServiceVisual>div{display:grid;gap:5px}.requestSelectedServiceVisual small{color:#64748b}.requestSelectedServiceVisual strong{color:#0f766e;font-size:1.1rem}
+@media(max-width:640px){.requestSelectedServiceVisual>.serviceThumbnail{width:82px;height:66px;min-width:82px}}

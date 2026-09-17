@@ -1,0 +1,10 @@
+﻿V236 verification report
+
+- Frontend production build: passed (existing lint warning only)
+- API build: passed with 0 warnings and 0 errors
+- Work, quote acceptance and provider hub tests: see final task report
+- No database schema or trigger changes
+- Proposal registration management fee remains on hold and unchanged
+- Chat attachments remain unavailable to the counterpart until a real safety inspection is integrated and passed
+- API App_Data and appsettings*.json are excluded from package overwrite
+- Deployment creates IIS and file backups and restores files on failure

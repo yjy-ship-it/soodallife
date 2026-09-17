@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from '../requests/types'
-import type { MatchedRequestDetail, MatchedRequestListItem, ProviderAfterServiceDetail, ProviderAfterServiceListItem, ProviderCaseFile, ProviderDashboard, ProviderDisputeDetail, ProviderDisputeListItem, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderOperationsHub, ProviderProfile, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
+import type { MatchedRequestDetail, MatchedRequestListItem, ProviderAfterServiceDetail, ProviderAfterServiceListItem, ProviderCaseFile, ProviderDashboard, ProviderDisputeDetail, ProviderDisputeListItem, ProviderDocument, ProviderDocumentType, ProviderLegalDocument, ProviderOperationsDashboard, ProviderOperationsHub, ProviderProfile, ProviderRequestStatus, ProviderRequirement, ProviderServiceArea, ProviderServiceCategory } from './types'
 
 export class ProviderApiError extends Error {
   readonly status: number
@@ -53,32 +53,40 @@ export const uploadProviderPromotionPhoto = (file: File, replaceExisting: boolea
 export const getProviderPromotionStorageStatus = () => request<{ writable:boolean; message:string }>('/api/v1/providers/me/promotion-images/storage-status')
 export const getProviderDashboard = () => request<ProviderDashboard>('/api/v1/providers/me/onboarding-dashboard')
 export const getProviderOperationsDashboard = () => request<ProviderOperationsDashboard>('/api/v1/providers/me/operations-dashboard')
-export const getProviderOperationsHub = (query: { group?:string; domain?:string; page?:number; pageSize?:number } = {}) => {
+export const getProviderOperationsHub = (query: { group?:string; domain?:string; activeOnly?:boolean; page?:number; pageSize?:number } = {}) => {
   const params = new URLSearchParams()
   if (query.group) params.set('group', query.group)
   if (query.domain) params.set('domain', query.domain)
+  if (query.activeOnly) params.set('activeOnly', 'true')
   if (query.page) params.set('page', String(query.page))
   if (query.pageSize) params.set('pageSize', String(query.pageSize))
   return request<ProviderOperationsHub>(`/api/v1/providers/me/operations-hub${params.size ? `?${params}` : ''}`)
 }
+export const getProviderRequestStatus = () => request<ProviderRequestStatus>('/api/v1/providers/me/request-status')
 export const getProviderServices = () => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories')
 export const replaceProviderServices = (categoryIds: string[]) => request<ProviderServiceCategory[]>('/api/v1/providers/me/service-categories', {
   method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryIds }),
 })
 export const getProviderAreas = () => request<ProviderServiceArea[]>('/api/v1/providers/me/service-areas')
-export const replaceProviderAreas = (services: Array<{ serviceCategoryId: string; administrativeAreaIds: string[] }>) => request<ProviderServiceArea[]>('/api/v1/providers/me/service-areas', {
-  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ services }),
+export const replaceProviderAreas = (services: Array<{ serviceCategoryId: string; administrativeAreaIds: string[] }>, nationwideServiceCategoryIds: string[] = []) => request<ProviderServiceArea[]>('/api/v1/providers/me/service-areas', {
+  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ services, nationwideServiceCategoryIds }),
+})
+export const replaceProviderMiddleAreas = (middles: Array<{ middleCategoryId: string; administrativeAreaIds: string[] }>, nationwideServiceCategoryIds: string[] = []) => request<ProviderServiceArea[]>('/api/v1/providers/me/service-areas', {
+  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ middles, nationwideServiceCategoryIds }),
 })
 export const getMatchedRequests = () => request<MatchedRequestListItem[]>('/api/v1/providers/me/matched-requests')
 export const getMatchedRequest = (id: string) => request<MatchedRequestDetail>(`/api/v1/providers/me/matched-requests/${id}`)
+export const declineMatchedRequest = (id: string, reasonCode = 'DISTANCE') => request<void>(`/api/v1/providers/me/matched-requests/${id}/decline`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ reasonCode }) })
 export const getProviderRequirements = () => request<ProviderRequirement[]>('/api/v1/providers/me/requirements')
 export const getProviderDocumentTypes = () => request<ProviderDocumentType[]>('/api/v1/providers/me/document-types')
 export const getProviderDocuments = () => request<ProviderDocument[]>('/api/v1/providers/me/documents')
 export const uploadProviderDocument = (typeId: string, file: File, documentNumber?: string, issuedAt?: string, expiresAt?: string) => { const body = new FormData(); body.append('documentTypeId', typeId); if (documentNumber) body.append('documentNumber', documentNumber); if (issuedAt) body.append('issuedAt', issuedAt); if (expiresAt) body.append('expiresAt', expiresAt); body.append('file', file); return request<ProviderDocument>('/api/v1/providers/me/documents', { method: 'POST', body }) }
 export const linkProviderEvidence = (verificationId: string, documentId: string) => request<ProviderRequirement>(`/api/v1/providers/me/requirements/${verificationId}/evidence`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId }) })
 export const resubmitProviderService = (categoryId: string) => request<void>(`/api/v1/providers/me/service-categories/${categoryId}/resubmit`, { method: 'POST' })
+export const resubmitProviderApproval = (input: { note: string | null; concurrencyToken: string }) => request<ProviderDashboard>('/api/v1/providers/me/approval/resubmit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
 export const getProviderLegalDocuments = () => request<ProviderLegalDocument[]>('/api/v1/public/provider-registration/legal-documents')
 export const getIdentityVerificationStatus = () => request<{ statusCode: string; isVerified: boolean }>('/api/v1/public/customer-account/identity-verification/status')
+export const completeTestIdentityVerification = (phone:string,testCode:string) => request<{verificationToken:string;expiresAt:string}>('/api/v1/public/customer-account/identity-verification/test-complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,testCode})})
 export const getPhoneAvailability = (value: string) => request<{ available: boolean; normalizedValue?: string }>(`/api/v1/public/customer-account/availability/phone?value=${encodeURIComponent(value)}`)
 export const getLoginAvailability = (value: string) => request<{ available: boolean; normalizedValue?: string }>(`/api/v1/public/provider-registration/availability/login-id?value=${encodeURIComponent(value)}`)
 export const getBusinessRegistrationAvailability = (value: string) => request<{ valid: boolean; available: boolean; normalizedValue: string }>(`/api/v1/public/provider-registration/availability/business-registration-number?value=${encodeURIComponent(value)}`)
@@ -91,7 +99,11 @@ export const confirmProviderAfterService = (id:string,value:unknown) => command<
 export const scheduleProviderAfterService = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/visit-schedule`,value)
 export const addProviderAfterServiceAction = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/actions`,value)
 export const completeProviderAfterService = (id:string,value:unknown) => command<ProviderAfterServiceDetail>(`/api/v1/providers/me/after-services/${id}/completion-report`,value)
-export const uploadProviderAfterServiceEvidence = (id:string,file:File,role:string,description:string) => {const body=new FormData();body.append('file',file);body.append('role',role);body.append('description',description);return request<ProviderCaseFile>(`/api/v1/providers/me/after-services/${id}/evidence`,{method:'POST',body})}
+export const uploadProviderAfterServiceEvidence = async (id:string,file:File,role:string,description:string) => {
+  const bytes=new Uint8Array(await file.arrayBuffer())
+  const body=JSON.stringify({fileName:file.name,contentType:file.type,base64Content:encodeImageChunk(bytes),role,description})
+  return request<ProviderCaseFile>(`/api/v1/providers/me/after-services/${id}/evidence-content`,{method:'POST',headers:{'Content-Type':'application/json'},body})
+}
 export const getProviderDisputes = () => request<ProviderDisputeListItem[]>('/api/v1/providers/me/disputes')
 export const getProviderDispute = (id:string) => request<ProviderDisputeDetail>(`/api/v1/providers/me/disputes/${id}`)
 export const respondProviderDispute = (id:string,value:unknown) => command<ProviderDisputeDetail>(`/api/v1/providers/me/disputes/${id}/responses`,value)

@@ -19,7 +19,7 @@ public sealed class AdminWalletsController(AdminWalletService service) : Control
     public async Task<ActionResult<AdminWalletDetailResponse>> Get(Guid providerId, CancellationToken cancellationToken)
     {
         var result = await service.GetAsync(providerId, cancellationToken);
-        return result is null ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_WALLET_NOT_FOUND", "공급자 Wallet을 찾을 수 없습니다.")) : Ok(result);
+        return result is null ? NotFound(ApiErrorResponse.Create(HttpContext, "ADMIN_WALLET_NOT_FOUND", "전문가 Wallet을 찾을 수 없습니다.")) : Ok(result);
     }
 
     [HttpPost("{providerId:guid}/development-charges")]

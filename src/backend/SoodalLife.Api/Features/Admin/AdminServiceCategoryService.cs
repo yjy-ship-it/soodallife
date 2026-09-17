@@ -98,6 +98,7 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
             var term = search.Trim();
             query = query.Where(row =>
                 row.Service.Name.Contains(term) ||
+                (row.Service.SearchKeywordsText != null && row.Service.SearchKeywordsText.Contains(term)) ||
                 row.Middle.Name.Contains(term) ||
                 row.Major.Name.Contains(term) ||
                 (row.Service.ExternalCode != null && row.Service.ExternalCode.Contains(term)) ||
@@ -171,6 +172,7 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
 
         var normalizedName = request.Name.Trim();
         var normalizedStatus = NormalizeStatus(request.StatusCode);
+        var normalizedSlug = NormalizeSlug(request.SearchSlug, service.ExternalCode, service.PublicId);
         if (await dbContext.ServiceCategories.AnyAsync(
                 category => category.Id != service.Id && category.ParentId == service.ParentId && category.Name == normalizedName,
                 cancellationToken))
@@ -180,6 +182,10 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
                 "같은 중분류에 동일한 서비스명이 이미 있습니다.",
                 StatusCodes.Status409Conflict);
         }
+        if (await dbContext.ServiceCategories.AnyAsync(
+                category => category.Id != service.Id && category.SearchSlug == normalizedSlug,
+                cancellationToken))
+            throw new AdminServiceCategoryException("ADMIN_SERVICE_SLUG_DUPLICATED", "이미 사용 중인 검색 주소입니다.", StatusCodes.Status409Conflict);
 
         var actorUserId = await dbContext.Users
             .Where(user => user.PublicId == actorPublicId && user.StatusCode == "ACTIVE")
@@ -195,11 +201,21 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
             service.Name,
             service.StatusCode,
             service.SortOrder,
+            service.SearchKeywordsText,
+            service.SearchSlug,
+            service.SeoTitle,
+            service.SeoDescription,
+            service.IsSearchIndexable,
         });
 
         service.Name = normalizedName;
         service.StatusCode = normalizedStatus;
         service.SortOrder = request.SortOrder;
+        service.SearchKeywordsText = Clean(request.SearchKeywordsText);
+        service.SearchSlug = normalizedSlug;
+        service.SeoTitle = Clean(request.SeoTitle);
+        service.SeoDescription = Clean(request.SeoDescription);
+        service.IsSearchIndexable = request.IsSearchIndexable;
         service.UpdatedAt = DateTime.UtcNow;
         service.UpdatedByUserId = actorUserId;
 
@@ -218,6 +234,11 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
                 service.Name,
                 service.StatusCode,
                 service.SortOrder,
+                service.SearchKeywordsText,
+                service.SearchSlug,
+                service.SeoTitle,
+                service.SeoDescription,
+                service.IsSearchIndexable,
             }),
         });
 
@@ -239,7 +260,22 @@ public sealed class AdminServiceCategoryService(SoodalLifeDbContext dbContext)
             major.PublicId,
             major.Name,
             middle.PublicId,
-            middle.Name);
+            middle.Name,
+            service.SearchKeywordsText,
+            service.SearchSlug,
+            service.SeoTitle,
+            service.SeoDescription,
+            service.IsSearchIndexable);
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeSlug(string? value, string? externalCode, Guid publicId)
+    {
+        var slug = Clean(value)?.ToLowerInvariant() ?? Clean(externalCode)?.ToLowerInvariant() ?? publicId.ToString("N");
+        if (slug.Any(ch => !(char.IsAsciiLetterOrDigit(ch) || ch == '-')))
+            throw new AdminServiceCategoryException("ADMIN_SERVICE_SLUG_INVALID", "검색 주소는 영문 소문자, 숫자와 하이픈만 입력해 주세요.");
+        return slug;
+    }
 
     private static string NormalizeStatus(string statusCode)
     {

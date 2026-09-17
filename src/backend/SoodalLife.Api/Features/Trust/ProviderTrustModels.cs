@@ -11,10 +11,24 @@ public sealed record ProviderTrustDashboardResponse(
     DateTime? CalculatedAt,
     IReadOnlyList<ProviderTrustGradeResponse> Grades,
     IReadOnlyList<ProviderTrustPolicyComponentResponse> PolicyComponents,
+    ProviderTransactionPerformanceResponse TransactionPerformance,
     IReadOnlyList<ProviderTrustEventResponse> Events);
 
 public sealed record ProviderTrustGradeResponse(string Code, string Label, decimal MinimumScore, decimal MaximumScore, string Description);
 public sealed record ProviderTrustPolicyComponentResponse(string Code, string Name, decimal Weight, string Description);
+public sealed record ProviderTransactionPerformanceResponse(
+    int CompletedCount,
+    int ProviderFaultCancellationCount,
+    int NeutralCancellationCount,
+    int EvidenceCount,
+    int GeneralServiceCount,
+    int EmergencyCount,
+    int CareVisitCount,
+    int InteriorCount,
+    decimal? EarnedScore,
+    decimal MaximumScore,
+    bool IsCalculable,
+    string Notice);
 public sealed record ProviderTrustEventResponse(Guid Id, DateTime OccurredAt, string EventTypeCode, string EventLabel,
     decimal? ScoreBefore, decimal? ScoreDelta, decimal? ScoreAfter, string? GradeBeforeLabel, string? GradeAfterLabel,
     string Reason, string? PolicyVersion);

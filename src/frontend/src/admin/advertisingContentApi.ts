@@ -1,4 +1,4 @@
-import type { AdvertisingCampaignDetail, AdvertisingCampaignList, AdvertisingPlacement, CampaignPayload, ContentPayload, CreativePayload, ManagedContentDetail, ManagedContentList } from './advertisingContentTypes'
+import type { AdvertisingCampaignDetail, AdvertisingCampaignList, AdvertisingPlacement, CampaignPayload, ContentPayload, CreativePayload, ManagedContentDefaultInitialization, ManagedContentDetail, ManagedContentList } from './advertisingContentTypes'
 
 async function request<T>(path:string, init?:RequestInit):Promise<T>{
   const response=await fetch(path,{credentials:'include',headers:init?.body?{'Content-Type':'application/json'}:undefined,...init})
@@ -13,10 +13,16 @@ export const getAdvertisingCampaign=(id:string)=>request<AdvertisingCampaignDeta
 export const createAdvertisingCampaign=(value:CampaignPayload)=>request<AdvertisingCampaignDetail>(`${root}/campaigns`,{method:'POST',body:JSON.stringify(value)})
 export const updateAdvertisingCampaign=(id:string,value:CampaignPayload)=>request<AdvertisingCampaignDetail>(`${root}/campaigns/${id}`,{method:'PUT',body:JSON.stringify(value)})
 export const reviewAdvertisingCampaign=(id:string,actionCode:string,reason:string|null)=>request<AdvertisingCampaignDetail>(`${root}/campaigns/${id}/review`,{method:'POST',body:JSON.stringify({actionCode,reason})})
+export const submitAdvertisingCampaign=(id:string,reason:string|null)=>request<AdvertisingCampaignDetail>(`${root}/campaigns/${id}/submit`,{method:'POST',body:JSON.stringify({reason})})
 export const pauseAdvertisingCampaign=(id:string,reason:string)=>request<AdvertisingCampaignDetail>(`${root}/campaigns/${id}/pause`,{method:'POST',body:JSON.stringify({reason})})
+export const resumeAdvertisingCampaign=(id:string,reason:string|null)=>request<AdvertisingCampaignDetail>(`${root}/campaigns/${id}/resume`,{method:'POST',body:JSON.stringify({reason})})
 export const createAdvertisingCreative=(id:string,value:CreativePayload)=>request(`${root}/campaigns/${id}/creatives`,{method:'POST',body:JSON.stringify(value)})
 export const searchManagedContents=(values:Record<string,string|number>)=>request<ManagedContentList>(`${root}/contents?${query(values)}`)
 export const getManagedContent=(id:string)=>request<ManagedContentDetail>(`${root}/contents/${id}`)
 export const createManagedContent=(value:ContentPayload)=>request<ManagedContentDetail>(`${root}/contents`,{method:'POST',body:JSON.stringify(value)})
+export const initializeManagedContentDefaults=()=>request<ManagedContentDefaultInitialization>(`${root}/contents/initialize-defaults`,{method:'POST'})
 export const updateManagedContent=(id:string,value:ContentPayload)=>request<ManagedContentDetail>(`${root}/contents/${id}`,{method:'PUT',body:JSON.stringify(value)})
 export const reviewManagedContent=(id:string,actionCode:string,reason:string|null)=>request<ManagedContentDetail>(`${root}/contents/${id}/review`,{method:'POST',body:JSON.stringify({actionCode,reason})})
+export const submitManagedContent=(id:string,reason:string|null)=>request<ManagedContentDetail>(`${root}/contents/${id}/submit`,{method:'POST',body:JSON.stringify({reason})})
+export const pauseManagedContent=(id:string,reason:string)=>request<ManagedContentDetail>(`${root}/contents/${id}/pause`,{method:'POST',body:JSON.stringify({reason})})
+export const resumeManagedContent=(id:string,reason:string|null)=>request<ManagedContentDetail>(`${root}/contents/${id}/resume`,{method:'POST',body:JSON.stringify({reason})})

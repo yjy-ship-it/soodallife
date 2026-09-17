@@ -1,0 +1,21 @@
+SOODAL LIFE V177 COMMUNICATION SCREEN CENTERING RELEASE
+Release date: 2026-08-31
+Database schema/data changed: false
+API changed: false
+Customer app changed: true
+Partner app changed: true
+Admin app changed: true
+
+Verified changes
+- Communication hub tabs, hero and cards centered within 1180px.
+- Work Chat navigation tabs centered within 900px.
+- Review conversation content centered with responsive side margins.
+- Mobile communication content uses 16px side margins.
+
+Verification
+- Frontend TypeScript production build: passed
+- Centering class and bundle markers: validated before packaging
+
+Key artifact SHA-256
+- index-BVmNwmff.js | 1324104 bytes | 1E66F3444A0D26BE2FBB031C9EAFDDF549DD0C130A85986B402C6158ADE7C724
+- index-K17GM2Xb.css | 324392 bytes | B757A41A0868A3E0FD4591B647B700A803E3AC2424D58CED3E571EFC90703FB9

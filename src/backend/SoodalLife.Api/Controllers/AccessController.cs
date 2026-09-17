@@ -16,7 +16,7 @@ public sealed class AccessController : ControllerBase
     [Authorize(Roles = RoleCodes.Provider)]
     [HttpGet("provider")]
     public ActionResult<AccessCheckResponse> Provider() =>
-        Ok(new AccessCheckResponse(RoleCodes.Provider, "공급자 접근 권한이 확인되었습니다."));
+        Ok(new AccessCheckResponse(RoleCodes.Provider, "전문가 접근 권한이 확인되었습니다."));
 
     [Authorize(Roles = RoleCodes.Admin)]
     [HttpGet("admin")]
